@@ -204,6 +204,11 @@ impl ChartEngine {
             && kind != "HMA"
             && kind != "LINEAR_REGRESSION"
             && kind != "TRIX"
+            && kind != "TSI"
+            && kind != "KST"
+            && kind != "BOP"
+            && kind != "DPO"
+            && kind != "MOMENTUM"
             && kind != "ULTIMATE_OSCILLATOR"
             && kind != "CHAIKIN_OSCILLATOR"
             && kind != "FORCE_INDEX"
@@ -213,7 +218,7 @@ impl ChartEngine {
             && kind != "MFI"
         {
             return Err(JsValue::from_str(
-                "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, TRIX, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
+                "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, TRIX, TSI, KST, BOP, DPO, MOMENTUM, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
             ));
         }
         let macd = if kind == "MACD" || kind == "PPO" || kind == "CHAIKIN_OSCILLATOR" {
@@ -569,6 +574,26 @@ impl ChartEngine {
                     let value = latest_trix(bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
+                "TSI" => {
+                    let value = latest_tsi(bars, indicator.period, indicator.stoch_period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "KST" => {
+                    let value = latest_kst(bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "BOP" => {
+                    let value = latest_bop(bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "DPO" => {
+                    let value = latest_dpo(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "MOMENTUM" => {
+                    let value = latest_momentum(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
                 "ULTIMATE_OSCILLATOR" => {
                     let value = latest_ultimate_oscillator(
                         bars,
@@ -684,6 +709,11 @@ fn supports_incremental(kind: &str) -> bool {
             | "HMA"
             | "LINEAR_REGRESSION"
             | "TRIX"
+            | "TSI"
+            | "KST"
+            | "BOP"
+            | "DPO"
+            | "MOMENTUM"
             | "ULTIMATE_OSCILLATOR"
             | "CHAIKIN_OSCILLATOR"
             | "FORCE_INDEX"
@@ -727,6 +757,30 @@ fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         period_descriptor("HMA", "HMA", "overlay", 20),
         period_descriptor("LINEAR_REGRESSION", "LINEAR REGRESSION", "overlay", 20),
         period_descriptor("TRIX", "TRIX", "separate", 15),
+        IndicatorDescriptor {
+            kind: "TSI",
+            name: "TSI",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor {
+                    name: "period",
+                    label: "Long",
+                    default: 25.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "stoch_period",
+                    label: "Short",
+                    default: 13.0,
+                    min: 1.0,
+                    step: "1",
+                },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        period_descriptor("DPO", "DPO", "separate", 20),
+        period_descriptor("MOMENTUM", "MOMENTUM", "separate", 10),
         period_descriptor("RSI", "RSI", "separate", 14),
         period_descriptor("ROC", "ROC", "separate", 14),
         period_descriptor("CCI", "CCI", "separate", 20),
@@ -824,6 +878,20 @@ fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "ADL",
             name: "ADL",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
+        },
+        IndicatorDescriptor {
+            kind: "KST",
+            name: "KST",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "BOP",
+            name: "BOP",
             pane: "separate",
             params: Vec::new(),
             outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
@@ -1193,6 +1261,9 @@ fn compute_indicator(
         "HMA" => one_output(hma(bars, period, nodes)),
         "LINEAR_REGRESSION" => one_output(linear_regression_node(bars, period, nodes)),
         "TRIX" => one_output(trix_node(bars, period, nodes)),
+        "TSI" => one_output(tsi_node(bars, period, stoch_period, nodes)),
+        "DPO" => one_output(dpo_node(bars, period, nodes)),
+        "MOMENTUM" => one_output(momentum_node(bars, period, nodes)),
         "RSI" => rsi_outputs(bars, period),
         "ROC" => one_output(roc_node(bars, period, nodes)),
         "CCI" => one_output(cci_node(bars, period, nodes)),
@@ -1204,6 +1275,8 @@ fn compute_indicator(
         "PIVOT_POINTS" => pivot_points(bars, nodes),
         "AROON" => aroon(bars, period, nodes),
         "ADL" => one_output(adl_node(bars, nodes)),
+        "KST" => one_output(kst_node(bars, nodes)),
+        "BOP" => one_output(bop_node(bars, nodes)),
         "ULTIMATE_OSCILLATOR" => {
             one_output(ultimate_oscillator_node(bars, period, stoch_period, smooth, nodes))
         }
@@ -1272,6 +1345,12 @@ fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("trix:ema2:{}", indicator.period),
             format!("trix:value:{}", indicator.period),
         ],
+        "TSI" => vec![format!("tsi:{}:{}", indicator.period, indicator.stoch_period)],
+        "DPO" => vec![
+            format!("sma:close:{}", indicator.period),
+            format!("dpo:close:{}", indicator.period),
+        ],
+        "MOMENTUM" => vec![format!("momentum:close:{}", indicator.period)],
         "RSI" => vec![format!("rsi:close:{}", indicator.period)],
         "ROC" => vec![format!("roc:close:{}", indicator.period)],
         "CCI" => vec![format!("cci:hlc:{}", indicator.period)],
@@ -1301,6 +1380,14 @@ fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         ],
         "AROON" => vec![format!("aroon:hl:{}", indicator.period)],
         "ADL" => vec!["adl:hlcv".to_string()],
+        "KST" => vec![
+            "roc:close:10".to_string(),
+            "roc:close:15".to_string(),
+            "roc:close:20".to_string(),
+            "roc:close:30".to_string(),
+            "kst:value".to_string(),
+        ],
+        "BOP" => vec!["bop:ohlc".to_string()],
         "ULTIMATE_OSCILLATOR" => vec![format!(
             "uo:{}:{}:{}",
             indicator.period, indicator.stoch_period, indicator.smooth
@@ -1461,6 +1548,27 @@ fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Vec<DagEdge> 
                 edge(&trix, indicator_node),
             ]
         }
+        "TSI" => {
+            let tsi = format!("tsi:{}:{}", indicator.period, indicator.stoch_period);
+            vec![
+                edge("close", &tsi),
+                edge(&tsi, indicator_node),
+            ]
+        }
+        "DPO" => {
+            let sma = format!("sma:close:{}", indicator.period);
+            let dpo = format!("dpo:close:{}", indicator.period);
+            vec![
+                edge("close", &sma),
+                edge("close", &dpo),
+                edge(&sma, &dpo),
+                edge(&dpo, indicator_node),
+            ]
+        }
+        "MOMENTUM" => {
+            let momentum = format!("momentum:close:{}", indicator.period);
+            vec![edge("close", &momentum), edge(&momentum, indicator_node)]
+        }
         "ROC" => {
             let roc = format!("roc:close:{}", indicator.period);
             vec![edge("close", &roc), edge(&roc, indicator_node)]
@@ -1561,6 +1669,23 @@ fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Vec<DagEdge> 
             edge("close", "adl:hlcv"),
             edge("volume", "adl:hlcv"),
             edge("adl:hlcv", indicator_node),
+        ],
+        "KST" => vec![
+            edge("close", "roc:close:10"),
+            edge("close", "roc:close:15"),
+            edge("close", "roc:close:20"),
+            edge("close", "roc:close:30"),
+            edge("roc:close:10", "kst:value"),
+            edge("roc:close:15", "kst:value"),
+            edge("roc:close:20", "kst:value"),
+            edge("roc:close:30", "kst:value"),
+            edge("kst:value", indicator_node),
+        ],
+        "BOP" => vec![
+            edge("high", "bop:ohlc"),
+            edge("low", "bop:ohlc"),
+            edge("close", "bop:ohlc"),
+            edge("bop:ohlc", indicator_node),
         ],
         "ULTIMATE_OSCILLATOR" => {
             let uo = format!(
@@ -1780,10 +1905,14 @@ fn validate_indicator(
         && kind != "ICHIMOKU"
         && kind != "PIVOT_POINTS"
         && kind != "ADL"
+        && kind != "KST"
+        && kind != "BOP"
         && period == 0
     {
         return Err(JsValue::from_str("period must be greater than zero"));
     } else if kind == "STOCH_RSI" && stoch_period == 0 {
+        return Err(JsValue::from_str("stoch_period must be greater than zero"));
+    } else if kind == "TSI" && stoch_period == 0 {
         return Err(JsValue::from_str("stoch_period must be greater than zero"));
     } else if (kind == "STOCHASTIC" || kind == "STOCH_RSI") && smooth == 0 {
         return Err(JsValue::from_str("smooth must be greater than zero"));
@@ -2160,6 +2289,195 @@ fn trix_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 
 fn latest_trix(bars: &[Bar], period: usize) -> Option<f64> {
     trix(bars, period).last().copied().flatten()
+}
+
+fn tsi(bars: &[Bar], long: usize, short: usize) -> Series {
+    let mut momentum = vec![None; bars.len()];
+    let mut abs_momentum = vec![None; bars.len()];
+    for index in 1..bars.len() {
+        let value = bars[index].close - bars[index - 1].close;
+        momentum[index] = Some(value);
+        abs_momentum[index] = Some(value.abs());
+    }
+    let ema1 = ema_series(&momentum, long);
+    let ema2 = ema_series(&ema1, short);
+    let abs_ema1 = ema_series(&abs_momentum, long);
+    let abs_ema2 = ema_series(&abs_ema1, short);
+    ema2.iter()
+        .zip(abs_ema2.iter())
+        .map(|(num, den)| match (num, den) {
+            (Some(num), Some(den)) if *den != 0.0 => Some(100.0 * num / den),
+            (Some(_), Some(_)) => Some(0.0),
+            _ => None,
+        })
+        .collect()
+}
+
+fn tsi_node(bars: &[Bar], long: usize, short: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("tsi:{long}:{short}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let values = tsi(bars, long, short);
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_tsi(bars: &[Bar], long: usize, short: usize) -> Option<f64> {
+    tsi(bars, long, short).last().copied().flatten()
+}
+
+fn momentum(bars: &[Bar], period: usize) -> Series {
+    let mut out = vec![None; bars.len()];
+    if bars.len() <= period {
+        return out;
+    }
+    for index in period..bars.len() {
+        out[index] = Some(bars[index].close - bars[index - period].close);
+    }
+    out
+}
+
+fn momentum_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("momentum:close:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let values = momentum(bars, period);
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_momentum(bars: &[Bar], period: usize) -> Option<f64> {
+    momentum(bars, period).last().copied().flatten()
+}
+
+fn dpo(bars: &[Bar], period: usize) -> Series {
+    let sma_values = sma(bars, period);
+    let shift = period / 2 + 1;
+    let mut out = vec![None; bars.len()];
+    for index in 0..bars.len() {
+        if index < period.saturating_sub(1) || index < shift {
+            continue;
+        }
+        out[index] = sma_values[index].map(|mean| bars[index - shift].close - mean);
+    }
+    out
+}
+
+fn dpo_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("dpo:close:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let sma_key = format!("sma:close:{period}");
+    let sma_values = nodes
+        .get(&sma_key)
+        .cloned()
+        .unwrap_or_else(|| sma_close(bars, period, nodes));
+    let shift = period / 2 + 1;
+    let mut out = vec![None; bars.len()];
+    for index in 0..bars.len() {
+        if index < period.saturating_sub(1) || index < shift {
+            continue;
+        }
+        out[index] = sma_values[index].map(|mean| bars[index - shift].close - mean);
+    }
+    nodes.insert(key, out.clone());
+    out
+}
+
+fn latest_dpo(bars: &[Bar], period: usize) -> Option<f64> {
+    dpo(bars, period).last().copied().flatten()
+}
+
+fn kst(bars: &[Bar]) -> Series {
+    let roc1 = roc(bars, 10);
+    let roc2 = roc(bars, 15);
+    let roc3 = roc(bars, 20);
+    let roc4 = roc(bars, 30);
+    let sma1 = sma_from_series(&roc1, 10);
+    let sma2 = sma_from_series(&roc2, 10);
+    let sma3 = sma_from_series(&roc3, 10);
+    let sma4 = sma_from_series(&roc4, 15);
+    sma1.iter()
+        .zip(sma2.iter())
+        .zip(sma3.iter())
+        .zip(sma4.iter())
+        .map(|(((a, b), c), d)| match (a, b, c, d) {
+            (Some(a), Some(b), Some(c), Some(d)) => Some(a + 2.0 * b + 3.0 * c + 4.0 * d),
+            _ => None,
+        })
+        .collect()
+}
+
+fn sma_from_series(values: &[Option<f64>], period: usize) -> Series {
+    let mut out = vec![None; values.len()];
+    if period == 0 || values.len() < period {
+        return out;
+    }
+    for index in period - 1..values.len() {
+        let window = &values[index + 1 - period..=index];
+        if window.iter().any(|value| value.is_none()) {
+            continue;
+        }
+        out[index] = Some(window.iter().map(|value| value.unwrap_or(0.0)).sum::<f64>() / period as f64);
+    }
+    out
+}
+
+fn kst_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
+    let key = "kst:value".to_string();
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let roc1 = roc_node(bars, 10, nodes);
+    let roc2 = roc_node(bars, 15, nodes);
+    let roc3 = roc_node(bars, 20, nodes);
+    let roc4 = roc_node(bars, 30, nodes);
+    let sma1 = sma_from_series(&roc1, 10);
+    let sma2 = sma_from_series(&roc2, 10);
+    let sma3 = sma_from_series(&roc3, 10);
+    let sma4 = sma_from_series(&roc4, 15);
+    let values: Vec<_> = sma1
+        .iter()
+        .zip(sma2.iter())
+        .zip(sma3.iter())
+        .zip(sma4.iter())
+        .map(|(((a, b), c), d)| match (a, b, c, d) {
+            (Some(a), Some(b), Some(c), Some(d)) => Some(a + 2.0 * b + 3.0 * c + 4.0 * d),
+            _ => None,
+        })
+        .collect();
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_kst(bars: &[Bar]) -> Option<f64> {
+    kst(bars).last().copied().flatten()
+}
+
+fn bop(bars: &[Bar]) -> Series {
+    bars.iter()
+        .map(|bar| {
+            let range = bar.high - bar.low;
+            Some(if range == 0.0 { 0.0 } else { (bar.close - bar.open) / range })
+        })
+        .collect()
+}
+
+fn bop_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
+    let key = "bop:ohlc".to_string();
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let values = bop(bars);
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_bop(bars: &[Bar]) -> Option<f64> {
+    bop(bars).last().copied().flatten()
 }
 
 fn ultimate_oscillator(
@@ -4806,6 +5124,52 @@ mod tests {
     }
 
     #[test]
+    fn tsi_has_a_computed_dag_node() {
+        let mut indicator = indicator_stub("TSI");
+        indicator.period = 25;
+        indicator.stoch_period = 13;
+        assert_eq!(indicator_nodes(&indicator), vec!["tsi:25:13"]);
+    }
+
+    #[test]
+    fn kst_has_computed_dag_nodes() {
+        let indicator = indicator_stub("KST");
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec![
+                "roc:close:10",
+                "roc:close:15",
+                "roc:close:20",
+                "roc:close:30",
+                "kst:value",
+            ]
+        );
+    }
+
+    #[test]
+    fn bop_has_a_computed_dag_node() {
+        let indicator = indicator_stub("BOP");
+        assert_eq!(indicator_nodes(&indicator), vec!["bop:ohlc"]);
+    }
+
+    #[test]
+    fn dpo_has_computed_dag_nodes() {
+        let mut indicator = indicator_stub("DPO");
+        indicator.period = 20;
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec!["sma:close:20", "dpo:close:20"]
+        );
+    }
+
+    #[test]
+    fn momentum_has_a_computed_dag_node() {
+        let mut indicator = indicator_stub("MOMENTUM");
+        indicator.period = 10;
+        assert_eq!(indicator_nodes(&indicator), vec!["momentum:close:10"]);
+    }
+
+    #[test]
     fn ultimate_oscillator_has_a_computed_dag_node() {
         let mut indicator = indicator_stub("ULTIMATE_OSCILLATOR");
         indicator.period = 7;
@@ -5867,6 +6231,42 @@ mod tests {
     fn trix_matches_latest_value() {
         let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(latest_trix(&bars, 5), trix(&bars, 5).last().copied().flatten());
+    }
+
+    #[test]
+    fn tsi_matches_latest_value() {
+        let bars = bars(&(1..=40).map(|value| value as f64).collect::<Vec<_>>());
+        assert_eq!(
+            latest_tsi(&bars, 25, 13),
+            tsi(&bars, 25, 13).last().copied().flatten()
+        );
+    }
+
+    #[test]
+    fn kst_matches_latest_value() {
+        let bars = bars(&(1..=60).map(|value| value as f64).collect::<Vec<_>>());
+        assert_eq!(latest_kst(&bars), kst(&bars).last().copied().flatten());
+    }
+
+    #[test]
+    fn bop_matches_latest_value() {
+        let bars = ohlc(&[(10.0, 8.0, 9.0), (11.0, 9.0, 10.0), (12.0, 10.0, 11.0)]);
+        assert_eq!(latest_bop(&bars), bop(&bars).last().copied().flatten());
+    }
+
+    #[test]
+    fn dpo_matches_latest_value() {
+        let bars = bars(&(1..=40).map(|value| value as f64).collect::<Vec<_>>());
+        assert_eq!(latest_dpo(&bars, 20), dpo(&bars, 20).last().copied().flatten());
+    }
+
+    #[test]
+    fn momentum_matches_latest_value() {
+        let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        assert_eq!(
+            latest_momentum(&bars, 10),
+            momentum(&bars, 10).last().copied().flatten()
+        );
     }
 
     #[test]

@@ -156,6 +156,11 @@ All configs require `kind`.
 - `ATR`: `{ kind: "ATR", period }`
 - `ADX`: `{ kind: "ADX", period }`
 - `TRIX`: `{ kind: "TRIX", period }`
+- `TSI`: `{ kind: "TSI", period, stoch_period }`
+- `KST`: `{ kind: "KST" }`
+- `BOP`: `{ kind: "BOP" }`
+- `DPO`: `{ kind: "DPO", period }`
+- `MOMENTUM`: `{ kind: "MOMENTUM", period }`
 - `ULTIMATE_OSCILLATOR`: `{ kind: "ULTIMATE_OSCILLATOR", period, stoch_period, smooth }`
 - `CHAIKIN_OSCILLATOR`: `{ kind: "CHAIKIN_OSCILLATOR", fast, slow }`
 - `FORCE_INDEX`: `{ kind: "FORCE_INDEX", period }`
@@ -455,6 +460,11 @@ That target is still useful, but the current repo takes the lazy path first:
 - `STOCHASTIC`
 - `ADX` with `ADX`, `+DI`, and `-DI`
 - `TRIX`
+- `TSI`
+- `KST`
+- `BOP`
+- `DPO`
+- `MOMENTUM`
 - `ULTIMATE OSCILLATOR`
 - `CHAIKIN OSCILLATOR`
 - `FORCE INDEX`

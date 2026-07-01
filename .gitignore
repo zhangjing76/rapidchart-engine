@@ -2,6 +2,7 @@ node_modules/
 target/
 dist/
 pkg/
+.DS_Store
 
 WASM_Charting_Engine_Architecture_Spec.md
 WASM_Charting_Engine_Design.md

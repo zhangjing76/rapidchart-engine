@@ -598,6 +598,21 @@ function indicatorLabel(indicator: Indicator) {
   if (indicator.kind === "TRIX") {
     return `TRIX ${indicator.config.period}`;
   }
+  if (indicator.kind === "TSI") {
+    return `TSI ${indicator.config.period}/${indicator.config.stoch_period}`;
+  }
+  if (indicator.kind === "KST") {
+    return "KST";
+  }
+  if (indicator.kind === "BOP") {
+    return "BOP";
+  }
+  if (indicator.kind === "DPO") {
+    return `DPO ${indicator.config.period}`;
+  }
+  if (indicator.kind === "MOMENTUM") {
+    return `MOMENTUM ${indicator.config.period}`;
+  }
   if (indicator.kind === "FORCE_INDEX") {
     return `FORCE INDEX ${indicator.config.period}`;
   }
@@ -739,6 +754,10 @@ function readIndicatorConfig(kind: IndicatorKind) {
   }
   if (kind === "STOCH_RSI" && (Number(config.stoch_period) < 1 || Number(config.signal) < 1)) {
     setStatus("STOCH_RSI stoch period and %D must be at least 1", "error");
+    return undefined;
+  }
+  if (kind === "TSI" && Number(config.stoch_period) < 1) {
+    setStatus("TSI short period must be at least 1", "error");
     return undefined;
   }
   if (

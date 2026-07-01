@@ -169,6 +169,11 @@ All configs require `kind`.
 - `ULTIMATE_OSCILLATOR`: `{ kind: "ULTIMATE_OSCILLATOR", period, stoch_period, smooth }`
 - `CHAIKIN_OSCILLATOR`: `{ kind: "CHAIKIN_OSCILLATOR", fast, slow }`
 - `FORCE_INDEX`: `{ kind: "FORCE_INDEX", period }`
+- `VWMA`: `{ kind: "VWMA", period }`
+- `WILLIAMS_AD`: `{ kind: "WILLIAMS_AD" }`
+- `CHAIKIN_VOLATILITY`: `{ kind: "CHAIKIN_VOLATILITY", period }`
+- `PRICE_CHANNEL`: `{ kind: "PRICE_CHANNEL", period }`
+- `STARC`: `{ kind: "STARC", period, multiplier }`
 - `STOCHASTIC`: `{ kind: "STOCHASTIC", period, smooth }`
 - `STOCH_RSI`: `{ kind: "STOCH_RSI", period, stoch_period, smooth, signal }`
 - `MACD`: `{ kind: "MACD", fast, slow, signal }`
@@ -478,6 +483,11 @@ That target is still useful, but the current repo takes the lazy path first:
 - `ULTIMATE OSCILLATOR`
 - `CHAIKIN OSCILLATOR`
 - `FORCE INDEX`
+- `VWMA`
+- `WILLIAMS A/D`
+- `CHAIKIN VOLATILITY`
+- `PRICE CHANNEL`
+- `STARC`
 - `SUPERTREND`
 - `KELTNER`
 - `DONCHIAN`

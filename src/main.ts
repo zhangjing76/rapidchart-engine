@@ -631,6 +631,21 @@ function indicatorLabel(indicator: Indicator) {
   if (indicator.kind === "FORCE_INDEX") {
     return `FORCE INDEX ${indicator.config.period}`;
   }
+  if (indicator.kind === "VWMA") {
+    return `VWMA ${indicator.config.period}`;
+  }
+  if (indicator.kind === "WILLIAMS_AD") {
+    return "WILLIAMS A/D";
+  }
+  if (indicator.kind === "CHAIKIN_VOLATILITY") {
+    return `CHAIKIN VOLATILITY ${indicator.config.period}`;
+  }
+  if (indicator.kind === "PRICE_CHANNEL") {
+    return `PRICE CHANNEL ${indicator.config.period}`;
+  }
+  if (indicator.kind === "STARC") {
+    return `STARC ${indicator.config.period}/${indicator.config.multiplier}`;
+  }
   if (indicator.kind === "BB") {
     return `BOLLINGER ${indicator.config.period}/${indicator.config.multiplier}`;
   }
@@ -775,8 +790,8 @@ function readIndicatorConfig(kind: IndicatorKind) {
     setStatus("TSI short period must be at least 1", "error");
     return undefined;
   }
-  if (kind === "ENVELOPE" && Number(config.multiplier) <= 0) {
-    setStatus("ENVELOPE multiplier must be greater than zero", "error");
+  if ((kind === "ENVELOPE" || kind === "STARC") && Number(config.multiplier) <= 0) {
+    setStatus(`${kind} multiplier must be greater than zero`, "error");
     return undefined;
   }
   if (

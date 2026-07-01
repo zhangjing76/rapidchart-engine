@@ -217,13 +217,18 @@ impl ChartEngine {
             && kind != "ULTIMATE_OSCILLATOR"
             && kind != "CHAIKIN_OSCILLATOR"
             && kind != "FORCE_INDEX"
+            && kind != "VWMA"
+            && kind != "WILLIAMS_AD"
+            && kind != "CHAIKIN_VOLATILITY"
+            && kind != "PRICE_CHANNEL"
+            && kind != "STARC"
             && kind != "VWAP"
             && kind != "STOCHASTIC"
             && kind != "WILLIAMS_R"
             && kind != "MFI"
         {
             return Err(JsValue::from_str(
-                "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, DEMA, TEMA, TRIMA, STDDEV, ENVELOPE, TRIX, TSI, KST, BOP, DPO, MOMENTUM, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
+                "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, DEMA, TEMA, TRIMA, STDDEV, ENVELOPE, TRIX, TSI, KST, BOP, DPO, MOMENTUM, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWMA, WILLIAMS_AD, CHAIKIN_VOLATILITY, PRICE_CHANNEL, STARC, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
             ));
         }
         let macd = if kind == "MACD" || kind == "PPO" || kind == "CHAIKIN_OSCILLATOR" {
@@ -644,6 +649,31 @@ impl ChartEngine {
                     let value = latest_force_index(bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
+                "VWMA" => {
+                    let value = latest_vwma(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "WILLIAMS_AD" => {
+                    let value = latest_williams_ad(bars, indicator.outputs.first());
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "CHAIKIN_VOLATILITY" => {
+                    let value = latest_chaikin_volatility(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PRICE_CHANNEL" => {
+                    let (upper, middle, lower) = latest_price_channel(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "upper", target_len, upper);
+                    upsert_output(&mut indicator.outputs, "middle", target_len, middle);
+                    upsert_output(&mut indicator.outputs, "lower", target_len, lower);
+                }
+                "STARC" => {
+                    let (upper, middle, lower) =
+                        latest_starc(bars, indicator.period, indicator.multiplier);
+                    upsert_output(&mut indicator.outputs, "upper", target_len, upper);
+                    upsert_output(&mut indicator.outputs, "middle", target_len, middle);
+                    upsert_output(&mut indicator.outputs, "lower", target_len, lower);
+                }
                 "VWAP" => {
                     let (value, cumulative_pv, cumulative_volume) =
                         latest_vwap(bars, &indicator.outputs);
@@ -750,6 +780,11 @@ fn supports_incremental(kind: &str) -> bool {
             | "ULTIMATE_OSCILLATOR"
             | "CHAIKIN_OSCILLATOR"
             | "FORCE_INDEX"
+            | "VWMA"
+            | "WILLIAMS_AD"
+            | "CHAIKIN_VOLATILITY"
+            | "PRICE_CHANNEL"
+            | "STARC"
             | "VWAP"
             | "STOCHASTIC"
             | "WILLIAMS_R"
@@ -850,6 +885,63 @@ fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         period_descriptor("MFI", "MFI", "separate", 14),
         period_descriptor("CMF", "CMF", "separate", 20),
         period_descriptor("FORCE_INDEX", "FORCE INDEX", "separate", 13),
+        period_descriptor("VWMA", "VWMA", "overlay", 20),
+        IndicatorDescriptor {
+            kind: "WILLIAMS_AD",
+            name: "WILLIAMS A/D",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
+        },
+        period_descriptor(
+            "CHAIKIN_VOLATILITY",
+            "CHAIKIN VOLATILITY",
+            "separate",
+            10,
+        ),
+        IndicatorDescriptor {
+            kind: "PRICE_CHANNEL",
+            name: "PRICE CHANNEL",
+            pane: "overlay",
+            params: vec![ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 20.0,
+                min: 1.0,
+                step: "1",
+            }],
+            outputs: vec![
+                output_descriptor("upper", "line", "overlay", "#f59e0b"),
+                output_descriptor("middle", "line", "overlay", "#64748b"),
+                output_descriptor("lower", "line", "overlay", "#f59e0b"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "STARC",
+            name: "STARC",
+            pane: "overlay",
+            params: vec![
+                ParamDescriptor {
+                    name: "period",
+                    label: "Period",
+                    default: 15.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "multiplier",
+                    label: "Multiplier",
+                    default: 2.0,
+                    min: 0.1,
+                    step: "0.1",
+                },
+            ],
+            outputs: vec![
+                output_descriptor("upper", "line", "overlay", "#0f766e"),
+                output_descriptor("middle", "line", "overlay", "#2563eb"),
+                output_descriptor("lower", "line", "overlay", "#0f766e"),
+            ],
+        },
         period_descriptor("WILLIAMS_R", "WILLIAMS %R", "separate", 14),
         IndicatorDescriptor {
             kind: "PARABOLIC_SAR",
@@ -1353,6 +1445,11 @@ fn compute_indicator(
             nodes,
         )),
         "FORCE_INDEX" => one_output(force_index_node(bars, period, nodes)),
+        "VWMA" => one_output(vwma_node(bars, period, nodes)),
+        "WILLIAMS_AD" => one_output(williams_ad_node(bars, nodes)),
+        "CHAIKIN_VOLATILITY" => one_output(chaikin_volatility_node(bars, period, nodes)),
+        "PRICE_CHANNEL" => price_channel(bars, period, nodes),
+        "STARC" => starc(bars, period, multiplier, nodes),
         "SUPERTREND" => supertrend(bars, period, multiplier, nodes),
         "KELTNER" => keltner(bars, period, multiplier, nodes),
         "DONCHIAN" => donchian(bars, period, nodes),
@@ -1442,6 +1539,24 @@ fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         "CMF" => vec![format!("cmf:hlcv:{}", indicator.period)],
         "MFI" => vec![format!("mfi:hlcv:{}", indicator.period)],
         "WILLIAMS_R" => vec![format!("willr:hlc:{}", indicator.period)],
+        "VWMA" => vec![format!("vwma:close:volume:{}", indicator.period)],
+        "WILLIAMS_AD" => vec!["wad:ohlc".to_string()],
+        "CHAIKIN_VOLATILITY" => vec![
+            format!("cvol:ema:{}", indicator.period),
+            format!("cvol:value:{}", indicator.period),
+        ],
+        "PRICE_CHANNEL" => vec![
+            format!("price_channel:upper:{}", indicator.period),
+            format!("price_channel:middle:{}", indicator.period),
+            format!("price_channel:lower:{}", indicator.period),
+        ],
+        "STARC" => vec![
+            format!("sma:close:{}", indicator.period),
+            format!("atr:ohlc:{}", indicator.period),
+            format!("starc:upper:{}:{}", indicator.period, indicator.multiplier),
+            format!("starc:middle:{}:{}", indicator.period, indicator.multiplier),
+            format!("starc:lower:{}:{}", indicator.period, indicator.multiplier),
+        ],
         "PARABOLIC_SAR" => vec![format!(
             "psar:ohlc:{}:{}",
             indicator.psar_step, indicator.psar_max_step
@@ -1600,6 +1715,67 @@ fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Vec<DagEdge> 
                 edge("low", &cci),
                 edge("close", &cci),
                 edge(&cci, indicator_node),
+            ]
+        }
+        "VWMA" => {
+            let vwma = format!("vwma:close:volume:{}", indicator.period);
+            vec![
+                edge("close", &vwma),
+                edge("volume", &vwma),
+                edge(&vwma, indicator_node),
+            ]
+        }
+        "WILLIAMS_AD" => vec![
+            edge("high", "wad:ohlc"),
+            edge("low", "wad:ohlc"),
+            edge("close", "wad:ohlc"),
+            edge("wad:ohlc", indicator_node),
+        ],
+        "CHAIKIN_VOLATILITY" => {
+            let ema = format!("cvol:ema:{}", indicator.period);
+            let value = format!("cvol:value:{}", indicator.period);
+            vec![
+                edge("high", &ema),
+                edge("low", &ema),
+                edge(&ema, &value),
+                edge(&value, indicator_node),
+            ]
+        }
+        "PRICE_CHANNEL" => {
+            let upper = format!("price_channel:upper:{}", indicator.period);
+            let middle = format!("price_channel:middle:{}", indicator.period);
+            let lower = format!("price_channel:lower:{}", indicator.period);
+            vec![
+                edge("high", &upper),
+                edge("low", &upper),
+                edge("high", &middle),
+                edge("low", &middle),
+                edge("high", &lower),
+                edge("low", &lower),
+                edge(&upper, indicator_node),
+                edge(&middle, indicator_node),
+                edge(&lower, indicator_node),
+            ]
+        }
+        "STARC" => {
+            let sma = format!("sma:close:{}", indicator.period);
+            let atr = format!("atr:ohlc:{}", indicator.period);
+            let upper = format!("starc:upper:{}:{}", indicator.period, indicator.multiplier);
+            let middle = format!("starc:middle:{}:{}", indicator.period, indicator.multiplier);
+            let lower = format!("starc:lower:{}:{}", indicator.period, indicator.multiplier);
+            vec![
+                edge("close", &sma),
+                edge("high", &atr),
+                edge("low", &atr),
+                edge("close", &atr),
+                edge(&sma, &upper),
+                edge(&atr, &upper),
+                edge(&sma, &middle),
+                edge(&sma, &lower),
+                edge(&atr, &lower),
+                edge(&upper, indicator_node),
+                edge(&middle, indicator_node),
+                edge(&lower, indicator_node),
             ]
         }
         "DEMA" => {
@@ -2042,6 +2218,7 @@ fn validate_indicator(
         && kind != "ICHIMOKU"
         && kind != "PIVOT_POINTS"
         && kind != "ADL"
+        && kind != "WILLIAMS_AD"
         && kind != "DEMA"
         && kind != "TEMA"
         && kind != "TRIMA"
@@ -2064,7 +2241,11 @@ fn validate_indicator(
         return Err(JsValue::from_str(
             "ULTIMATE_OSCILLATOR params must satisfy short <= medium <= long",
         ));
-    } else if (kind == "BB" || kind == "SUPERTREND" || kind == "KELTNER" || kind == "ENVELOPE")
+    } else if (kind == "BB"
+        || kind == "SUPERTREND"
+        || kind == "KELTNER"
+        || kind == "ENVELOPE"
+        || kind == "STARC")
         && (!multiplier.is_finite() || multiplier <= 0.0)
     {
         return Err(JsValue::from_str("multiplier must be greater than zero"));
@@ -3135,6 +3316,51 @@ fn latest_adl(bars: &[Bar], output: Option<&IndicatorOutput>) -> Option<f64> {
     Some(previous + money_flow_multiplier(last) * last.volume)
 }
 
+fn williams_ad_step(previous_close: f64, bar: &Bar) -> f64 {
+    if bar.close > previous_close {
+        bar.close - previous_close.min(bar.low)
+    } else if bar.close < previous_close {
+        bar.close - previous_close.max(bar.high)
+    } else {
+        0.0
+    }
+}
+
+fn williams_ad(bars: &[Bar]) -> Series {
+    let mut out = Vec::with_capacity(bars.len());
+    let mut current = 0.0;
+    for (index, bar) in bars.iter().enumerate() {
+        if index > 0 {
+            current += williams_ad_step(bars[index - 1].close, bar);
+        }
+        out.push(Some(current));
+    }
+    out
+}
+
+fn williams_ad_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
+    let key = "wad:ohlc".to_string();
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let values = williams_ad(bars);
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_williams_ad(bars: &[Bar], output: Option<&IndicatorOutput>) -> Option<f64> {
+    let last = bars.last()?;
+    if bars.len() == 1 {
+        return Some(0.0);
+    }
+    let previous = bars
+        .len()
+        .checked_sub(2)
+        .and_then(|index| output.and_then(|output| output.values.get(index)).copied().flatten())
+        .unwrap_or(0.0);
+    Some(previous + williams_ad_step(bars[bars.len() - 2].close, last))
+}
+
 fn typical_price(bar: &Bar) -> f64 {
     (bar.high + bar.low + bar.close) / 3.0
 }
@@ -3218,6 +3444,37 @@ fn latest_vwap(
         Some(cumulative_pv),
         Some(cumulative_volume),
     )
+}
+
+fn vwma(bars: &[Bar], period: usize) -> Series {
+    let mut out = vec![None; bars.len()];
+    if period == 0 || bars.len() < period {
+        return out;
+    }
+    for index in period - 1..bars.len() {
+        let window = &bars[index + 1 - period..=index];
+        let volume_sum = window.iter().map(|bar| bar.volume).sum::<f64>();
+        if volume_sum == 0.0 {
+            continue;
+        }
+        let weighted_sum = window.iter().map(|bar| bar.close * bar.volume).sum::<f64>();
+        out[index] = Some(weighted_sum / volume_sum);
+    }
+    out
+}
+
+fn vwma_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("vwma:close:volume:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let values = vwma(bars, period);
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_vwma(bars: &[Bar], period: usize) -> Option<f64> {
+    vwma(bars, period).last().copied().flatten()
 }
 
 fn cmf(bars: &[Bar], period: usize) -> Series {
@@ -4385,6 +4642,53 @@ fn latest_keltner(
     }
 }
 
+fn starc(
+    bars: &[Bar],
+    period: usize,
+    multiplier: f64,
+    nodes: &mut NodeCache,
+) -> Vec<IndicatorOutput> {
+    let middle = sma_close(bars, period, nodes);
+    let atr = atr_node(bars, period, nodes);
+    let mut upper = vec![None; bars.len()];
+    let mut lower = vec![None; bars.len()];
+
+    for index in 0..bars.len() {
+        let (Some(mid), Some(atr_value)) = (middle[index], atr[index]) else {
+            continue;
+        };
+        upper[index] = Some(mid + multiplier * atr_value);
+        lower[index] = Some(mid - multiplier * atr_value);
+    }
+
+    let outputs = bollinger_outputs(upper, middle, lower);
+    for output in &outputs {
+        nodes.insert(
+            format!("starc:{}:{}:{}", output.name, period, multiplier),
+            output.values.clone(),
+        );
+    }
+    outputs
+}
+
+fn latest_starc(
+    bars: &[Bar],
+    period: usize,
+    multiplier: f64,
+) -> (Option<f64>, Option<f64>, Option<f64>) {
+    let middle = latest_sma(bars, period);
+    let atr = latest_atr(bars, period, None);
+
+    match (middle, atr) {
+        (Some(middle), Some(atr)) => (
+            Some(middle + multiplier * atr),
+            Some(middle),
+            Some(middle - multiplier * atr),
+        ),
+        _ => (None, middle, None),
+    }
+}
+
 fn donchian(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let mut upper = vec![None; bars.len()];
     let mut middle = vec![None; bars.len()];
@@ -4432,6 +4736,21 @@ fn latest_donchian(bars: &[Bar], period: usize) -> (Option<f64>, Option<f64>, Op
         .map(|bar| bar.low)
         .fold(f64::INFINITY, f64::min);
     (Some(high), Some((high + low) / 2.0), Some(low))
+}
+
+fn price_channel(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+    let outputs = donchian(bars, period, &mut HashMap::new());
+    for output in &outputs {
+        nodes.insert(
+            format!("price_channel:{}:{}", output.name, period),
+            output.values.clone(),
+        );
+    }
+    outputs
+}
+
+fn latest_price_channel(bars: &[Bar], period: usize) -> (Option<f64>, Option<f64>, Option<f64>) {
+    latest_donchian(bars, period)
 }
 
 fn directional_movement(bars: &[Bar], index: usize) -> (f64, f64) {
@@ -4911,6 +5230,54 @@ fn chaikin_oscillator_node(bars: &[Bar], params: MacdParams, nodes: &mut NodeCac
         .collect();
     nodes.insert(key, values.clone());
     values
+}
+
+fn chaikin_volatility(bars: &[Bar], period: usize) -> Series {
+    let ranges: Vec<_> = bars.iter().map(|bar| Some(bar.high - bar.low)).collect();
+    let ema = ema_series(&ranges, period);
+    let mut out = vec![None; bars.len()];
+    if period == 0 || bars.len() <= period {
+        return out;
+    }
+    for index in period..bars.len() {
+        match (ema[index], ema[index - period]) {
+            (Some(current), Some(previous)) if previous != 0.0 => {
+                out[index] = Some(100.0 * (current - previous) / previous);
+            }
+            (Some(_), Some(_)) => out[index] = Some(0.0),
+            _ => {}
+        }
+    }
+    out
+}
+
+fn chaikin_volatility_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("cvol:value:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let ema_key = format!("cvol:ema:{period}");
+    let ranges: Vec<_> = bars.iter().map(|bar| Some(bar.high - bar.low)).collect();
+    let ema = ema_series(&ranges, period);
+    nodes.insert(ema_key, ema.clone());
+    let mut values = vec![None; bars.len()];
+    if period != 0 && bars.len() > period {
+        for index in period..bars.len() {
+            match (ema[index], ema[index - period]) {
+                (Some(current), Some(previous)) if previous != 0.0 => {
+                    values[index] = Some(100.0 * (current - previous) / previous);
+                }
+                (Some(_), Some(_)) => values[index] = Some(0.0),
+                _ => {}
+            }
+        }
+    }
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_chaikin_volatility(bars: &[Bar], period: usize) -> Option<f64> {
+    chaikin_volatility(bars, period).last().copied().flatten()
 }
 
 fn latest_macd(
@@ -5399,6 +5766,71 @@ mod tests {
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["adl:hlcv"]);
+    }
+
+    #[test]
+    fn vwma_has_a_computed_dag_node() {
+        let indicator = Indicator {
+            id: 1,
+            kind: "VWMA".to_string(),
+            period: 20,
+            stoch_period: 20,
+            smooth: 3,
+            signal: 3,
+            tenkan_period: 9,
+            kijun_period: 26,
+            senkou_b_period: 52,
+            macd: None,
+            multiplier: 2.0,
+            psar_step: 0.02,
+            psar_max_step: 0.2,
+            outputs: Vec::new(),
+        };
+
+        assert_eq!(indicator_nodes(&indicator), vec!["vwma:close:volume:20"]);
+    }
+
+    #[test]
+    fn williams_ad_has_a_computed_dag_node() {
+        let indicator = indicator_stub("WILLIAMS_AD");
+        assert_eq!(indicator_nodes(&indicator), vec!["wad:ohlc"]);
+    }
+
+    #[test]
+    fn chaikin_volatility_has_computed_dag_nodes() {
+        let indicator = indicator_stub("CHAIKIN_VOLATILITY");
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec!["cvol:ema:14", "cvol:value:14"]
+        );
+    }
+
+    #[test]
+    fn price_channel_has_computed_dag_nodes() {
+        let indicator = indicator_stub("PRICE_CHANNEL");
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec![
+                "price_channel:upper:14",
+                "price_channel:middle:14",
+                "price_channel:lower:14",
+            ]
+        );
+    }
+
+    #[test]
+    fn starc_has_computed_dag_nodes() {
+        let indicator = indicator_stub("STARC");
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec![
+                "sma:close:14",
+                "atr:ohlc:14",
+                "starc:upper:14:2",
+                "starc:middle:14:2",
+                "starc:lower:14:2",
+            ]
+        );
     }
 
     #[test]
@@ -6611,6 +7043,79 @@ mod tests {
             latest_adl(&all_bars, Some(&output)),
             adl(&all_bars).last().copied().flatten()
         );
+    }
+
+    #[test]
+    fn vwma_matches_latest_value() {
+        let mut bars = bars(&(1..=10).map(|value| value as f64).collect::<Vec<_>>());
+        for (index, bar) in bars.iter_mut().enumerate() {
+            bar.volume = (index + 1) as f64;
+        }
+        assert_eq!(latest_vwma(&bars, 5), vwma(&bars, 5).last().copied().flatten());
+    }
+
+    #[test]
+    fn williams_ad_matches_latest_value() {
+        let previous_bars = ohlc(&[(10.0, 8.0, 9.0), (11.0, 7.0, 10.0)]);
+        let all_bars = ohlc(&[(10.0, 8.0, 9.0), (11.0, 7.0, 10.0), (12.0, 6.0, 11.0)]);
+        let output = IndicatorOutput {
+            name: "value".to_string(),
+            values: williams_ad(&previous_bars),
+        };
+
+        assert_eq!(
+            latest_williams_ad(&all_bars, Some(&output)),
+            williams_ad(&all_bars).last().copied().flatten()
+        );
+    }
+
+    #[test]
+    fn chaikin_volatility_matches_latest_value() {
+        let bars = ohlc(
+            &(1..=25)
+                .map(|value| {
+                    let value = value as f64;
+                    (value + 2.0, value - 1.0, value)
+                })
+                .collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            latest_chaikin_volatility(&bars, 10),
+            chaikin_volatility(&bars, 10).last().copied().flatten()
+        );
+    }
+
+    #[test]
+    fn price_channel_matches_latest_values() {
+        let bars = ohlc(&[
+            (10.0, 8.0, 9.0),
+            (11.0, 7.0, 10.0),
+            (12.0, 6.0, 11.0),
+            (13.0, 5.0, 12.0),
+        ]);
+        let outputs = price_channel(&bars, 3, &mut HashMap::new());
+        let latest = latest_price_channel(&bars, 3);
+
+        assert_eq!(latest.0, outputs[0].values.last().copied().flatten());
+        assert_eq!(latest.1, outputs[1].values.last().copied().flatten());
+        assert_eq!(latest.2, outputs[2].values.last().copied().flatten());
+    }
+
+    #[test]
+    fn starc_matches_latest_values() {
+        let bars = ohlc(&[
+            (10.0, 9.0, 9.5),
+            (11.0, 9.0, 10.0),
+            (12.0, 10.0, 11.0),
+            (14.0, 10.0, 13.0),
+            (15.0, 12.0, 14.0),
+        ]);
+        let outputs = starc(&bars, 3, 2.0, &mut HashMap::new());
+        let latest = latest_starc(&bars, 3, 2.0);
+
+        assert_eq!(latest.0, output_at(&outputs, "upper", bars.len() - 1));
+        assert_eq!(latest.1, output_at(&outputs, "middle", bars.len() - 1));
+        assert_eq!(latest.2, output_at(&outputs, "lower", bars.len() - 1));
     }
 
     #[test]

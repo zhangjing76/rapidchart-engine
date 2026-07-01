@@ -155,9 +155,14 @@ All configs require `kind`.
 - `WILLIAMS_R`: `{ kind: "WILLIAMS_R", period }`
 - `ATR`: `{ kind: "ATR", period }`
 - `ADX`: `{ kind: "ADX", period }`
+- `TRIX`: `{ kind: "TRIX", period }`
+- `ULTIMATE_OSCILLATOR`: `{ kind: "ULTIMATE_OSCILLATOR", period, stoch_period, smooth }`
+- `CHAIKIN_OSCILLATOR`: `{ kind: "CHAIKIN_OSCILLATOR", fast, slow }`
+- `FORCE_INDEX`: `{ kind: "FORCE_INDEX", period }`
 - `STOCHASTIC`: `{ kind: "STOCHASTIC", period, smooth }`
 - `STOCH_RSI`: `{ kind: "STOCH_RSI", period, stoch_period, smooth, signal }`
 - `MACD`: `{ kind: "MACD", fast, slow, signal }`
+- `PPO`: `{ kind: "PPO", fast, slow, signal }`
 - `BB`: `{ kind: "BB", period, multiplier }`
 - `SUPERTREND`: `{ kind: "SUPERTREND", period, multiplier }`
 - `KELTNER`: `{ kind: "KELTNER", period, multiplier }`
@@ -449,6 +454,10 @@ That target is still useful, but the current repo takes the lazy path first:
 - `VWAP`
 - `STOCHASTIC`
 - `ADX` with `ADX`, `+DI`, and `-DI`
+- `TRIX`
+- `ULTIMATE OSCILLATOR`
+- `CHAIKIN OSCILLATOR`
+- `FORCE INDEX`
 - `SUPERTREND`
 - `KELTNER`
 - `DONCHIAN`
@@ -466,6 +475,7 @@ That target is still useful, but the current repo takes the lazy path first:
 - `WMA`
 - `HMA`
 - `LINEAR REGRESSION`
+- `PPO`
 
 ## Project layout
 

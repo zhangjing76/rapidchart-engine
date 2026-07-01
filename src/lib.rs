@@ -185,6 +185,7 @@ impl ChartEngine {
             && kind != "STOCH_RSI"
             && kind != "CCI"
             && kind != "MACD"
+            && kind != "PPO"
             && kind != "BB"
             && kind != "OBV"
             && kind != "ATR"
@@ -202,19 +203,23 @@ impl ChartEngine {
             && kind != "WMA"
             && kind != "HMA"
             && kind != "LINEAR_REGRESSION"
+            && kind != "TRIX"
+            && kind != "ULTIMATE_OSCILLATOR"
+            && kind != "CHAIKIN_OSCILLATOR"
+            && kind != "FORCE_INDEX"
             && kind != "VWAP"
             && kind != "STOCHASTIC"
             && kind != "WILLIAMS_R"
             && kind != "MFI"
         {
             return Err(JsValue::from_str(
-                "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
+                "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, TRIX, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
             ));
         }
-        let macd = if kind == "MACD" {
+        let macd = if kind == "MACD" || kind == "PPO" || kind == "CHAIKIN_OSCILLATOR" {
             Some(MacdParams {
-                fast: config.fast.unwrap_or(12),
-                slow: config.slow.unwrap_or(26),
+                fast: config.fast.unwrap_or(if kind == "CHAIKIN_OSCILLATOR" { 3 } else { 12 }),
+                slow: config.slow.unwrap_or(if kind == "CHAIKIN_OSCILLATOR" { 10 } else { 26 }),
                 signal: config.signal.unwrap_or(9),
             })
         } else {
@@ -560,6 +565,32 @@ impl ChartEngine {
                     let value = latest_linear_regression(bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
+                "TRIX" => {
+                    let value = latest_trix(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "ULTIMATE_OSCILLATOR" => {
+                    let value = latest_ultimate_oscillator(
+                        bars,
+                        indicator.period,
+                        indicator.stoch_period,
+                        indicator.smooth,
+                    );
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "CHAIKIN_OSCILLATOR" => {
+                    let params = indicator.macd.unwrap_or(MacdParams {
+                        fast: 3,
+                        slow: 10,
+                        signal: 9,
+                    });
+                    let value = latest_chaikin_oscillator(bars, params);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "FORCE_INDEX" => {
+                    let value = latest_force_index(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
                 "VWAP" => {
                     let (value, cumulative_pv, cumulative_volume) =
                         latest_vwap(bars, &indicator.outputs);
@@ -608,6 +639,17 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "fast_ema", target_len, fast_ema);
                     upsert_output(&mut indicator.outputs, "slow_ema", target_len, slow_ema);
                 }
+                "PPO" => {
+                    let params = indicator.macd.unwrap_or(MacdParams {
+                        fast: 12,
+                        slow: 26,
+                        signal: 9,
+                    });
+                    let (ppo, signal, histogram) = latest_ppo(bars, params);
+                    upsert_output(&mut indicator.outputs, "ppo", target_len, ppo);
+                    upsert_output(&mut indicator.outputs, "signal", target_len, signal);
+                    upsert_output(&mut indicator.outputs, "histogram", target_len, histogram);
+                }
                 _ => return false,
             }
         }
@@ -641,10 +683,15 @@ fn supports_incremental(kind: &str) -> bool {
             | "WMA"
             | "HMA"
             | "LINEAR_REGRESSION"
+            | "TRIX"
+            | "ULTIMATE_OSCILLATOR"
+            | "CHAIKIN_OSCILLATOR"
+            | "FORCE_INDEX"
             | "VWAP"
             | "STOCHASTIC"
             | "WILLIAMS_R"
             | "MFI"
+            | "PPO"
     )
 }
 
@@ -679,11 +726,13 @@ fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         period_descriptor("WMA", "WMA", "overlay", 20),
         period_descriptor("HMA", "HMA", "overlay", 20),
         period_descriptor("LINEAR_REGRESSION", "LINEAR REGRESSION", "overlay", 20),
+        period_descriptor("TRIX", "TRIX", "separate", 15),
         period_descriptor("RSI", "RSI", "separate", 14),
         period_descriptor("ROC", "ROC", "separate", 14),
         period_descriptor("CCI", "CCI", "separate", 20),
         period_descriptor("MFI", "MFI", "separate", 14),
         period_descriptor("CMF", "CMF", "separate", 20),
+        period_descriptor("FORCE_INDEX", "FORCE INDEX", "separate", 13),
         period_descriptor("WILLIAMS_R", "WILLIAMS %R", "separate", 14),
         IndicatorDescriptor {
             kind: "PARABOLIC_SAR",
@@ -778,6 +827,35 @@ fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
             pane: "separate",
             params: Vec::new(),
             outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
+        },
+        IndicatorDescriptor {
+            kind: "ULTIMATE_OSCILLATOR",
+            name: "ULTIMATE OSCILLATOR",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor {
+                    name: "period",
+                    label: "Short",
+                    default: 7.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "stoch_period",
+                    label: "Medium",
+                    default: 14.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "smooth",
+                    label: "Long",
+                    default: 28.0,
+                    min: 1.0,
+                    step: "1",
+                },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
         },
         IndicatorDescriptor {
             kind: "SUPERTREND",
@@ -999,6 +1077,61 @@ fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
                 output_descriptor("histogram", "histogram", "separate", "#86efac"),
             ],
         },
+        IndicatorDescriptor {
+            kind: "PPO",
+            name: "PPO",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor {
+                    name: "fast",
+                    label: "Fast",
+                    default: 12.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "slow",
+                    label: "Slow",
+                    default: 26.0,
+                    min: 2.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "signal",
+                    label: "Signal",
+                    default: 9.0,
+                    min: 1.0,
+                    step: "1",
+                },
+            ],
+            outputs: vec![
+                output_descriptor("ppo", "line", "separate", "#2563eb"),
+                output_descriptor("signal", "line", "separate", "#dc2626"),
+                output_descriptor("histogram", "histogram", "separate", "#86efac"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "CHAIKIN_OSCILLATOR",
+            name: "CHAIKIN OSCILLATOR",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor {
+                    name: "fast",
+                    label: "Fast",
+                    default: 3.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "slow",
+                    label: "Slow",
+                    default: 10.0,
+                    min: 2.0,
+                    step: "1",
+                },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
+        },
     ]
 }
 
@@ -1059,6 +1192,7 @@ fn compute_indicator(
         "WMA" => one_output(wma_close(bars, period, nodes)),
         "HMA" => one_output(hma(bars, period, nodes)),
         "LINEAR_REGRESSION" => one_output(linear_regression_node(bars, period, nodes)),
+        "TRIX" => one_output(trix_node(bars, period, nodes)),
         "RSI" => rsi_outputs(bars, period),
         "ROC" => one_output(roc_node(bars, period, nodes)),
         "CCI" => one_output(cci_node(bars, period, nodes)),
@@ -1070,6 +1204,19 @@ fn compute_indicator(
         "PIVOT_POINTS" => pivot_points(bars, nodes),
         "AROON" => aroon(bars, period, nodes),
         "ADL" => one_output(adl_node(bars, nodes)),
+        "ULTIMATE_OSCILLATOR" => {
+            one_output(ultimate_oscillator_node(bars, period, stoch_period, smooth, nodes))
+        }
+        "CHAIKIN_OSCILLATOR" => one_output(chaikin_oscillator_node(
+            bars,
+            macd_params.unwrap_or(MacdParams {
+                fast: 3,
+                slow: 10,
+                signal: 9,
+            }),
+            nodes,
+        )),
+        "FORCE_INDEX" => one_output(force_index_node(bars, period, nodes)),
         "SUPERTREND" => supertrend(bars, period, multiplier, nodes),
         "KELTNER" => keltner(bars, period, multiplier, nodes),
         "DONCHIAN" => donchian(bars, period, nodes),
@@ -1081,6 +1228,15 @@ fn compute_indicator(
         "STOCHASTIC" => stochastic(bars, period, smooth, nodes),
         "BB" => bollinger(bars, period, multiplier, nodes),
         "MACD" => macd(
+            bars,
+            macd_params.unwrap_or(MacdParams {
+                fast: 12,
+                slow: 26,
+                signal: 9,
+            }),
+            nodes,
+        ),
+        "PPO" => ppo(
             bars,
             macd_params.unwrap_or(MacdParams {
                 fast: 12,
@@ -1111,6 +1267,11 @@ fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("hma:close:{}", indicator.period),
         ],
         "LINEAR_REGRESSION" => vec![format!("linreg:close:{}", indicator.period)],
+        "TRIX" => vec![
+            format!("ema:close:{}", indicator.period),
+            format!("trix:ema2:{}", indicator.period),
+            format!("trix:value:{}", indicator.period),
+        ],
         "RSI" => vec![format!("rsi:close:{}", indicator.period)],
         "ROC" => vec![format!("roc:close:{}", indicator.period)],
         "CCI" => vec![format!("cci:hlc:{}", indicator.period)],
@@ -1140,6 +1301,22 @@ fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         ],
         "AROON" => vec![format!("aroon:hl:{}", indicator.period)],
         "ADL" => vec!["adl:hlcv".to_string()],
+        "ULTIMATE_OSCILLATOR" => vec![format!(
+            "uo:{}:{}:{}",
+            indicator.period, indicator.stoch_period, indicator.smooth
+        )],
+        "CHAIKIN_OSCILLATOR" => {
+            let params = indicator.macd.unwrap_or(MacdParams {
+                fast: 3,
+                slow: 10,
+                signal: 9,
+            });
+            vec![
+                "adl:hlcv".to_string(),
+                format!("chaikin:{}:{}", params.fast, params.slow),
+            ]
+        }
+        "FORCE_INDEX" => vec![format!("force:close:volume:{}", indicator.period)],
         "SUPERTREND" => vec![
             format!("atr:ohlc:{}", indicator.period),
             format!("supertrend:{}:{}", indicator.period, indicator.multiplier),
@@ -1195,6 +1372,18 @@ fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             vec![
                 format!("ema:close:{}", macd.fast),
                 format!("ema:close:{}", macd.slow),
+            ]
+        }
+        "PPO" => {
+            let macd = indicator.macd.unwrap_or(MacdParams {
+                fast: 12,
+                slow: 26,
+                signal: 9,
+            });
+            vec![
+                format!("ema:close:{}", macd.fast),
+                format!("ema:close:{}", macd.slow),
+                format!("ppo:{}:{}:{}", macd.fast, macd.slow, macd.signal),
             ]
         }
         _ => vec!["close".to_string()],
@@ -1260,6 +1449,17 @@ fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Vec<DagEdge> 
         "LINEAR_REGRESSION" => {
             let linreg = format!("linreg:close:{}", indicator.period);
             vec![edge("close", &linreg), edge(&linreg, indicator_node)]
+        }
+        "TRIX" => {
+            let ema1 = format!("ema:close:{}", indicator.period);
+            let ema2 = format!("trix:ema2:{}", indicator.period);
+            let trix = format!("trix:value:{}", indicator.period);
+            vec![
+                edge("close", &ema1),
+                edge(&ema1, &ema2),
+                edge(&ema2, &trix),
+                edge(&trix, indicator_node),
+            ]
         }
         "ROC" => {
             let roc = format!("roc:close:{}", indicator.period);
@@ -1362,6 +1562,42 @@ fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Vec<DagEdge> 
             edge("volume", "adl:hlcv"),
             edge("adl:hlcv", indicator_node),
         ],
+        "ULTIMATE_OSCILLATOR" => {
+            let uo = format!(
+                "uo:{}:{}:{}",
+                indicator.period, indicator.stoch_period, indicator.smooth
+            );
+            vec![
+                edge("high", &uo),
+                edge("low", &uo),
+                edge("close", &uo),
+                edge(&uo, indicator_node),
+            ]
+        }
+        "CHAIKIN_OSCILLATOR" => {
+            let params = indicator.macd.unwrap_or(MacdParams {
+                fast: 3,
+                slow: 10,
+                signal: 9,
+            });
+            let chaikin = format!("chaikin:{}:{}", params.fast, params.slow);
+            vec![
+                edge("high", "adl:hlcv"),
+                edge("low", "adl:hlcv"),
+                edge("close", "adl:hlcv"),
+                edge("volume", "adl:hlcv"),
+                edge("adl:hlcv", &chaikin),
+                edge(&chaikin, indicator_node),
+            ]
+        }
+        "FORCE_INDEX" => {
+            let force = format!("force:close:volume:{}", indicator.period);
+            vec![
+                edge("close", &force),
+                edge("volume", &force),
+                edge(&force, indicator_node),
+            ]
+        }
         "KELTNER" => {
             let ema = format!("ema:close:{}", indicator.period);
             let atr = format!("atr:ohlc:{}", indicator.period);
@@ -1443,6 +1679,23 @@ fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Vec<DagEdge> 
             edge("volume", "vwap:hlcv"),
             edge("vwap:hlcv", indicator_node),
         ],
+        "PPO" => {
+            let params = indicator.macd.unwrap_or(MacdParams {
+                fast: 12,
+                slow: 26,
+                signal: 9,
+            });
+            let fast = format!("ema:close:{}", params.fast);
+            let slow = format!("ema:close:{}", params.slow);
+            let ppo = format!("ppo:{}:{}:{}", params.fast, params.slow, params.signal);
+            vec![
+                edge("close", &fast),
+                edge("close", &slow),
+                edge(&fast, &ppo),
+                edge(&slow, &ppo),
+                edge(&ppo, indicator_node),
+            ]
+        }
         "STOCHASTIC" => {
             let stoch = format!("stoch:hlc:{}:{}", indicator.period, indicator.smooth);
             vec![
@@ -1467,12 +1720,16 @@ fn edge(from: &str, to: &str) -> DagEdge {
 }
 
 fn indicator_node(indicator: &Indicator) -> String {
-    match indicator.macd {
-        Some(macd) => format!(
-            "MACD({},{},{})#{}",
-            macd.fast, macd.slow, macd.signal, indicator.id
+    match (indicator.kind.as_str(), indicator.macd) {
+        ("MACD", Some(macd)) | ("PPO", Some(macd)) => format!(
+            "{}({},{},{})#{}",
+            indicator.kind, macd.fast, macd.slow, macd.signal, indicator.id
         ),
-        None => format!("{}#{}", indicator.kind, indicator.id),
+        ("CHAIKIN_OSCILLATOR", Some(macd)) => format!(
+            "CHAIKIN_OSCILLATOR({},{})#{}",
+            macd.fast, macd.slow, indicator.id
+        ),
+        _ => format!("{}#{}", indicator.kind, indicator.id),
     }
 }
 
@@ -1490,11 +1747,11 @@ fn validate_indicator(
     psar_step: f64,
     psar_max_step: f64,
 ) -> Result<(), JsValue> {
-    if kind == "MACD" {
+    if kind == "MACD" || kind == "PPO" || kind == "CHAIKIN_OSCILLATOR" {
         let macd = macd.expect("MACD params are built before validation");
         if macd.fast == 0 || macd.slow <= macd.fast || macd.signal == 0 {
             return Err(JsValue::from_str(
-                "MACD params must satisfy fast > 0, slow > fast, signal > 0",
+                "fast/slow params must satisfy fast > 0, slow > fast, signal > 0",
             ));
         }
     } else if kind == "ICHIMOKU"
@@ -1532,6 +1789,10 @@ fn validate_indicator(
         return Err(JsValue::from_str("smooth must be greater than zero"));
     } else if kind == "STOCH_RSI" && signal == 0 {
         return Err(JsValue::from_str("signal must be greater than zero"));
+    } else if kind == "ULTIMATE_OSCILLATOR" && (stoch_period < period || smooth < stoch_period) {
+        return Err(JsValue::from_str(
+            "ULTIMATE_OSCILLATOR params must satisfy short <= medium <= long",
+        ));
     } else if (kind == "BB" || kind == "SUPERTREND" || kind == "KELTNER")
         && (!multiplier.is_finite() || multiplier <= 0.0)
     {
@@ -1704,6 +1965,27 @@ fn ema_values(values: impl IntoIterator<Item = f64>, period: usize) -> Series {
     out
 }
 
+fn ema_series(values: &[Option<f64>], period: usize) -> Series {
+    let alpha = 2.0 / (period as f64 + 1.0);
+    let mut current = None::<f64>;
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        match (*value, current) {
+            (Some(value), Some(previous)) => {
+                let next = alpha * value + (1.0 - alpha) * previous;
+                current = Some(next);
+                out.push(Some(next));
+            }
+            (Some(value), None) => {
+                current = Some(value);
+                out.push(Some(value));
+            }
+            (None, _) => out.push(None),
+        }
+    }
+    out
+}
+
 fn latest_ema(bars: &[Bar], period: usize, output: Option<&IndicatorOutput>) -> Option<f64> {
     let last = bars.last()?;
     if period == 0 || bars.len() == 1 {
@@ -1830,6 +2112,135 @@ fn linear_regression_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) ->
 
 fn latest_linear_regression(bars: &[Bar], period: usize) -> Option<f64> {
     linear_regression(bars, period).last().copied().flatten()
+}
+
+fn trix(bars: &[Bar], period: usize) -> Series {
+    let ema1 = ema_close(bars, period, &mut HashMap::new());
+    let ema2 = ema_series(&ema1, period);
+    let ema3 = ema_series(&ema2, period);
+    let mut out = vec![None; bars.len()];
+    for index in 1..bars.len() {
+        match (ema3[index - 1], ema3[index]) {
+            (Some(previous), Some(current)) if previous != 0.0 => {
+                out[index] = Some(100.0 * (current / previous - 1.0));
+            }
+            (Some(_), Some(_)) => out[index] = Some(0.0),
+            _ => {}
+        }
+    }
+    out
+}
+
+fn trix_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("trix:value:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let ema1 = ema_close(bars, period, nodes);
+    let ema2_key = format!("trix:ema2:{period}");
+    let ema2 = nodes
+        .get(&ema2_key)
+        .cloned()
+        .unwrap_or_else(|| ema_series(&ema1, period));
+    nodes.insert(ema2_key, ema2.clone());
+    let ema3 = ema_series(&ema2, period);
+    let mut out = vec![None; bars.len()];
+    for index in 1..bars.len() {
+        match (ema3[index - 1], ema3[index]) {
+            (Some(previous), Some(current)) if previous != 0.0 => {
+                out[index] = Some(100.0 * (current / previous - 1.0));
+            }
+            (Some(_), Some(_)) => out[index] = Some(0.0),
+            _ => {}
+        }
+    }
+    nodes.insert(key, out.clone());
+    out
+}
+
+fn latest_trix(bars: &[Bar], period: usize) -> Option<f64> {
+    trix(bars, period).last().copied().flatten()
+}
+
+fn ultimate_oscillator(
+    bars: &[Bar],
+    short: usize,
+    medium: usize,
+    long: usize,
+) -> Series {
+    let mut out = vec![None; bars.len()];
+    if short == 0 || medium == 0 || long == 0 || bars.len() <= long {
+        return out;
+    }
+    let mut bp = vec![0.0; bars.len()];
+    let mut tr = vec![0.0; bars.len()];
+    for index in 1..bars.len() {
+        let previous_close = bars[index - 1].close;
+        let min_low = bars[index].low.min(previous_close);
+        let max_high = bars[index].high.max(previous_close);
+        bp[index] = bars[index].close - min_low;
+        tr[index] = max_high - min_low;
+    }
+    for index in long..bars.len() {
+        let avg = |period: usize| {
+            let start = index + 1 - period;
+            let bp_sum = bp[start..=index].iter().sum::<f64>();
+            let tr_sum = tr[start..=index].iter().sum::<f64>();
+            if tr_sum == 0.0 { 0.0 } else { bp_sum / tr_sum }
+        };
+        out[index] = Some(100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0);
+    }
+    out
+}
+
+fn ultimate_oscillator_node(
+    bars: &[Bar],
+    short: usize,
+    medium: usize,
+    long: usize,
+    nodes: &mut NodeCache,
+) -> Series {
+    let key = format!("uo:{short}:{medium}:{long}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let values = ultimate_oscillator(bars, short, medium, long);
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_ultimate_oscillator(
+    bars: &[Bar],
+    short: usize,
+    medium: usize,
+    long: usize,
+) -> Option<f64> {
+    ultimate_oscillator(bars, short, medium, long)
+        .last()
+        .copied()
+        .flatten()
+}
+
+fn force_index(bars: &[Bar], period: usize) -> Series {
+    let mut raw = vec![None; bars.len()];
+    for index in 1..bars.len() {
+        raw[index] = Some((bars[index].close - bars[index - 1].close) * bars[index].volume);
+    }
+    ema_series(&raw, period)
+}
+
+fn force_index_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("force:close:volume:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let values = force_index(bars, period);
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_force_index(bars: &[Bar], period: usize) -> Option<f64> {
+    force_index(bars, period).last().copied().flatten()
 }
 
 #[cfg(test)]
@@ -3748,6 +4159,85 @@ fn macd(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Vec<Indicato
     ]
 }
 
+fn ppo(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+    let fast = ema_close(bars, params.fast, nodes);
+    let slow = ema_close(bars, params.slow, nodes);
+    let ppo_line: Vec<_> = fast
+        .iter()
+        .zip(slow.iter())
+        .map(|(fast, slow)| match (fast, slow) {
+            (Some(fast), Some(slow)) if *slow != 0.0 => Some(100.0 * (fast - slow) / slow),
+            (Some(_), Some(_)) => Some(0.0),
+            _ => None,
+        })
+        .collect();
+    let signal = ema_series(&ppo_line, params.signal);
+    let histogram: Vec<_> = ppo_line
+        .iter()
+        .zip(signal.iter())
+        .map(|(ppo, signal)| match (ppo, signal) {
+            (Some(ppo), Some(signal)) => Some(ppo - signal),
+            _ => None,
+        })
+        .collect();
+
+    vec![
+        IndicatorOutput {
+            name: "ppo".to_string(),
+            values: ppo_line.clone(),
+        },
+        IndicatorOutput {
+            name: "signal".to_string(),
+            values: signal,
+        },
+        IndicatorOutput {
+            name: "histogram".to_string(),
+            values: histogram,
+        },
+        IndicatorOutput {
+            name: "fast_ema".to_string(),
+            values: fast,
+        },
+        IndicatorOutput {
+            name: "slow_ema".to_string(),
+            values: slow,
+        },
+    ]
+}
+
+fn chaikin_oscillator(bars: &[Bar], params: MacdParams) -> Series {
+    let adl = adl(bars);
+    let fast = ema_series(&adl, params.fast);
+    let slow = ema_series(&adl, params.slow);
+    fast.iter()
+        .zip(slow.iter())
+        .map(|(fast, slow)| match (fast, slow) {
+            (Some(fast), Some(slow)) => Some(fast - slow),
+            _ => None,
+        })
+        .collect()
+}
+
+fn chaikin_oscillator_node(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Series {
+    let key = format!("chaikin:{}:{}", params.fast, params.slow);
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let adl_values = adl_node(bars, nodes);
+    let fast = ema_series(&adl_values, params.fast);
+    let slow = ema_series(&adl_values, params.slow);
+    let values: Vec<_> = fast
+        .iter()
+        .zip(slow.iter())
+        .map(|(fast, slow)| match (fast, slow) {
+            (Some(fast), Some(slow)) => Some(fast - slow),
+            _ => None,
+        })
+        .collect();
+    nodes.insert(key, values.clone());
+    values
+}
+
 fn latest_macd(
     bars: &[Bar],
     params: MacdParams,
@@ -3792,6 +4282,23 @@ fn latest_macd(
     )
 }
 
+fn latest_ppo(
+    bars: &[Bar],
+    params: MacdParams,
+) -> (Option<f64>, Option<f64>, Option<f64>) {
+    let outputs = ppo(bars, params, &mut HashMap::new());
+    let index = bars.len().saturating_sub(1);
+    (
+        output_at(&outputs, "ppo", index),
+        output_at(&outputs, "signal", index),
+        output_at(&outputs, "histogram", index),
+    )
+}
+
+fn latest_chaikin_oscillator(bars: &[Bar], params: MacdParams) -> Option<f64> {
+    chaikin_oscillator(bars, params).last().copied().flatten()
+}
+
 fn ema_next(value: f64, previous: f64, period: usize) -> f64 {
     let alpha = 2.0 / (period as f64 + 1.0);
     alpha * value + (1.0 - alpha) * previous
@@ -3829,6 +4336,25 @@ mod tests {
                 volume: 1.0,
             })
             .collect()
+    }
+
+    fn indicator_stub(kind: &str) -> Indicator {
+        Indicator {
+            id: 1,
+            kind: kind.to_string(),
+            period: 14,
+            stoch_period: 14,
+            smooth: 28,
+            signal: 9,
+            tenkan_period: 9,
+            kijun_period: 26,
+            senkou_b_period: 52,
+            macd: None,
+            multiplier: 2.0,
+            psar_step: 0.02,
+            psar_max_step: 0.2,
+            outputs: Vec::new(),
+        }
     }
 
     #[test]
@@ -4267,6 +4793,60 @@ mod tests {
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["linreg:close:20"]);
+    }
+
+    #[test]
+    fn trix_has_computed_dag_nodes() {
+        let mut indicator = indicator_stub("TRIX");
+        indicator.period = 15;
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec!["ema:close:15", "trix:ema2:15", "trix:value:15"]
+        );
+    }
+
+    #[test]
+    fn ultimate_oscillator_has_a_computed_dag_node() {
+        let mut indicator = indicator_stub("ULTIMATE_OSCILLATOR");
+        indicator.period = 7;
+        indicator.stoch_period = 14;
+        indicator.smooth = 28;
+        assert_eq!(indicator_nodes(&indicator), vec!["uo:7:14:28"]);
+    }
+
+    #[test]
+    fn chaikin_oscillator_has_computed_dag_nodes() {
+        let mut indicator = indicator_stub("CHAIKIN_OSCILLATOR");
+        indicator.macd = Some(MacdParams {
+            fast: 3,
+            slow: 10,
+            signal: 9,
+        });
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec!["adl:hlcv", "chaikin:3:10"]
+        );
+    }
+
+    #[test]
+    fn force_index_has_a_computed_dag_node() {
+        let mut indicator = indicator_stub("FORCE_INDEX");
+        indicator.period = 13;
+        assert_eq!(indicator_nodes(&indicator), vec!["force:close:volume:13"]);
+    }
+
+    #[test]
+    fn ppo_has_computed_dag_nodes() {
+        let mut indicator = indicator_stub("PPO");
+        indicator.macd = Some(MacdParams {
+            fast: 12,
+            slow: 26,
+            signal: 9,
+        });
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec!["ema:close:12", "ema:close:26", "ppo:12:26:9"]
+        );
     }
 
     #[test]
@@ -5281,6 +5861,80 @@ mod tests {
             latest_linear_regression(&bars, 5),
             linear_regression(&bars, 5).last().copied().flatten()
         );
+    }
+
+    #[test]
+    fn trix_matches_latest_value() {
+        let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());
+        assert_eq!(latest_trix(&bars, 5), trix(&bars, 5).last().copied().flatten());
+    }
+
+    #[test]
+    fn ultimate_oscillator_matches_latest_value() {
+        let bars = ohlc(
+            &(1..=40)
+                .map(|value| {
+                    let value = value as f64;
+                    (value + 1.0, value - 1.0, value)
+                })
+                .collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            latest_ultimate_oscillator(&bars, 7, 14, 28),
+            ultimate_oscillator(&bars, 7, 14, 28).last().copied().flatten()
+        );
+    }
+
+    #[test]
+    fn chaikin_oscillator_matches_latest_value() {
+        let mut bars = ohlc(
+            &(1..=20)
+                .map(|value| {
+                    let value = value as f64;
+                    (value + 1.0, value - 1.0, value)
+                })
+                .collect::<Vec<_>>(),
+        );
+        for (bar, volume) in bars.iter_mut().zip(1..=20) {
+            bar.volume = volume as f64;
+        }
+        let params = MacdParams {
+            fast: 3,
+            slow: 10,
+            signal: 9,
+        };
+        assert_eq!(
+            latest_chaikin_oscillator(&bars, params),
+            chaikin_oscillator(&bars, params).last().copied().flatten()
+        );
+    }
+
+    #[test]
+    fn force_index_matches_latest_value() {
+        let mut bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        for (bar, volume) in bars.iter_mut().zip(1..=20) {
+            bar.volume = volume as f64;
+        }
+        assert_eq!(
+            latest_force_index(&bars, 13),
+            force_index(&bars, 13).last().copied().flatten()
+        );
+    }
+
+    #[test]
+    fn ppo_matches_latest_values() {
+        let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());
+        let params = MacdParams {
+            fast: 12,
+            slow: 26,
+            signal: 9,
+        };
+        let outputs = ppo(&bars, params, &mut HashMap::new());
+        let latest = latest_ppo(&bars, params);
+        let index = bars.len() - 1;
+        assert_eq!(latest.0, output_at(&outputs, "ppo", index));
+        assert_eq!(latest.1, output_at(&outputs, "signal", index));
+        assert_eq!(latest.2, output_at(&outputs, "histogram", index));
     }
 
     #[test]

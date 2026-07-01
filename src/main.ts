@@ -585,8 +585,21 @@ function dagLayer(title: string, nodes: string[], outDegree: Map<string, number>
 }
 
 function indicatorLabel(indicator: Indicator) {
-  if (indicator.kind === "MACD") {
-    return `MACD ${indicator.config.fast}/${indicator.config.slow}/${indicator.config.signal}`;
+  if (indicator.kind === "MACD" || indicator.kind === "PPO") {
+    const label = indicator.kind === "MACD" ? "MACD" : "PPO";
+    return `${label} ${indicator.config.fast}/${indicator.config.slow}/${indicator.config.signal}`;
+  }
+  if (indicator.kind === "CHAIKIN_OSCILLATOR") {
+    return `CHAIKIN OSCILLATOR ${indicator.config.fast}/${indicator.config.slow}`;
+  }
+  if (indicator.kind === "ULTIMATE_OSCILLATOR") {
+    return `ULTIMATE OSCILLATOR ${indicator.config.period}/${indicator.config.stoch_period}/${indicator.config.smooth}`;
+  }
+  if (indicator.kind === "TRIX") {
+    return `TRIX ${indicator.config.period}`;
+  }
+  if (indicator.kind === "FORCE_INDEX") {
+    return `FORCE INDEX ${indicator.config.period}`;
   }
   if (indicator.kind === "BB") {
     return `BOLLINGER ${indicator.config.period}/${indicator.config.multiplier}`;
@@ -692,8 +705,16 @@ function readIndicatorConfig(kind: IndicatorKind) {
     }
     setConfigParam(config, param.name, value);
   }
-  if (kind === "MACD" && Number(config.slow) <= Number(config.fast)) {
-    setStatus("MACD requires slow > fast and positive fast/signal", "error");
+  if (
+    (kind === "MACD" || kind === "PPO" || kind === "CHAIKIN_OSCILLATOR") &&
+    Number(config.slow) <= Number(config.fast)
+  ) {
+    setStatus(
+      kind === "CHAIKIN_OSCILLATOR"
+        ? "CHAIKIN OSCILLATOR requires slow > fast"
+        : `${kind} requires slow > fast and positive fast/signal`,
+      "error",
+    );
     return undefined;
   }
   if (
@@ -718,6 +739,14 @@ function readIndicatorConfig(kind: IndicatorKind) {
   }
   if (kind === "STOCH_RSI" && (Number(config.stoch_period) < 1 || Number(config.signal) < 1)) {
     setStatus("STOCH_RSI stoch period and %D must be at least 1", "error");
+    return undefined;
+  }
+  if (
+    kind === "ULTIMATE_OSCILLATOR" &&
+    (Number(config.stoch_period) < Number(config.period) ||
+      Number(config.smooth) < Number(config.stoch_period))
+  ) {
+    setStatus("ULTIMATE OSCILLATOR requires short <= medium <= long", "error");
     return undefined;
   }
   return config;

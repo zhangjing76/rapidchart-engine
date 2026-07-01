@@ -284,7 +284,7 @@ let stream: WebSocket | undefined;
 let descriptors: IndicatorDescriptor[] = [];
 
 await initEngine();
-engine = new RapidChartEngine(symbolInput.value, intervalInput.value);
+engine = new RapidChartEngine();
 descriptors = engine.indicatorDescriptors();
 renderIndicatorPicker();
 await load();
@@ -306,7 +306,7 @@ async function load() {
   closeStream();
   detachIndicatorSeries();
   try {
-    engine = new RapidChartEngine(symbolInput.value, intervalInput.value);
+    engine = new RapidChartEngine();
     const bars = await fetchBars(symbolInput.value, intervalInput.value);
     engine.ingestBars(bars);
     candles.setData(engine.candles().map((bar: Bar) => ({ ...bar, time: bar.time as Time })));

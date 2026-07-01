@@ -118,8 +118,6 @@ struct DagEdge {
 
 #[wasm_bindgen]
 pub struct ChartEngine {
-    symbol: String,
-    timeframe: String,
     bars: Vec<Bar>,
     indicators: Vec<Indicator>,
     next_indicator_id: u32,
@@ -129,23 +127,13 @@ pub struct ChartEngine {
 #[wasm_bindgen]
 impl ChartEngine {
     #[wasm_bindgen(constructor)]
-    pub fn new(symbol: String, timeframe: String) -> Self {
+    pub fn new() -> Self {
         Self {
-            symbol,
-            timeframe,
             bars: Vec::new(),
             indicators: Vec::new(),
             next_indicator_id: 1,
             dag: DagDebug::default(),
         }
-    }
-
-    pub fn symbol(&self) -> String {
-        self.symbol.clone()
-    }
-
-    pub fn timeframe(&self) -> String {
-        self.timeframe.clone()
     }
 
     pub fn ingest_bars(&mut self, bars: JsValue) -> Result<(), JsValue> {
@@ -308,7 +296,7 @@ impl ChartEngine {
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let spacing = series_spacing_seconds(&self.timeframe, &self.bars);
+        let spacing = series_spacing_seconds(&self.bars);
         let series: Vec<_> = indicator
             .outputs
             .iter()
@@ -343,7 +331,7 @@ impl ChartEngine {
             .bars
             .last()
             .ok_or_else(|| JsValue::from_str("no bars"))?;
-        let spacing = series_spacing_seconds(&self.timeframe, &self.bars);
+        let spacing = series_spacing_seconds(&self.bars);
         let points: Vec<_> = indicator
             .outputs
             .iter()
@@ -2304,31 +2292,15 @@ fn output_at(outputs: &[IndicatorOutput], name: &str, index: usize) -> Option<f6
         .flatten()
 }
 
-fn series_spacing_seconds(timeframe: &str, bars: &[Bar]) -> u32 {
-    parse_timeframe_seconds(timeframe).or_else(|| {
-        bars.windows(2)
-            .filter_map(|window| {
-                let previous = window[0].time;
-                let current = window[1].time;
-                (current > previous).then_some(current - previous)
-            })
-            .min()
-    })
-    .unwrap_or(60)
-}
-
-fn parse_timeframe_seconds(timeframe: &str) -> Option<u32> {
-    let unit = timeframe.chars().last()?;
-    let value = timeframe[..timeframe.len().checked_sub(unit.len_utf8())?]
-        .parse::<u32>()
-        .ok()?;
-    match unit {
-        'm' => Some(value * 60),
-        'h' => Some(value * 60 * 60),
-        'd' => Some(value * 60 * 60 * 24),
-        'w' => Some(value * 60 * 60 * 24 * 7),
-        _ => None,
-    }
+fn series_spacing_seconds(bars: &[Bar]) -> u32 {
+    bars.windows(2)
+        .filter_map(|window| {
+            let previous = window[0].time;
+            let current = window[1].time;
+            (current > previous).then_some(current - previous)
+        })
+        .min()
+        .unwrap_or(60)
 }
 
 fn indicator_output_shift(indicator: &Indicator, output_name: &str) -> i32 {
@@ -7287,7 +7259,7 @@ mod tests {
 
     #[test]
     fn remove_indicator_reports_if_it_removed_one() {
-        let mut engine = ChartEngine::new("BTCUSDT".into(), "1h".into());
+        let mut engine = ChartEngine::new();
         let id = engine
             .add_indicator_from_config(IndicatorConfig {
                 kind: "SMA".to_string(),
@@ -7311,7 +7283,7 @@ mod tests {
 
     #[test]
     fn vwap_does_not_require_period() {
-        let mut engine = ChartEngine::new("BTCUSDT".into(), "1h".into());
+        let mut engine = ChartEngine::new();
         assert!(engine
             .add_indicator_from_config(IndicatorConfig {
                 kind: "VWAP".to_string(),

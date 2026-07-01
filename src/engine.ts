@@ -128,16 +128,8 @@ export async function initEngine(
 export class RapidChartEngine {
   readonly #engine: WasmChartEngine;
 
-  constructor(symbol: string, timeframe: string) {
-    this.#engine = new WasmChartEngine(symbol, timeframe);
-  }
-
-  symbol(): string {
-    return this.#engine.symbol();
-  }
-
-  timeframe(): string {
-    return this.#engine.timeframe();
+  constructor() {
+    this.#engine = new WasmChartEngine();
   }
 
   ingestBars(bars: Bar[]): void {

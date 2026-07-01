@@ -22,7 +22,7 @@ import { RapidChartEngine, initEngine } from "./src/engine";
 
 await initEngine();
 
-const engine = new RapidChartEngine("BTCUSDT", "1h");
+const engine = new RapidChartEngine();
 ```
 
 ### Load candles
@@ -132,7 +132,7 @@ smaLine.setData(
 
 ### Wrapper API
 
-- `new RapidChartEngine(symbol, timeframe)`
+- `new RapidChartEngine()`
 - `ingestBars(bars)`
 - `candles()`
 - `addIndicator(config)`

@@ -1,0 +1,19 @@
+{
+  "name": "rapidchart-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:wasm": "wasm-pack build --target web --out-dir pkg",
+    "dev": "npm run build:wasm && vite --host 127.0.0.1",
+    "build": "npm run build:wasm && tsc && vite build"
+  },
+  "dependencies": {
+    "lightweight-charts": "^5.0.8",
+    "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "wasm-pack": "^0.13.1"
+  }
+}

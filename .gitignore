@@ -1,0 +1,8 @@
+node_modules/
+target/
+dist/
+pkg/
+
+WASM_Charting_Engine_Architecture_Spec.md
+WASM_Charting_Engine_Design.md
+todo.txt

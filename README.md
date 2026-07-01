@@ -156,6 +156,11 @@ All configs require `kind`.
 - `ATR`: `{ kind: "ATR", period }`
 - `ADX`: `{ kind: "ADX", period }`
 - `TRIX`: `{ kind: "TRIX", period }`
+- `DEMA`: `{ kind: "DEMA", period }`
+- `TEMA`: `{ kind: "TEMA", period }`
+- `TRIMA`: `{ kind: "TRIMA", period }`
+- `STDDEV`: `{ kind: "STDDEV", period }`
+- `ENVELOPE`: `{ kind: "ENVELOPE", period, multiplier }`
 - `TSI`: `{ kind: "TSI", period, stoch_period }`
 - `KST`: `{ kind: "KST" }`
 - `BOP`: `{ kind: "BOP" }`
@@ -460,6 +465,11 @@ That target is still useful, but the current repo takes the lazy path first:
 - `STOCHASTIC`
 - `ADX` with `ADX`, `+DI`, and `-DI`
 - `TRIX`
+- `DEMA`
+- `TEMA`
+- `TRIMA`
+- `STDDEV`
+- `ENVELOPE`
 - `TSI`
 - `KST`
 - `BOP`

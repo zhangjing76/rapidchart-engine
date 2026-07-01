@@ -203,6 +203,11 @@ impl ChartEngine {
             && kind != "WMA"
             && kind != "HMA"
             && kind != "LINEAR_REGRESSION"
+            && kind != "DEMA"
+            && kind != "TEMA"
+            && kind != "TRIMA"
+            && kind != "STDDEV"
+            && kind != "ENVELOPE"
             && kind != "TRIX"
             && kind != "TSI"
             && kind != "KST"
@@ -218,7 +223,7 @@ impl ChartEngine {
             && kind != "MFI"
         {
             return Err(JsValue::from_str(
-                "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, TRIX, TSI, KST, BOP, DPO, MOMENTUM, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
+                "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, DEMA, TEMA, TRIMA, STDDEV, ENVELOPE, TRIX, TSI, KST, BOP, DPO, MOMENTUM, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
             ));
         }
         let macd = if kind == "MACD" || kind == "PPO" || kind == "CHAIKIN_OSCILLATOR" {
@@ -570,6 +575,29 @@ impl ChartEngine {
                     let value = latest_linear_regression(bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
+                "DEMA" => {
+                    let value = latest_dema(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "TEMA" => {
+                    let value = latest_tema(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "TRIMA" => {
+                    let value = latest_trima(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "STDDEV" => {
+                    let value = latest_stddev(bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "ENVELOPE" => {
+                    let (upper, middle, lower) =
+                        latest_envelope(bars, indicator.period, indicator.multiplier);
+                    upsert_output(&mut indicator.outputs, "upper", target_len, upper);
+                    upsert_output(&mut indicator.outputs, "middle", target_len, middle);
+                    upsert_output(&mut indicator.outputs, "lower", target_len, lower);
+                }
                 "TRIX" => {
                     let value = latest_trix(bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
@@ -709,6 +737,11 @@ fn supports_incremental(kind: &str) -> bool {
             | "HMA"
             | "LINEAR_REGRESSION"
             | "TRIX"
+            | "DEMA"
+            | "TEMA"
+            | "TRIMA"
+            | "STDDEV"
+            | "ENVELOPE"
             | "TSI"
             | "KST"
             | "BOP"
@@ -756,7 +789,37 @@ fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         period_descriptor("WMA", "WMA", "overlay", 20),
         period_descriptor("HMA", "HMA", "overlay", 20),
         period_descriptor("LINEAR_REGRESSION", "LINEAR REGRESSION", "overlay", 20),
+        period_descriptor("DEMA", "DEMA", "overlay", 20),
+        period_descriptor("TEMA", "TEMA", "overlay", 20),
+        period_descriptor("TRIMA", "TRIMA", "overlay", 20),
+        period_descriptor("STDDEV", "STDDEV", "separate", 20),
         period_descriptor("TRIX", "TRIX", "separate", 15),
+        IndicatorDescriptor {
+            kind: "ENVELOPE",
+            name: "ENVELOPE",
+            pane: "overlay",
+            params: vec![
+                ParamDescriptor {
+                    name: "period",
+                    label: "Period",
+                    default: 20.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "multiplier",
+                    label: "Multiplier %",
+                    default: 2.0,
+                    min: 0.1,
+                    step: "0.1",
+                },
+            ],
+            outputs: vec![
+                output_descriptor("upper", "line", "overlay", "#2563eb"),
+                output_descriptor("middle", "line", "overlay", "#64748b"),
+                output_descriptor("lower", "line", "overlay", "#dc2626"),
+            ],
+        },
         IndicatorDescriptor {
             kind: "TSI",
             name: "TSI",
@@ -1340,6 +1403,28 @@ fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("hma:close:{}", indicator.period),
         ],
         "LINEAR_REGRESSION" => vec![format!("linreg:close:{}", indicator.period)],
+        "DEMA" => vec![
+            format!("ema:close:{}", indicator.period),
+            format!("dema:ema2:{}", indicator.period),
+            format!("dema:value:{}", indicator.period),
+        ],
+        "TEMA" => vec![
+            format!("ema:close:{}", indicator.period),
+            format!("tema:ema2:{}", indicator.period),
+            format!("tema:ema3:{}", indicator.period),
+            format!("tema:value:{}", indicator.period),
+        ],
+        "TRIMA" => vec![
+            format!("sma:close:{}", indicator.period),
+            format!("trima:value:{}", indicator.period),
+        ],
+        "STDDEV" => vec![format!("stddev:close:{}", indicator.period)],
+        "ENVELOPE" => vec![
+            format!("sma:close:{}", indicator.period),
+            format!("envelope:upper:{}:{}", indicator.period, indicator.multiplier),
+            format!("envelope:middle:{}:{}", indicator.period, indicator.multiplier),
+            format!("envelope:lower:{}:{}", indicator.period, indicator.multiplier),
+        ],
         "TRIX" => vec![
             format!("ema:close:{}", indicator.period),
             format!("trix:ema2:{}", indicator.period),
@@ -1515,6 +1600,58 @@ fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Vec<DagEdge> 
                 edge("low", &cci),
                 edge("close", &cci),
                 edge(&cci, indicator_node),
+            ]
+        }
+        "DEMA" => {
+            let ema1 = format!("ema:close:{}", indicator.period);
+            let ema2 = format!("dema:ema2:{}", indicator.period);
+            let dema = format!("dema:value:{}", indicator.period);
+            vec![
+                edge("close", &ema1),
+                edge(&ema1, &ema2),
+                edge(&ema2, &dema),
+                edge(&dema, indicator_node),
+            ]
+        }
+        "TEMA" => {
+            let ema1 = format!("ema:close:{}", indicator.period);
+            let ema2 = format!("tema:ema2:{}", indicator.period);
+            let ema3 = format!("tema:ema3:{}", indicator.period);
+            let tema = format!("tema:value:{}", indicator.period);
+            vec![
+                edge("close", &ema1),
+                edge(&ema1, &ema2),
+                edge(&ema2, &ema3),
+                edge(&ema3, &tema),
+                edge(&tema, indicator_node),
+            ]
+        }
+        "TRIMA" => {
+            let sma1 = format!("sma:close:{}", indicator.period);
+            let trima = format!("trima:value:{}", indicator.period);
+            vec![
+                edge("close", &sma1),
+                edge(&sma1, &trima),
+                edge(&trima, indicator_node),
+            ]
+        }
+        "STDDEV" => {
+            let stddev = format!("stddev:close:{}", indicator.period);
+            vec![edge("close", &stddev), edge(&stddev, indicator_node)]
+        }
+        "ENVELOPE" => {
+            let sma = format!("sma:close:{}", indicator.period);
+            let upper = format!("envelope:upper:{}:{}", indicator.period, indicator.multiplier);
+            let middle = format!("envelope:middle:{}:{}", indicator.period, indicator.multiplier);
+            let lower = format!("envelope:lower:{}:{}", indicator.period, indicator.multiplier);
+            vec![
+                edge("close", &sma),
+                edge(&sma, &upper),
+                edge(&sma, &middle),
+                edge(&sma, &lower),
+                edge(&upper, indicator_node),
+                edge(&middle, indicator_node),
+                edge(&lower, indicator_node),
             ]
         }
         "WMA" => {
@@ -1905,6 +2042,11 @@ fn validate_indicator(
         && kind != "ICHIMOKU"
         && kind != "PIVOT_POINTS"
         && kind != "ADL"
+        && kind != "DEMA"
+        && kind != "TEMA"
+        && kind != "TRIMA"
+        && kind != "STDDEV"
+        && kind != "ENVELOPE"
         && kind != "KST"
         && kind != "BOP"
         && period == 0
@@ -1922,7 +2064,7 @@ fn validate_indicator(
         return Err(JsValue::from_str(
             "ULTIMATE_OSCILLATOR params must satisfy short <= medium <= long",
         ));
-    } else if (kind == "BB" || kind == "SUPERTREND" || kind == "KELTNER")
+    } else if (kind == "BB" || kind == "SUPERTREND" || kind == "KELTNER" || kind == "ENVELOPE")
         && (!multiplier.is_finite() || multiplier <= 0.0)
     {
         return Err(JsValue::from_str("multiplier must be greater than zero"));
@@ -2241,6 +2383,221 @@ fn linear_regression_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) ->
 
 fn latest_linear_regression(bars: &[Bar], period: usize) -> Option<f64> {
     linear_regression(bars, period).last().copied().flatten()
+}
+
+fn dema(bars: &[Bar], period: usize) -> Series {
+    let ema1 = ema_close(bars, period, &mut HashMap::new());
+    let ema2 = ema_series(&ema1, period);
+    ema1.iter()
+        .zip(ema2.iter())
+        .map(|(first, second)| match (first, second) {
+            (Some(first), Some(second)) => Some(2.0 * first - second),
+            _ => None,
+        })
+        .collect()
+}
+
+fn dema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("dema:value:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let ema1 = ema_close(bars, period, nodes);
+    let ema2_key = format!("dema:ema2:{period}");
+    let ema2 = nodes
+        .get(&ema2_key)
+        .cloned()
+        .unwrap_or_else(|| ema_series(&ema1, period));
+    nodes.insert(ema2_key, ema2.clone());
+    let values: Vec<_> = ema1
+        .iter()
+        .zip(ema2.iter())
+        .map(|(first, second)| match (first, second) {
+            (Some(first), Some(second)) => Some(2.0 * first - second),
+            _ => None,
+        })
+        .collect();
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_dema(bars: &[Bar], period: usize) -> Option<f64> {
+    dema(bars, period).last().copied().flatten()
+}
+
+fn tema(bars: &[Bar], period: usize) -> Series {
+    let ema1 = ema_close(bars, period, &mut HashMap::new());
+    let ema2 = ema_series(&ema1, period);
+    let ema3 = ema_series(&ema2, period);
+    ema1.iter()
+        .zip(ema2.iter())
+        .zip(ema3.iter())
+        .map(|((first, second), third)| match (first, second, third) {
+            (Some(first), Some(second), Some(third)) => Some(3.0 * first - 3.0 * second + third),
+            _ => None,
+        })
+        .collect()
+}
+
+fn tema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("tema:value:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let ema1 = ema_close(bars, period, nodes);
+    let ema2_key = format!("tema:ema2:{period}");
+    let ema3_key = format!("tema:ema3:{period}");
+    let ema2 = nodes
+        .get(&ema2_key)
+        .cloned()
+        .unwrap_or_else(|| ema_series(&ema1, period));
+    nodes.insert(ema2_key, ema2.clone());
+    let ema3 = nodes
+        .get(&ema3_key)
+        .cloned()
+        .unwrap_or_else(|| ema_series(&ema2, period));
+    nodes.insert(ema3_key, ema3.clone());
+    let values: Vec<_> = ema1
+        .iter()
+        .zip(ema2.iter())
+        .zip(ema3.iter())
+        .map(|((first, second), third)| match (first, second, third) {
+            (Some(first), Some(second), Some(third)) => Some(3.0 * first - 3.0 * second + third),
+            _ => None,
+        })
+        .collect();
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_tema(bars: &[Bar], period: usize) -> Option<f64> {
+    tema(bars, period).last().copied().flatten()
+}
+
+fn trima(bars: &[Bar], period: usize) -> Series {
+    sma_from_series(&sma_close(bars, period, &mut HashMap::new()), period)
+}
+
+fn trima_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("trima:value:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let values = sma_from_series(&sma_close(bars, period, nodes), period);
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_trima(bars: &[Bar], period: usize) -> Option<f64> {
+    trima(bars, period).last().copied().flatten()
+}
+
+fn stddev(bars: &[Bar], period: usize) -> Series {
+    let mut out = vec![None; bars.len()];
+    if period == 0 || bars.len() < period {
+        return out;
+    }
+    for index in period - 1..bars.len() {
+        let window = &bars[index + 1 - period..=index];
+        let mean = window.iter().map(|bar| bar.close).sum::<f64>() / period as f64;
+        let variance = window
+            .iter()
+            .map(|bar| {
+                let diff = bar.close - mean;
+                diff * diff
+            })
+            .sum::<f64>()
+            / period as f64;
+        out[index] = Some(variance.sqrt());
+    }
+    out
+}
+
+fn stddev_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("stddev:close:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return values.clone();
+    }
+    let values = stddev(bars, period);
+    nodes.insert(key, values.clone());
+    values
+}
+
+fn latest_stddev(bars: &[Bar], period: usize) -> Option<f64> {
+    stddev(bars, period).last().copied().flatten()
+}
+
+fn envelope(
+    bars: &[Bar],
+    period: usize,
+    multiplier: f64,
+    nodes: &mut NodeCache,
+) -> Vec<IndicatorOutput> {
+    let middle = sma_close(bars, period, nodes);
+    let key_base = format!("envelope:{period}:{multiplier}");
+    let upper_key = format!("envelope:upper:{period}:{multiplier}");
+    let middle_key = format!("envelope:middle:{period}:{multiplier}");
+    let lower_key = format!("envelope:lower:{period}:{multiplier}");
+    if let (Some(upper), Some(middle), Some(lower)) = (
+        nodes.get(&upper_key),
+        nodes.get(&middle_key),
+        nodes.get(&lower_key),
+    ) {
+        return vec![
+            IndicatorOutput {
+                name: "upper".to_string(),
+                values: upper.clone(),
+            },
+            IndicatorOutput {
+                name: "middle".to_string(),
+                values: middle.clone(),
+            },
+            IndicatorOutput {
+                name: "lower".to_string(),
+                values: lower.clone(),
+            },
+        ];
+    }
+    let upper: Vec<_> = middle
+        .iter()
+        .map(|value| value.map(|middle| middle * (1.0 + multiplier / 100.0)))
+        .collect();
+    let lower: Vec<_> = middle
+        .iter()
+        .map(|value| value.map(|middle| middle * (1.0 - multiplier / 100.0)))
+        .collect();
+    nodes.insert(upper_key, upper.clone());
+    nodes.insert(middle_key, middle.clone());
+    nodes.insert(lower_key, lower.clone());
+    nodes.insert(key_base, middle.clone());
+    vec![
+        IndicatorOutput {
+            name: "upper".to_string(),
+            values: upper,
+        },
+        IndicatorOutput {
+            name: "middle".to_string(),
+            values: middle,
+        },
+        IndicatorOutput {
+            name: "lower".to_string(),
+            values: lower,
+        },
+    ]
+}
+
+fn latest_envelope(
+    bars: &[Bar],
+    period: usize,
+    multiplier: f64,
+) -> (Option<f64>, Option<f64>, Option<f64>) {
+    let middle = latest_sma(bars, period);
+    let band = middle.map(|middle| middle * multiplier / 100.0);
+    (
+        middle.zip(band).map(|(middle, band)| middle + band),
+        middle,
+        middle.zip(band).map(|(middle, band)| middle - band),
+    )
 }
 
 fn trix(bars: &[Bar], period: usize) -> Series {
@@ -5114,6 +5471,57 @@ mod tests {
     }
 
     #[test]
+    fn dema_has_computed_dag_nodes() {
+        let mut indicator = indicator_stub("DEMA");
+        indicator.period = 15;
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec!["ema:close:15", "dema:ema2:15", "dema:value:15"]
+        );
+    }
+
+    #[test]
+    fn tema_has_computed_dag_nodes() {
+        let mut indicator = indicator_stub("TEMA");
+        indicator.period = 15;
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec!["ema:close:15", "tema:ema2:15", "tema:ema3:15", "tema:value:15"]
+        );
+    }
+
+    #[test]
+    fn trima_has_computed_dag_nodes() {
+        let mut indicator = indicator_stub("TRIMA");
+        indicator.period = 20;
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec!["sma:close:20", "trima:value:20"]
+        );
+    }
+
+    #[test]
+    fn stddev_has_a_computed_dag_node() {
+        let mut indicator = indicator_stub("STDDEV");
+        indicator.period = 20;
+        assert_eq!(indicator_nodes(&indicator), vec!["stddev:close:20"]);
+    }
+
+    #[test]
+    fn envelope_has_computed_dag_nodes() {
+        let indicator = indicator_stub("ENVELOPE");
+        assert_eq!(
+            indicator_nodes(&indicator),
+            vec![
+                "sma:close:14",
+                "envelope:upper:14:2",
+                "envelope:middle:14:2",
+                "envelope:lower:14:2",
+            ]
+        );
+    }
+
+    #[test]
     fn trix_has_computed_dag_nodes() {
         let mut indicator = indicator_stub("TRIX");
         indicator.period = 15;
@@ -6225,6 +6633,41 @@ mod tests {
             latest_linear_regression(&bars, 5),
             linear_regression(&bars, 5).last().copied().flatten()
         );
+    }
+
+    #[test]
+    fn dema_matches_latest_value() {
+        let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        assert_eq!(latest_dema(&bars, 5), dema(&bars, 5).last().copied().flatten());
+    }
+
+    #[test]
+    fn tema_matches_latest_value() {
+        let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        assert_eq!(latest_tema(&bars, 5), tema(&bars, 5).last().copied().flatten());
+    }
+
+    #[test]
+    fn trima_matches_latest_value() {
+        let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        assert_eq!(latest_trima(&bars, 5), trima(&bars, 5).last().copied().flatten());
+    }
+
+    #[test]
+    fn stddev_matches_latest_value() {
+        let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        assert_eq!(latest_stddev(&bars, 5), stddev(&bars, 5).last().copied().flatten());
+    }
+
+    #[test]
+    fn envelope_matches_latest_values() {
+        let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        let outputs = envelope(&bars, 5, 2.0, &mut HashMap::new());
+        let latest = latest_envelope(&bars, 5, 2.0);
+
+        assert_eq!(latest.0, output_at(&outputs, "upper", bars.len() - 1));
+        assert_eq!(latest.1, output_at(&outputs, "middle", bars.len() - 1));
+        assert_eq!(latest.2, output_at(&outputs, "lower", bars.len() - 1));
     }
 
     #[test]

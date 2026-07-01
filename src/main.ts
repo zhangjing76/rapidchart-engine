@@ -598,6 +598,21 @@ function indicatorLabel(indicator: Indicator) {
   if (indicator.kind === "TRIX") {
     return `TRIX ${indicator.config.period}`;
   }
+  if (indicator.kind === "DEMA") {
+    return `DEMA ${indicator.config.period}`;
+  }
+  if (indicator.kind === "TEMA") {
+    return `TEMA ${indicator.config.period}`;
+  }
+  if (indicator.kind === "TRIMA") {
+    return `TRIMA ${indicator.config.period}`;
+  }
+  if (indicator.kind === "STDDEV") {
+    return `STDDEV ${indicator.config.period}`;
+  }
+  if (indicator.kind === "ENVELOPE") {
+    return `ENVELOPE ${indicator.config.period}/${indicator.config.multiplier}`;
+  }
   if (indicator.kind === "TSI") {
     return `TSI ${indicator.config.period}/${indicator.config.stoch_period}`;
   }
@@ -758,6 +773,10 @@ function readIndicatorConfig(kind: IndicatorKind) {
   }
   if (kind === "TSI" && Number(config.stoch_period) < 1) {
     setStatus("TSI short period must be at least 1", "error");
+    return undefined;
+  }
+  if (kind === "ENVELOPE" && Number(config.multiplier) <= 0) {
+    setStatus("ENVELOPE multiplier must be greater than zero", "error");
     return undefined;
   }
   if (

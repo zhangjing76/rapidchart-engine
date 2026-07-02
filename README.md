@@ -77,8 +77,10 @@ const macdId = engine.addIndicator({
 
 ```ts
 const candles = engine.candles();
+const candleColumns = engine.candleColumns();
 const smaSeries = engine.indicatorSeries(smaId);
 const rsiSeries = engine.indicatorSeries(rsiId);
+const macdValues = engine.indicatorValueSeries(macdId);
 ```
 
 `indicatorSeries()` returns visible outputs only. Multi-output indicators such as `MACD`, `BOLLINGER`, `KELTNER`, `DONCHIAN`, `ADX`, and `STOCHASTIC` return one series per output.
@@ -86,6 +88,13 @@ const rsiSeries = engine.indicatorSeries(rsiId);
 The Rust/WASM layer returns raw indicator values. The TypeScript wrapper maps those values onto candle timestamps and applies visual shifts for chart-specific outputs such as `ICHIMOKU`.
 
 `candles()` remains the canonical market-data API. There is no separate `timeline()` API: Rust owns the full OHLCV history, and the TypeScript side reads candle times from `candles()` when it needs to build chart-ready points.
+
+For zero-copy groundwork, the wrapper also exposes columnar read APIs:
+
+- `candleColumns()` returns typed arrays for `time`, `open`, `high`, `low`, `close`, and `volume`
+- `indicatorValueSeries(id)` returns typed arrays of raw visible output values, using `NaN` for gaps
+
+Those accessors still materialize typed arrays today, but they define the API shape we can later back with shared memory or zero-copy views.
 
 ### Push live updates
 
@@ -139,7 +148,9 @@ smaLine.setData(
 - `new RapidChartEngine()`
 - `ingestBars(bars)`
 - `candles()`
+- `candleColumns()`
 - `addIndicator(config)`
+- `indicatorValueSeries(id)`
 - `indicatorSeries(id)`
 - `latestIndicatorPoints(id)`
 - `removeIndicator(id)`

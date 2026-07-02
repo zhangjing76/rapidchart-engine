@@ -26,6 +26,20 @@ export type IndicatorOutputSeries = {
   points: IndicatorPoint[];
 };
 
+export type CandleColumns = {
+  time: Uint32Array;
+  open: Float64Array;
+  high: Float64Array;
+  low: Float64Array;
+  close: Float64Array;
+  volume: Float64Array;
+};
+
+export type IndicatorValueSeries = {
+  output: string;
+  values: Float64Array;
+};
+
 type RawIndicatorOutput = {
   name: string;
   values: Array<number | null>;
@@ -155,6 +169,26 @@ export class RapidChartEngine {
     return this.#engine.candles() as Bar[];
   }
 
+  candleColumns(): CandleColumns {
+    const bars = this.candles();
+    const time = new Uint32Array(bars.length);
+    const open = new Float64Array(bars.length);
+    const high = new Float64Array(bars.length);
+    const low = new Float64Array(bars.length);
+    const close = new Float64Array(bars.length);
+    const volume = new Float64Array(bars.length);
+    for (let index = 0; index < bars.length; index += 1) {
+      const bar = bars[index]!;
+      time[index] = bar.time;
+      open[index] = bar.open;
+      high[index] = bar.high;
+      low[index] = bar.low;
+      close[index] = bar.close;
+      volume[index] = bar.volume;
+    }
+    return { time, open, high, low, close, volume };
+  }
+
   addIndicator(config: IndicatorConfig): number {
     const id = this.#engine.add_indicator_config(config);
     this.#configs.set(id, { ...config });
@@ -170,31 +204,38 @@ export class RapidChartEngine {
     return this.#engine.indicator_descriptors() as IndicatorDescriptor[];
   }
 
+  indicatorValueSeries(id: number): IndicatorValueSeries[] {
+    return (this.#engine.indicator_outputs_all(id) as RawIndicatorOutput[]).map((output) => ({
+      output: output.name,
+      values: floatValues(output.values),
+    }));
+  }
+
   // Render mapping stays in TS: Rust owns raw candle/output data, TS pairs values with times.
   indicatorSeries(id: number): IndicatorOutputSeries[] {
-    const outputs = this.#engine.indicator_outputs_all(id) as RawIndicatorOutput[];
-    const bars = this.candles();
-    const spacing = seriesSpacingSeconds(bars);
+    const outputs = this.indicatorValueSeries(id);
+    const candles = this.candleColumns();
+    const spacing = seriesSpacingSeconds(candles.time);
     const config = this.#configs.get(id);
     return outputs.map((output) => ({
-      output: output.name,
-      points: bars.map((bar, index) => ({
-        time: shiftedOutputTime(bar.time, spacing, indicatorOutputShift(config, output.name)),
-        value: output.values[index] ?? null,
+      output: output.output,
+      points: Array.from(candles.time, (time, index) => ({
+        time: shiftedOutputTime(time, spacing, indicatorOutputShift(config, output.output)),
+        value: Number.isNaN(output.values[index]!) ? null : output.values[index]!,
       })),
     }));
   }
 
   latestIndicatorPoints(id: number): IndicatorOutputPoint[] {
-    const bars = this.candles();
-    const bar = bars.at(-1);
-    if (!bar) return [];
+    const time = this.candleColumns().time;
+    const latestTime = time.at(-1);
+    if (latestTime === undefined) return [];
     const outputs = this.#engine.latest_indicator_values(id) as RawIndicatorLatestValue[];
-    const spacing = seriesSpacingSeconds(bars);
+    const spacing = seriesSpacingSeconds(time);
     const config = this.#configs.get(id);
     return outputs.map((output) => ({
       output: output.output,
-      time: shiftedOutputTime(bar.time, spacing, indicatorOutputShift(config, output.output)),
+      time: shiftedOutputTime(latestTime, spacing, indicatorOutputShift(config, output.output)),
       value: output.value,
     }));
   }
@@ -204,12 +245,21 @@ export class RapidChartEngine {
   }
 }
 
-function seriesSpacingSeconds(bars: Bar[]) {
-  return bars
-    .slice(1)
-    .map((bar, index) => bar.time - bars[index].time)
-    .filter((value) => value > 0)
-    .reduce((min, value) => Math.min(min, value), 60);
+function floatValues(values: Array<number | null>) {
+  const out = new Float64Array(values.length);
+  for (let index = 0; index < values.length; index += 1) {
+    out[index] = values[index] ?? Number.NaN;
+  }
+  return out;
+}
+
+function seriesSpacingSeconds(times: Uint32Array) {
+  let spacing = 60;
+  for (let index = 1; index < times.length; index += 1) {
+    const value = times[index]! - times[index - 1]!;
+    if (value > 0) spacing = Math.min(spacing, value);
+  }
+  return spacing;
 }
 
 function indicatorOutputShift(config: IndicatorConfig | undefined, output: string) {

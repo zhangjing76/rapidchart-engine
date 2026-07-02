@@ -18,12 +18,20 @@ main {
 }
 
 #toolbar,
+#layouts,
 #indicators,
 #dag {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: end;
+}
+
+#layouts {
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
 }
 
 label {
@@ -51,6 +59,10 @@ input {
 
 input {
   width: 88px;
+}
+
+#layout-name {
+  width: 144px;
 }
 
 fieldset {

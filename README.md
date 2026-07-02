@@ -4,7 +4,7 @@ Rust/WASM chart engine with a Vite test app using TradingView Lightweight Charts
 
 ## Library usage
 
-`rapidchart-engine` now includes a small typed TypeScript wrapper at [src/engine.ts](/Users/jingzhang/Projects/chart/src/engine.ts). The Rust engine computes candles and indicators; your app renders the returned series.
+`rapidchart-engine` now exposes a small typed TypeScript wrapper from [src/index.ts](/Users/jingzhang/Projects/chart/src/index.ts). The Rust engine computes candles and indicators; your app renders the returned series.
 
 ### Build the WASM package
 
@@ -18,7 +18,7 @@ This generates the browser-facing package in `pkg/`.
 ### Import and initialize
 
 ```ts
-import { RapidChartEngine, initEngine } from "./src/engine";
+import { RapidChartEngine, initEngine } from "rapidchart-engine";
 
 await initEngine();
 
@@ -83,6 +83,10 @@ const rsiSeries = engine.indicatorSeries(rsiId);
 
 `indicatorSeries()` returns visible outputs only. Multi-output indicators such as `MACD`, `BOLLINGER`, `KELTNER`, `DONCHIAN`, `ADX`, and `STOCHASTIC` return one series per output.
 
+The Rust/WASM layer returns raw indicator values. The TypeScript wrapper maps those values onto candle timestamps and applies visual shifts for chart-specific outputs such as `ICHIMOKU`.
+
+`candles()` remains the canonical market-data API. There is no separate `timeline()` API: Rust owns the full OHLCV history, and the TypeScript side reads candle times from `candles()` when it needs to build chart-ready points.
+
 ### Push live updates
 
 ```ts
@@ -143,6 +147,8 @@ smaLine.setData(
 - `dagDebug()`
 - `upsertBar(bar)`
 
+The local implementation lives in [src/engine.ts](/Users/jingzhang/Projects/chart/src/engine.ts), but consumers should import from the package root instead of reaching into `src/`.
+
 ### Supported indicator configs
 
 All configs require `kind`.
@@ -202,6 +208,7 @@ All configs require `kind`.
 - Renders candles, volume, and indicator series with Lightweight Charts
 - Uses a Rust engine compiled to WebAssembly for indicator computation
 - Shows a DAG debug view so you can inspect source, computed, and indicator nodes
+- Saves named test-app layouts in local storage and applies built-in indicator presets
 
 ## Engine design
 

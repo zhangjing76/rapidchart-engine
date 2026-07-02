@@ -26,6 +26,16 @@ export type IndicatorOutputSeries = {
   points: IndicatorPoint[];
 };
 
+type RawIndicatorOutput = {
+  name: string;
+  values: Array<number | null>;
+};
+
+type RawIndicatorLatestValue = {
+  output: string;
+  value: number | null;
+};
+
 export type IndicatorKind =
   | "SMA"
   | "EMA"
@@ -127,6 +137,7 @@ export async function initEngine(
 
 export class RapidChartEngine {
   readonly #engine: WasmChartEngine;
+  #configs = new Map<number, IndicatorConfig>();
 
   constructor() {
     this.#engine = new WasmChartEngine();
@@ -145,10 +156,13 @@ export class RapidChartEngine {
   }
 
   addIndicator(config: IndicatorConfig): number {
-    return this.#engine.add_indicator_config(config);
+    const id = this.#engine.add_indicator_config(config);
+    this.#configs.set(id, { ...config });
+    return id;
   }
 
   removeIndicator(id: number): boolean {
+    this.#configs.delete(id);
     return this.#engine.remove_indicator(id);
   }
 
@@ -156,15 +170,57 @@ export class RapidChartEngine {
     return this.#engine.indicator_descriptors() as IndicatorDescriptor[];
   }
 
+  // Render mapping stays in TS: Rust owns raw candle/output data, TS pairs values with times.
   indicatorSeries(id: number): IndicatorOutputSeries[] {
-    return this.#engine.indicator_series_all(id) as IndicatorOutputSeries[];
+    const outputs = this.#engine.indicator_outputs_all(id) as RawIndicatorOutput[];
+    const bars = this.candles();
+    const spacing = seriesSpacingSeconds(bars);
+    const config = this.#configs.get(id);
+    return outputs.map((output) => ({
+      output: output.name,
+      points: bars.map((bar, index) => ({
+        time: shiftedOutputTime(bar.time, spacing, indicatorOutputShift(config, output.name)),
+        value: output.values[index] ?? null,
+      })),
+    }));
   }
 
   latestIndicatorPoints(id: number): IndicatorOutputPoint[] {
-    return this.#engine.latest_indicator_points(id) as IndicatorOutputPoint[];
+    const bars = this.candles();
+    const bar = bars.at(-1);
+    if (!bar) return [];
+    const outputs = this.#engine.latest_indicator_values(id) as RawIndicatorLatestValue[];
+    const spacing = seriesSpacingSeconds(bars);
+    const config = this.#configs.get(id);
+    return outputs.map((output) => ({
+      output: output.output,
+      time: shiftedOutputTime(bar.time, spacing, indicatorOutputShift(config, output.output)),
+      value: output.value,
+    }));
   }
 
   dagDebug(): DagDebug {
     return this.#engine.dag_debug() as DagDebug;
   }
+}
+
+function seriesSpacingSeconds(bars: Bar[]) {
+  return bars
+    .slice(1)
+    .map((bar, index) => bar.time - bars[index].time)
+    .filter((value) => value > 0)
+    .reduce((min, value) => Math.min(min, value), 60);
+}
+
+function indicatorOutputShift(config: IndicatorConfig | undefined, output: string) {
+  if (config?.kind !== "ICHIMOKU") return 0;
+  const shift = config.kijun_period ?? 26;
+  if (output === "senkou_a" || output === "senkou_b") return shift;
+  if (output === "chikou") return -shift;
+  return 0;
+}
+
+function shiftedOutputTime(baseTime: number, spacing: number, shift: number) {
+  const delta = spacing * Math.abs(shift);
+  return shift >= 0 ? baseTime + delta : baseTime - delta;
 }

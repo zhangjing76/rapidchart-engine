@@ -24,7 +24,7 @@ import {
   type ParamDescriptor,
   RapidChartEngine,
   initEngine,
-} from "./engine";
+} from "./index";
 import "./style.css";
 
 type IndicatorPoint = {
@@ -50,11 +50,52 @@ type Indicator = {
   cloud?: IndicatorCloud;
 };
 
+type LayoutState = {
+  name: string;
+  symbol: string;
+  interval: string;
+  indicators: IndicatorConfig[];
+};
+
+type IndicatorPreset = {
+  name: string;
+  indicators: IndicatorConfig[];
+};
+
 const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"];
 const intervals = ["1m", "5m", "15m", "1h", "4h", "1d"];
 const colors = ["#2563eb", "#dc2626", "#059669", "#9333ea", "#ea580c"];
 const ichimokuBullCloud = "rgba(5, 150, 105, 0.18)";
 const ichimokuBearCloud = "rgba(220, 38, 38, 0.18)";
+const layoutStorageKey = "rapidchart.layouts";
+const presets: IndicatorPreset[] = [
+  {
+    name: "Trend Stack",
+    indicators: [
+      { kind: "EMA", period: 20 },
+      { kind: "EMA", period: 50 },
+      { kind: "ADX", period: 14 },
+      { kind: "SUPERTREND", period: 10, multiplier: 3 },
+    ],
+  },
+  {
+    name: "Momentum Stack",
+    indicators: [
+      { kind: "MACD", fast: 12, slow: 26, signal: 9 },
+      { kind: "RSI", period: 14 },
+      { kind: "ROC", period: 14 },
+      { kind: "VWMA", period: 20 },
+    ],
+  },
+  {
+    name: "Mean Reversion",
+    indicators: [
+      { kind: "BB", period: 20, multiplier: 2 },
+      { kind: "STARC", period: 15, multiplier: 2 },
+      { kind: "RSI", period: 14 },
+    ],
+  },
+];
 
 type CloudPoint = {
   time: number;
@@ -243,6 +284,15 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
       <fieldset id="params"></fieldset>
       <button type="submit">Add</button>
     </form>
+    <section id="layouts">
+      <label>Layout <select id="layout-select"></select></label>
+      <label>Name <input id="layout-name" type="text" maxlength="40" placeholder="BTC trend" /></label>
+      <button id="layout-save" type="button">Save</button>
+      <button id="layout-load" type="button">Load</button>
+      <button id="layout-delete" type="button">Delete</button>
+      <label>Preset <select id="preset-select"></select></label>
+      <button id="preset-apply" type="button">Apply Preset</button>
+    </section>
     <section id="dag"></section>
     <section id="chart"></section>
     <section id="indicators"></section>
@@ -257,6 +307,13 @@ const toolbar = document.querySelector<HTMLFormElement>("#toolbar")!;
 const symbolInput = document.querySelector<HTMLSelectElement>("#symbol")!;
 const intervalInput = document.querySelector<HTMLSelectElement>("#interval")!;
 const kindInput = document.querySelector<HTMLSelectElement>("#kind")!;
+const layoutSelect = document.querySelector<HTMLSelectElement>("#layout-select")!;
+const layoutNameInput = document.querySelector<HTMLInputElement>("#layout-name")!;
+const saveLayoutButton = document.querySelector<HTMLButtonElement>("#layout-save")!;
+const loadLayoutButton = document.querySelector<HTMLButtonElement>("#layout-load")!;
+const deleteLayoutButton = document.querySelector<HTMLButtonElement>("#layout-delete")!;
+const presetSelect = document.querySelector<HTMLSelectElement>("#preset-select")!;
+const applyPresetButton = document.querySelector<HTMLButtonElement>("#preset-apply")!;
 const params = document.querySelector<HTMLFieldSetElement>("#params")!;
 const status = document.querySelector<HTMLParagraphElement>("#status")!;
 const indicatorList = document.querySelector<HTMLElement>("#indicators")!;
@@ -287,6 +344,8 @@ await initEngine();
 engine = new RapidChartEngine();
 descriptors = engine.indicatorDescriptors();
 renderIndicatorPicker();
+renderLayoutPicker();
+renderPresetPicker();
 await load();
 
 toolbar.addEventListener("submit", (event) => {
@@ -300,6 +359,11 @@ indicatorList.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-id]");
   if (button) removeIndicator(Number(button.dataset.id));
 });
+layoutSelect.addEventListener("change", syncLayoutName);
+saveLayoutButton.addEventListener("click", saveLayout);
+loadLayoutButton.addEventListener("click", () => void loadSelectedLayout());
+deleteLayoutButton.addEventListener("click", deleteSelectedLayout);
+applyPresetButton.addEventListener("click", applySelectedPreset);
 
 async function load() {
   setStatus("Loading...");
@@ -360,6 +424,14 @@ function addIndicator(kind: IndicatorKind) {
   attachIndicator(indicator, indicators.length - 1);
   renderIndicatorList();
   renderDag();
+}
+
+function indicatorFromConfig(config: IndicatorConfig): Indicator {
+  return {
+    kind: config.kind,
+    config: { ...config },
+    series: [],
+  };
 }
 
 function attachIndicator(indicator: Indicator, index: number) {
@@ -540,6 +612,13 @@ function detachIndicatorSeries() {
   }
 }
 
+function clearIndicators() {
+  detachIndicatorSeries();
+  indicators = [];
+  renderIndicatorList();
+  renderDag();
+}
+
 function renderIndicatorList() {
   indicatorList.replaceChildren(
     ...indicators.map((indicator, index) => {
@@ -568,7 +647,7 @@ function renderDag() {
       ${dagLayer("Computed", computed, outDegree)}
       ${dagLayer("Indicators", indicatorNodes, outDegree)}
     </div>
-    <div class="dag-edges">${graph.edges.map((edge) => `<span>${edge.from} -> ${edge.to}</span>`).join("") || "<span>none</span>"}</div>
+    <div class="dag-edges">${graph.edges.map((edge) => `<span>${formatDagNode(edge.from)} -> ${formatDagNode(edge.to)}</span>`).join("") || "<span>none</span>"}</div>
   `;
 }
 
@@ -578,10 +657,25 @@ function dagLayer(title: string, nodes: string[], outDegree: Map<string, number>
       <b>${title}</b>
       ${(nodes.length ? nodes : ["none"]).map((node) => {
         const shared = (outDegree.get(node) ?? 0) > 1 ? " shared" : "";
-        return `<span class="dag-node${shared}">${node}</span>`;
+        return `<span class="dag-node${shared}">${formatDagNode(node)}</span>`;
       }).join("")}
     </section>
   `;
+}
+
+function formatDagNode(node: string) {
+  if (node === "none") return node;
+  if (node.includes("#")) {
+    const [kind, id] = node.split("#");
+    return `${formatDagToken(kind)} #${id}`;
+  }
+  if (!node.includes(":")) return formatDagToken(node);
+  const [kind, ...args] = node.split(":");
+  return `${formatDagToken(kind)}(${args.map(formatDagToken).join(", ")})`;
+}
+
+function formatDagToken(token: string) {
+  return token.replaceAll("_", " ");
 }
 
 function indicatorLabel(indicator: Indicator) {
@@ -736,6 +830,129 @@ function renderIndicatorPicker() {
     }),
   );
   syncIndicatorForm();
+}
+
+function renderLayoutPicker() {
+  const layouts = readLayouts();
+  layoutSelect.replaceChildren(
+    ...[
+      { value: "", label: "Saved layouts" },
+      ...layouts.map((layout) => ({ value: layout.name, label: layout.name })),
+    ].map((item) => {
+      const option = document.createElement("option");
+      option.value = item.value;
+      option.textContent = item.label;
+      return option;
+    }),
+  );
+  syncLayoutName();
+}
+
+function renderPresetPicker() {
+  presetSelect.replaceChildren(
+    ...presets.map((preset) => {
+      const option = document.createElement("option");
+      option.value = preset.name;
+      option.textContent = preset.name;
+      return option;
+    }),
+  );
+}
+
+function syncLayoutName() {
+  layoutNameInput.value = layoutSelect.value;
+}
+
+function readLayouts(): LayoutState[] {
+  try {
+    const raw = localStorage.getItem(layoutStorageKey);
+    if (!raw) return [];
+    const layouts = JSON.parse(raw);
+    if (!Array.isArray(layouts)) return [];
+    return layouts.filter(isLayoutState);
+  } catch {
+    return [];
+  }
+}
+
+function writeLayouts(layouts: LayoutState[]) {
+  localStorage.setItem(layoutStorageKey, JSON.stringify(layouts));
+}
+
+function isLayoutState(value: unknown): value is LayoutState {
+  if (!value || typeof value !== "object") return false;
+  const layout = value as Record<string, unknown>;
+  return typeof layout.name === "string"
+    && typeof layout.symbol === "string"
+    && typeof layout.interval === "string"
+    && Array.isArray(layout.indicators);
+}
+
+function currentLayout(name: string): LayoutState {
+  return {
+    name,
+    symbol: symbolInput.value,
+    interval: intervalInput.value,
+    indicators: indicators.map((indicator) => ({ ...indicator.config })),
+  };
+}
+
+function saveLayout() {
+  const name = layoutNameInput.value.trim();
+  if (!name) {
+    setStatus("Layout name is required", "error");
+    return;
+  }
+  const layouts = readLayouts().filter((layout) => layout.name !== name);
+  layouts.push(currentLayout(name));
+  layouts.sort((left, right) => left.name.localeCompare(right.name));
+  writeLayouts(layouts);
+  renderLayoutPicker();
+  layoutSelect.value = name;
+  syncLayoutName();
+  setStatus(`Saved layout ${name}`);
+}
+
+async function loadSelectedLayout() {
+  const layout = readLayouts().find((item) => item.name === layoutSelect.value);
+  if (!layout) {
+    setStatus("Select a saved layout", "error");
+    return;
+  }
+  await applyLayout(layout);
+  setStatus(`Loaded layout ${layout.name}`);
+}
+
+function deleteSelectedLayout() {
+  const name = layoutSelect.value;
+  if (!name) {
+    setStatus("Select a saved layout", "error");
+    return;
+  }
+  writeLayouts(readLayouts().filter((layout) => layout.name !== name));
+  renderLayoutPicker();
+  setStatus(`Deleted layout ${name}`);
+}
+
+async function applyLayout(layout: LayoutState) {
+  closeStream();
+  clearIndicators();
+  symbolInput.value = layout.symbol;
+  intervalInput.value = layout.interval;
+  indicators = layout.indicators.map(indicatorFromConfig);
+  renderIndicatorList();
+  await load();
+}
+
+function applySelectedPreset() {
+  const preset = presets.find((item) => item.name === presetSelect.value);
+  if (!preset) return;
+  clearIndicators();
+  indicators = preset.indicators.map(indicatorFromConfig);
+  attachIndicators();
+  renderIndicatorList();
+  renderDag();
+  setStatus(`Applied preset ${preset.name}`);
 }
 
 function readIndicatorConfig(kind: IndicatorKind) {

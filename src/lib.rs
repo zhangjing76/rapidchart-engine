@@ -13,25 +13,6 @@ pub struct Bar {
     pub volume: f64,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-struct IndicatorPoint {
-    time: u32,
-    value: Option<f64>,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-struct IndicatorOutputPoint {
-    output: String,
-    time: u32,
-    value: Option<f64>,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-struct IndicatorOutputSeries {
-    output: String,
-    points: Vec<IndicatorPoint>,
-}
-
 struct Indicator {
     id: u32,
     kind: String,
@@ -99,9 +80,16 @@ struct OutputDescriptor {
     color: &'static str,
 }
 
+#[derive(Clone, Serialize)]
 struct IndicatorOutput {
     name: String,
     values: Vec<Option<f64>>,
+}
+
+#[derive(Serialize)]
+struct IndicatorLatestValue {
+    output: String,
+    value: Option<f64>,
 }
 
 #[derive(Default, Serialize)]
@@ -290,59 +278,33 @@ impl ChartEngine {
         serde_wasm_bindgen::to_value(&self.bars).map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
-    pub fn indicator_series_all(&self, id: u32) -> Result<JsValue, JsValue> {
+    pub fn indicator_outputs_all(&self, id: u32) -> Result<JsValue, JsValue> {
         let indicator = self
             .indicators
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let spacing = series_spacing_seconds(&self.bars);
-        let series: Vec<_> = indicator
+        let outputs: Vec<_> = indicator
             .outputs
             .iter()
             .filter(|output| is_visible_output(&output.name))
-            .map(|output| IndicatorOutputSeries {
-                output: output.name.clone(),
-                points: self
-                    .bars
-                    .iter()
-                    .zip(output.values.iter())
-                    .map(|(bar, value)| IndicatorPoint {
-                        time: shifted_output_time(
-                            bar.time,
-                            spacing,
-                            indicator_output_shift(indicator, &output.name),
-                        ),
-                        value: *value,
-                    })
-                    .collect(),
-            })
+            .cloned()
             .collect();
-        serde_wasm_bindgen::to_value(&series).map_err(|err| JsValue::from_str(&err.to_string()))
+        serde_wasm_bindgen::to_value(&outputs).map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
-    pub fn latest_indicator_points(&self, id: u32) -> Result<JsValue, JsValue> {
+    pub fn latest_indicator_values(&self, id: u32) -> Result<JsValue, JsValue> {
         let indicator = self
             .indicators
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let bar = self
-            .bars
-            .last()
-            .ok_or_else(|| JsValue::from_str("no bars"))?;
-        let spacing = series_spacing_seconds(&self.bars);
         let points: Vec<_> = indicator
             .outputs
             .iter()
             .filter(|output| is_visible_output(&output.name))
-            .map(|output| IndicatorOutputPoint {
+            .map(|output| IndicatorLatestValue {
                 output: output.name.clone(),
-                time: shifted_output_time(
-                    bar.time,
-                    spacing,
-                    indicator_output_shift(indicator, &output.name),
-                ),
                 value: output.values.last().copied().flatten(),
             })
             .collect();
@@ -2290,38 +2252,6 @@ fn output_at(outputs: &[IndicatorOutput], name: &str, index: usize) -> Option<f6
         .and_then(|output| output.values.get(index))
         .copied()
         .flatten()
-}
-
-fn series_spacing_seconds(bars: &[Bar]) -> u32 {
-    bars.windows(2)
-        .filter_map(|window| {
-            let previous = window[0].time;
-            let current = window[1].time;
-            (current > previous).then_some(current - previous)
-        })
-        .min()
-        .unwrap_or(60)
-}
-
-fn indicator_output_shift(indicator: &Indicator, output_name: &str) -> i32 {
-    if indicator.kind != "ICHIMOKU" {
-        return 0;
-    }
-    let shift = indicator.kijun_period as i32;
-    match output_name {
-        "senkou_a" | "senkou_b" => shift,
-        "chikou" => -shift,
-        _ => 0,
-    }
-}
-
-fn shifted_output_time(base_time: u32, spacing: u32, shift: i32) -> u32 {
-    let delta = spacing.saturating_mul(shift.unsigned_abs());
-    if shift >= 0 {
-        base_time.saturating_add(delta)
-    } else {
-        base_time.saturating_sub(delta)
-    }
 }
 
 fn sma(bars: &[Bar], period: usize) -> Vec<Option<f64>> {
@@ -6849,54 +6779,6 @@ mod tests {
         assert_eq!(latest.0, outputs[0].values.last().copied().flatten());
         assert_eq!(latest.1, outputs[1].values.last().copied().flatten());
         assert_eq!(latest.2, outputs[2].values.last().copied().flatten());
-    }
-
-    #[test]
-    fn ichimoku_series_are_time_shifted() {
-        let indicator = Indicator {
-            id: 1,
-            kind: "ICHIMOKU".to_string(),
-            period: 0,
-            stoch_period: 0,
-            smooth: 3,
-            signal: 3,
-            tenkan_period: 9,
-            kijun_period: 26,
-            senkou_b_period: 52,
-            macd: None,
-            multiplier: 2.0,
-            psar_step: 0.02,
-            psar_max_step: 0.2,
-            outputs: Vec::new(),
-        };
-
-        let base_time = 1_700_000_000;
-        let spacing = 3600;
-
-        assert_eq!(
-            shifted_output_time(
-                base_time,
-                spacing,
-                indicator_output_shift(&indicator, "senkou_a")
-            ),
-            base_time + 26 * 3600
-        );
-        assert_eq!(
-            shifted_output_time(
-                base_time,
-                spacing,
-                indicator_output_shift(&indicator, "chikou")
-            ),
-            base_time - 26 * 3600
-        );
-        assert_eq!(
-            shifted_output_time(
-                base_time,
-                spacing,
-                indicator_output_shift(&indicator, "tenkan")
-            ),
-            base_time
-        );
     }
 
     #[test]

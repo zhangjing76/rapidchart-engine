@@ -60,6 +60,24 @@ impl CandleStore {
         })
     }
 
+    fn from_raw_columns(
+        time: Vec<u32>,
+        open: Vec<f64>,
+        high: Vec<f64>,
+        low: Vec<f64>,
+        close: Vec<f64>,
+        volume: Vec<f64>,
+    ) -> Self {
+        Self {
+            time,
+            open,
+            high,
+            low,
+            close,
+            volume,
+        }
+    }
+
     fn len(&self) -> usize {
         self.time.len()
     }
@@ -216,6 +234,8 @@ pub struct ChartEngine {
     indicators: Vec<Indicator>,
     next_indicator_id: u32,
     dag: DagDebug,
+    indicator_values_scratch: Vec<Vec<f64>>,
+    latest_values_scratch: Vec<f64>,
 }
 
 #[wasm_bindgen]
@@ -227,6 +247,8 @@ impl ChartEngine {
             indicators: Vec::new(),
             next_indicator_id: 1,
             dag: DagDebug::default(),
+            indicator_values_scratch: Vec::new(),
+            latest_values_scratch: Vec::new(),
         }
     }
 
@@ -255,15 +277,25 @@ impl ChartEngine {
         close: Float64Array,
         volume: Float64Array,
     ) -> Result<(), JsValue> {
-        self.bars = CandleStore::from_columns(CandleColumnsInput {
-            time: time.to_vec(),
-            open: open.to_vec(),
-            high: high.to_vec(),
-            low: low.to_vec(),
-            close: close.to_vec(),
-            volume: volume.to_vec(),
-        })
-        .map_err(JsValue::from_str)?;
+        let len = time.length();
+        if open.length() != len
+            || high.length() != len
+            || low.length() != len
+            || close.length() != len
+            || volume.length() != len
+        {
+            return Err(JsValue::from_str(
+                "candle column lengths must match for time/open/high/low/close/volume",
+            ));
+        }
+        self.bars = CandleStore::from_raw_columns(
+            time.to_vec(),
+            open.to_vec(),
+            high.to_vec(),
+            low.to_vec(),
+            close.to_vec(),
+            volume.to_vec(),
+        );
         self.recompute_indicators();
         Ok(())
     }
@@ -305,7 +337,22 @@ impl ChartEngine {
     pub fn add_indicator_config(&mut self, config: JsValue) -> Result<u32, JsValue> {
         let config: IndicatorConfig = serde_wasm_bindgen::from_value(config)
             .map_err(|err| JsValue::from_str(&err.to_string()))?;
-        self.add_indicator_from_config(config)
+        let id = self.add_indicator_from_config(config)?;
+        self.recompute_indicators();
+        Ok(id)
+    }
+
+    pub fn add_indicator_configs(&mut self, configs: JsValue) -> Result<JsValue, JsValue> {
+        let configs: Vec<IndicatorConfig> = serde_wasm_bindgen::from_value(configs)
+            .map_err(|err| JsValue::from_str(&err.to_string()))?;
+        let mut ids = Vec::with_capacity(configs.len());
+        for config in configs {
+            ids.push(self.add_indicator_from_config(config)?);
+        }
+        if !ids.is_empty() {
+            self.recompute_indicators();
+        }
+        serde_wasm_bindgen::to_value(&ids).map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
     pub fn indicator_descriptors(&self) -> Result<JsValue, JsValue> {
@@ -424,7 +471,6 @@ impl ChartEngine {
             outputs: Vec::new(),
         };
         self.indicators.push(indicator);
-        self.recompute_indicators();
         Ok(id)
     }
 
@@ -469,21 +515,28 @@ impl ChartEngine {
         serde_wasm_bindgen::to_value(&outputs).map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
-    pub fn indicator_output_values_fast(&self, id: u32) -> Result<JsValue, JsValue> {
+    pub fn indicator_output_values_fast(&mut self, id: u32) -> Result<JsValue, JsValue> {
+        self.populate_indicator_output_values_scratch(id)?;
         let indicator = self
             .indicators
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
         let outputs = Array::new();
-        for output in indicator
+        for (index, output) in indicator
             .outputs
             .iter()
             .filter(|output| is_visible_output(&output.name))
+            .enumerate()
         {
             let item = Object::new();
             js_set(&item, "name", JsValue::from_str(&output.name))?;
-            js_set(&item, "values", Float64Array::from(option_values_to_nan(&output.values).as_slice()))?;
+            js_set(
+                &item,
+                "values",
+                // ponytail: ephemeral wasm-memory views for snapshot reads; move to a stable shared buffer API only if callers need to retain them across engine calls.
+                unsafe { Float64Array::view(self.indicator_values_scratch[index].as_slice()) },
+            )?;
             outputs.push(&item);
         }
         Ok(outputs.into())
@@ -507,19 +560,10 @@ impl ChartEngine {
         serde_wasm_bindgen::to_value(&points).map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
-    pub fn latest_indicator_values_fast(&self, id: u32) -> Result<JsValue, JsValue> {
-        let indicator = self
-            .indicators
-            .iter()
-            .find(|indicator| indicator.id == id)
-            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let values: Vec<f64> = indicator
-            .outputs
-            .iter()
-            .filter(|output| is_visible_output(&output.name))
-            .map(|output| output.values.last().copied().flatten().unwrap_or(f64::NAN))
-            .collect();
-        Ok(Float64Array::from(values.as_slice()).into())
+    pub fn latest_indicator_values_fast(&mut self, id: u32) -> Result<JsValue, JsValue> {
+        let values = self.latest_indicator_values_slice(id)?;
+        // ponytail: ephemeral wasm-memory view for the live hot path; switch to a stable shared buffer API if callers need to retain it.
+        Ok(unsafe { Float64Array::view(values) }.into())
     }
 
     pub fn dag_debug(&self) -> Result<JsValue, JsValue> {
@@ -906,6 +950,54 @@ impl ChartEngine {
         }
         true
     }
+
+    fn latest_indicator_values_slice(&mut self, id: u32) -> Result<&[f64], JsValue> {
+        let indicator = self
+            .indicators
+            .iter()
+            .find(|indicator| indicator.id == id)
+            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
+        self.latest_values_scratch.clear();
+        self.latest_values_scratch.extend(indicator.outputs
+            .iter()
+            .filter(|output| is_visible_output(&output.name))
+            .map(|output| output.values.last().copied().flatten().unwrap_or(f64::NAN))
+        );
+        Ok(self.latest_values_scratch.as_slice())
+    }
+
+    fn populate_indicator_output_values_scratch(&mut self, id: u32) -> Result<(), JsValue> {
+        let indicator = self
+            .indicators
+            .iter()
+            .find(|indicator| indicator.id == id)
+            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
+        let visible_count = indicator
+            .outputs
+            .iter()
+            .filter(|output| is_visible_output(&output.name))
+            .count();
+        if self.indicator_values_scratch.len() < visible_count {
+            self.indicator_values_scratch
+                .resize_with(visible_count, Vec::new);
+        }
+        for (index, output) in indicator
+            .outputs
+            .iter()
+            .filter(|output| is_visible_output(&output.name))
+            .enumerate()
+        {
+            let scratch = &mut self.indicator_values_scratch[index];
+            scratch.clear();
+            scratch.extend(
+                output
+                    .values
+                    .iter()
+                    .map(|value| value.unwrap_or(f64::NAN)),
+            );
+        }
+        Ok(())
+    }
 }
 
 fn supports_incremental(kind: &str) -> bool {
@@ -989,13 +1081,6 @@ fn js_set(target: &Object, key: &str, value: impl Into<JsValue>) -> Result<(), J
     Reflect::set(target, &JsValue::from_str(key), &value.into())
         .map(|_| ())
         .map_err(|err| err)
-}
-
-fn option_values_to_nan(values: &[Option<f64>]) -> Vec<f64> {
-    values
-        .iter()
-        .map(|value| value.unwrap_or(f64::NAN))
-        .collect()
 }
 
 fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
@@ -10013,6 +10098,92 @@ mod tests {
             latest_cci(&bars, 3),
             cci(&bars, 3).last().copied().flatten()
         );
+    }
+
+    #[test]
+    fn latest_indicator_values_fast_reuses_visible_output_scratch() {
+        let mut engine = ChartEngine::new();
+        engine.indicators.push(Indicator {
+            id: 7,
+            kind: "RSI".to_string(),
+            period: 0,
+            stoch_period: 0,
+            smooth: 0,
+            signal: 0,
+            tenkan_period: 0,
+            kijun_period: 0,
+            senkou_b_period: 0,
+            macd: None,
+            multiplier: 0.0,
+            psar_step: 0.0,
+            psar_max_step: 0.0,
+            outputs: vec![
+                IndicatorOutput {
+                    name: "value".to_string(),
+                    values: vec![Some(1.25)],
+                },
+                IndicatorOutput {
+                    name: "avg_gain".to_string(),
+                    values: vec![None],
+                },
+                IndicatorOutput {
+                    name: "avg_loss".to_string(),
+                    values: vec![Some(-0.5)],
+                },
+            ],
+        });
+
+        let values = engine.latest_indicator_values_slice(7).unwrap();
+
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0], 1.25);
+        assert_eq!(engine.latest_values_scratch.len(), 1);
+    }
+
+    #[test]
+    fn indicator_output_values_fast_reuses_visible_output_scratch() {
+        let mut engine = ChartEngine::new();
+        engine.indicators.push(Indicator {
+            id: 9,
+            kind: "MACD".to_string(),
+            period: 0,
+            stoch_period: 0,
+            smooth: 0,
+            signal: 0,
+            tenkan_period: 0,
+            kijun_period: 0,
+            senkou_b_period: 0,
+            macd: None,
+            multiplier: 0.0,
+            psar_step: 0.0,
+            psar_max_step: 0.0,
+            outputs: vec![
+                IndicatorOutput {
+                    name: "macd".to_string(),
+                    values: vec![Some(1.0), None],
+                },
+                IndicatorOutput {
+                    name: "signal".to_string(),
+                    values: vec![Some(2.0), Some(3.0)],
+                },
+                IndicatorOutput {
+                    name: "histogram".to_string(),
+                    values: vec![Some(-1.0), Some(0.5)],
+                },
+                IndicatorOutput {
+                    name: "fast_ema".to_string(),
+                    values: vec![Some(99.0), Some(100.0)],
+                },
+            ],
+        });
+
+        engine.populate_indicator_output_values_scratch(9).unwrap();
+
+        assert_eq!(engine.indicator_values_scratch.len(), 3);
+        assert_eq!(engine.indicator_values_scratch[0][0], 1.0);
+        assert!(engine.indicator_values_scratch[0][1].is_nan());
+        assert_eq!(engine.indicator_values_scratch[1].as_slice(), &[2.0, 3.0]);
+        assert_eq!(engine.indicator_values_scratch[2].as_slice(), &[-1.0, 0.5]);
     }
 
     #[test]

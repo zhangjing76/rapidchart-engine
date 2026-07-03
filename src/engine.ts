@@ -215,6 +215,15 @@ export class RapidChartEngine {
     return id;
   }
 
+  addIndicators(configs: IndicatorConfig[]): number[] {
+    const ids = this.#engine.add_indicator_configs(configs) as number[];
+    ids.forEach((id, index) => {
+      const config = configs[index];
+      if (config) this.#configs.set(id, { ...config });
+    });
+    return ids;
+  }
+
   removeIndicator(id: number): boolean {
     this.#configs.delete(id);
     return this.#engine.remove_indicator(id);
@@ -294,7 +303,7 @@ export class RapidChartEngine {
   }
 }
 
-function seriesSpacingSeconds(times: Uint32Array) {
+export function seriesSpacingSeconds(times: Uint32Array) {
   let spacing = 60;
   for (let index = 1; index < times.length; index += 1) {
     const value = times[index]! - times[index - 1]!;
@@ -303,7 +312,7 @@ function seriesSpacingSeconds(times: Uint32Array) {
   return spacing;
 }
 
-function seriesSpacingFromBars(bars: Bar[]) {
+export function seriesSpacingFromBars(bars: Bar[]) {
   let spacing = 60;
   for (let index = 1; index < bars.length; index += 1) {
     const value = bars[index]!.time - bars[index - 1]!.time;
@@ -312,7 +321,7 @@ function seriesSpacingFromBars(bars: Bar[]) {
   return spacing;
 }
 
-function indicatorOutputShift(config: IndicatorConfig | undefined, output: string) {
+export function indicatorOutputShift(config: IndicatorConfig | undefined, output: string) {
   if (config?.kind !== "ICHIMOKU") return 0;
   const shift = config.kijun_period ?? 26;
   if (output === "senkou_a" || output === "senkou_b") return shift;
@@ -320,7 +329,7 @@ function indicatorOutputShift(config: IndicatorConfig | undefined, output: strin
   return 0;
 }
 
-function shiftedOutputTime(baseTime: number, spacing: number, shift: number) {
+export function shiftedOutputTime(baseTime: number, spacing: number, shift: number) {
   const delta = spacing * Math.abs(shift);
   return shift >= 0 ? baseTime + delta : baseTime - delta;
 }

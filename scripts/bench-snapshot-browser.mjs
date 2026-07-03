@@ -1,5 +1,6 @@
 import { access, readFile } from "node:fs/promises";
 import http from "node:http";
+import { performance } from "node:perf_hooks";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,8 +13,6 @@ const host = "127.0.0.1";
 const port = parsePositiveInt(process.env.BENCH_BROWSER_PORT ?? "4174", "port");
 const preset = process.argv[2] ?? "Trend Stack";
 const samplesTarget = parsePositiveInt(process.argv[3] ?? "5", "samples");
-const intervalMs = parsePositiveInt(process.env.BENCH_BROWSER_INTERVAL_MS ?? "1000", "interval");
-const dataMode = process.env.BENCH_DATA_MODE ?? "fixture";
 const fixtureName = process.env.BENCH_FIXTURE ?? "btcusdt-1m";
 const chromePath =
   process.env.CHROME_EXECUTABLE ??
@@ -45,49 +44,45 @@ try {
     executablePath: chromePath,
     headless: true,
   });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
-  await page.goto(targetUrl(), { waitUntil: dataMode === "live" ? "networkidle" : "domcontentloaded" });
-  await page.selectOption("#preset-select", { label: preset });
-  await page.click("#preset-apply");
-  if (dataMode === "fixture") {
-    await page.waitForFunction(() => (window.__rapidChartBenchmarkTick?.() ?? false));
-  } else {
-    await page.waitForFunction(() => {
-      const text = document.querySelector("#perf")?.textContent ?? "";
-      return text.includes("tick");
-    });
-  }
 
   const samples = [];
-  let previous = "";
-  const deadline = Date.now() + samplesTarget * intervalMs * 4;
-  while (samples.length < samplesTarget && Date.now() < deadline) {
-    await page.waitForTimeout(intervalMs);
-    if (dataMode === "fixture") {
-      await page.evaluate(() => window.__rapidChartBenchmarkTick?.());
-    }
-    const text = ((await page.textContent("#perf")) ?? "").trim();
-    if (!text || text === previous) continue;
-    previous = text;
-    samples.push({
-      raw: text,
-      parsed: parsePerfText(text),
+  for (let i = 0; i < samplesTarget; i += 1) {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+    await page.goto(targetUrl(), { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => {
+      const text = document.querySelector("#status")?.textContent ?? "";
+      return /\sfixture:.+$/.test(text);
     });
+    const start = performance.now();
+    await page.selectOption("#preset-select", { label: preset });
+    await page.click("#preset-apply");
+    await page.waitForFunction((value) => {
+      const text = document.querySelector("#status")?.textContent ?? "";
+      return text === `Applied preset ${value}`;
+    }, preset);
+    const totalMs = performance.now() - start;
+    const breakdown = await page.evaluate(() => window.__rapidChartPresetBreakdown ?? null);
+    const status = ((await page.textContent("#status")) ?? "").trim();
+    samples.push({ totalMs, breakdown, status });
+    await page.close();
   }
 
-  const output = {
+  console.log(JSON.stringify({
     url: targetUrl(),
     preset,
-    dataMode,
-    fixtureName: dataMode === "fixture" ? fixtureName : null,
+    fixtureName,
     samplesCollected: samples.length,
     samples,
-    final: samples.at(-1)?.parsed ?? null,
-  };
-  console.log(JSON.stringify(output, null, 2));
+    medianTotalMs: median(samples.map((sample) => sample.totalMs)),
+    meanTotalMs: mean(samples.map((sample) => sample.totalMs)),
+  }, null, 2));
 } finally {
   await browser?.close();
   await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+}
+
+function targetUrl() {
+  return `http://${host}:${port}/?data=fixture&fixture=${fixtureName}`;
 }
 
 function sanitizePath(urlPath) {
@@ -114,27 +109,6 @@ function contentType(filePath) {
   }
 }
 
-function parsePerfText(text) {
-  const match = text.match(
-    /^tick ([\d.]+)ms\/([\d.]+)ms engine ([\d.]+)ms\/([\d.]+)ms candle ([\d.]+)ms\/([\d.]+)ms volume ([\d.]+)ms\/([\d.]+)ms ind ([\d.]+)ms\/([\d.]+)ms$/,
-  );
-  if (!match) return null;
-  return {
-    tick: pair(match[1], match[2]),
-    engine: pair(match[3], match[4]),
-    candle: pair(match[5], match[6]),
-    volume: pair(match[7], match[8]),
-    ind: pair(match[9], match[10]),
-  };
-}
-
-function pair(latest, avg) {
-  return {
-    latestMs: Number.parseFloat(latest),
-    avgMs: Number.parseFloat(avg),
-  };
-}
-
 function parsePositiveInt(value, label) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -143,8 +117,11 @@ function parsePositiveInt(value, label) {
   return parsed;
 }
 
-function targetUrl() {
-  const params = new URLSearchParams({ data: dataMode });
-  if (dataMode === "fixture") params.set("fixture", fixtureName);
-  return `http://${host}:${port}/?${params.toString()}`;
+function mean(values) {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
 }

@@ -164,7 +164,7 @@ for (const size of sizes) {
       const bar = nextBar(bars[bars.length - 1], 1);
       engine.upsert_bar_fast(bar.time, bar.open, bar.high, bar.low, bar.close, bar.volume);
       for (const id of ids) {
-        engine.latest_indicator_values(id);
+        engine.latest_indicator_values_fast(id);
       }
     }),
     benchmarkScenarioWithSetup(`replaceLastBar+latestOutputs:${size}`, runs, () => {
@@ -183,7 +183,7 @@ for (const size of sizes) {
       const bar = replaceBar(bars[bars.length - 1]);
       engine.upsert_bar_fast(bar.time, bar.open, bar.high, bar.low, bar.close, bar.volume);
       for (const id of ids) {
-        engine.latest_indicator_values(id);
+        engine.latest_indicator_values_fast(id);
       }
     }),
     benchmarkScenario(`candles:${size}`, runs, () => {

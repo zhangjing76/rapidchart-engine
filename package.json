@@ -13,6 +13,7 @@
   "scripts": {
     "build:wasm": "wasm-pack build --target web --out-dir pkg",
     "bench": "node scripts/bench.mjs",
+    "bench:browser": "npm run build && node scripts/bench-browser.mjs",
     "bench:compare": "node scripts/bench-compare.mjs",
     "dev": "npm run build:wasm && vite --host 127.0.0.1",
     "build": "npm run build:wasm && tsc && vite build"
@@ -22,6 +23,7 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "playwright-core": "^1.61.1",
     "typescript": "^5.5.0",
     "wasm-pack": "^0.13.1"
   }

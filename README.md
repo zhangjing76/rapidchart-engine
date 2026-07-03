@@ -59,6 +59,15 @@ engine.ingestColumns({
   close: new Float64Array(bars.map((bar) => bar.close)),
   volume: new Float64Array(bars.map((bar) => bar.volume)),
 });
+
+engine.ingestColumnsFast({
+  time: new Uint32Array(bars.map((bar) => bar.time)),
+  open: new Float64Array(bars.map((bar) => bar.open)),
+  high: new Float64Array(bars.map((bar) => bar.high)),
+  low: new Float64Array(bars.map((bar) => bar.low)),
+  close: new Float64Array(bars.map((bar) => bar.close)),
+  volume: new Float64Array(bars.map((bar) => bar.volume)),
+});
 ```
 
 ### Add indicators
@@ -117,6 +126,15 @@ engine.upsertBar({
   volume: 1100,
 });
 
+engine.upsertBarFast({
+  time: 1719837600,
+  open: 62450,
+  high: 62700,
+  low: 62350,
+  close: 62620,
+  volume: 1100,
+});
+
 const latestRsi = engine.latestIndicatorPoints(rsiId);
 ```
 
@@ -157,16 +175,20 @@ smaLine.setData(
 - `new RapidChartEngine()`
 - `ingestBars(bars)`
 - `ingestColumns(columns)`
+- `ingestColumnsFast(columns)`
 - `candles()`
 - `candleColumns()`
 - `addIndicator(config)`
 - `indicatorValueSeries(id)`
 - `indicatorSeries(id)`
+- `latestIndicatorValues(id)`
+- `latestIndicatorTime(id, output)`
 - `latestIndicatorPoints(id)`
 - `removeIndicator(id)`
 - `indicatorDescriptors()`
 - `dagDebug()`
 - `upsertBar(bar)`
+- `upsertBarFast(bar)`
 
 The local implementation lives in [src/engine.ts](/Users/jingzhang/Projects/chart/src/engine.ts), but consumers should import from the package root instead of reaching into `src/`.
 
@@ -230,6 +252,73 @@ All configs require `kind`.
 - Uses a Rust engine compiled to WebAssembly for indicator computation
 - Shows a DAG debug view so you can inspect source, computed, and indicator nodes
 - Saves named test-app layouts in local storage and applies built-in indicator presets
+
+## Performance workflow
+
+The repo now has three benchmark layers:
+
+1. Engine bulk benchmarks
+2. Engine comparison reports
+3. Real browser live-update sampling
+
+### Engine benchmarks
+
+Run the Rust/WASM benchmark harness:
+
+```bash
+npm run bench
+```
+
+It writes JSON snapshots to `benchmarks/results/`.
+
+Compare two or more snapshots:
+
+```bash
+npm run bench:compare benchmarks/results/bench-a.json benchmarks/results/bench-b.json
+```
+
+### Browser benchmark
+
+Run a repeatable browser sample against the built app:
+
+```bash
+npm run bench:browser
+```
+
+Defaults:
+
+- preset: `Trend Stack`
+- samples: `5`
+- local Chrome executable: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+
+Override the preset by passing a label:
+
+```bash
+npm run bench:browser -- "Momentum Stack"
+```
+
+The script:
+
+- builds the app
+- serves `dist/` locally
+- opens the app in headless Chrome through `playwright-core`
+- applies the preset
+- samples the live footer perf text
+- prints parsed JSON
+
+If Chrome lives elsewhere, set `CHROME_EXECUTABLE`.
+
+### Footer metrics
+
+The test app footer shows `latest/avg` timings for the live kline path:
+
+- `tick`: total time spent handling one websocket update
+- `engine`: Rust/WASM `upsert` and latest-value reads
+- `candle`: candlestick series update cost
+- `volume`: volume histogram update cost
+- `ind`: indicator series update cost
+
+For the current implementation, `ind` is usually the largest browser-side slice once engine transport overhead is reduced.
 
 ## Engine design
 

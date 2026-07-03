@@ -12,6 +12,8 @@
   ],
   "scripts": {
     "build:wasm": "wasm-pack build --target web --out-dir pkg",
+    "bench": "node scripts/bench.mjs",
+    "bench:compare": "node scripts/bench-compare.mjs",
     "dev": "npm run build:wasm && vite --host 127.0.0.1",
     "build": "npm run build:wasm && tsc && vite build"
   },

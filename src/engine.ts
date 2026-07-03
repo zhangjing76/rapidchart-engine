@@ -152,6 +152,8 @@ export async function initEngine(
 export class RapidChartEngine {
   readonly #engine: WasmChartEngine;
   #configs = new Map<number, IndicatorConfig>();
+  #lastBarTime: number | undefined;
+  #seriesSpacing = 60;
 
   constructor() {
     this.#engine = new WasmChartEngine();
@@ -159,10 +161,44 @@ export class RapidChartEngine {
 
   ingestBars(bars: Bar[]): void {
     this.#engine.ingest_bars(bars);
+    this.#lastBarTime = bars.at(-1)?.time;
+    this.#seriesSpacing = seriesSpacingFromBars(bars);
+  }
+
+  ingestColumns(columns: CandleColumns): void {
+    this.#engine.ingest_columns(columns);
+    this.#lastBarTime = columns.time.at(-1);
+    this.#seriesSpacing = seriesSpacingSeconds(columns.time);
+  }
+
+  ingestColumnsFast(columns: CandleColumns): void {
+    this.#engine.ingest_columns_fast(
+      columns.time,
+      columns.open,
+      columns.high,
+      columns.low,
+      columns.close,
+      columns.volume,
+    );
+    this.#lastBarTime = columns.time.at(-1);
+    this.#seriesSpacing = seriesSpacingSeconds(columns.time);
   }
 
   upsertBar(bar: Bar): void {
     this.#engine.upsert_bar(bar);
+    this.#updateSpacingForBar(bar.time);
+  }
+
+  upsertBarFast(bar: Bar): void {
+    this.#engine.upsert_bar_fast(
+      bar.time,
+      bar.open,
+      bar.high,
+      bar.low,
+      bar.close,
+      bar.volume,
+    );
+    this.#updateSpacingForBar(bar.time);
   }
 
   candles(): Bar[] {
@@ -170,23 +206,7 @@ export class RapidChartEngine {
   }
 
   candleColumns(): CandleColumns {
-    const bars = this.candles();
-    const time = new Uint32Array(bars.length);
-    const open = new Float64Array(bars.length);
-    const high = new Float64Array(bars.length);
-    const low = new Float64Array(bars.length);
-    const close = new Float64Array(bars.length);
-    const volume = new Float64Array(bars.length);
-    for (let index = 0; index < bars.length; index += 1) {
-      const bar = bars[index]!;
-      time[index] = bar.time;
-      open[index] = bar.open;
-      high[index] = bar.high;
-      low[index] = bar.low;
-      close[index] = bar.close;
-      volume[index] = bar.volume;
-    }
-    return { time, open, high, low, close, volume };
+    return this.#engine.candle_columns_fast() as CandleColumns;
   }
 
   addIndicator(config: IndicatorConfig): number {
@@ -205,10 +225,19 @@ export class RapidChartEngine {
   }
 
   indicatorValueSeries(id: number): IndicatorValueSeries[] {
-    return (this.#engine.indicator_outputs_all(id) as RawIndicatorOutput[]).map((output) => ({
+    return (
+      this.#engine.indicator_output_values_fast(id) as Array<{
+        name: string;
+        values: Float64Array;
+      }>
+    ).map((output) => ({
       output: output.name,
-      values: floatValues(output.values),
+      values: output.values,
     }));
+  }
+
+  latestIndicatorValues(id: number): Float64Array {
+    return this.#engine.latest_indicator_values_fast(id) as Float64Array;
   }
 
   // Render mapping stays in TS: Rust owns raw candle/output data, TS pairs values with times.
@@ -227,36 +256,57 @@ export class RapidChartEngine {
   }
 
   latestIndicatorPoints(id: number): IndicatorOutputPoint[] {
-    const time = this.candleColumns().time;
-    const latestTime = time.at(-1);
+    const latestTime = this.#lastBarTime;
     if (latestTime === undefined) return [];
     const outputs = this.#engine.latest_indicator_values(id) as RawIndicatorLatestValue[];
-    const spacing = seriesSpacingSeconds(time);
     const config = this.#configs.get(id);
     return outputs.map((output) => ({
       output: output.output,
-      time: shiftedOutputTime(latestTime, spacing, indicatorOutputShift(config, output.output)),
+      time: shiftedOutputTime(
+        latestTime,
+        this.#seriesSpacing,
+        indicatorOutputShift(config, output.output),
+      ),
       value: output.value,
     }));
+  }
+
+  latestIndicatorTime(id: number, output: string): number | undefined {
+    const latestTime = this.#lastBarTime;
+    if (latestTime === undefined) return undefined;
+    return shiftedOutputTime(
+      latestTime,
+      this.#seriesSpacing,
+      indicatorOutputShift(this.#configs.get(id), output),
+    );
   }
 
   dagDebug(): DagDebug {
     return this.#engine.dag_debug() as DagDebug;
   }
-}
 
-function floatValues(values: Array<number | null>) {
-  const out = new Float64Array(values.length);
-  for (let index = 0; index < values.length; index += 1) {
-    out[index] = values[index] ?? Number.NaN;
+  #updateSpacingForBar(time: number) {
+    const previousTime = this.#lastBarTime;
+    this.#lastBarTime = time;
+    if (previousTime === undefined) return;
+    const spacing = time - previousTime;
+    if (spacing > 0) this.#seriesSpacing = spacing;
   }
-  return out;
 }
 
 function seriesSpacingSeconds(times: Uint32Array) {
   let spacing = 60;
   for (let index = 1; index < times.length; index += 1) {
     const value = times[index]! - times[index - 1]!;
+    if (value > 0) spacing = Math.min(spacing, value);
+  }
+  return spacing;
+}
+
+function seriesSpacingFromBars(bars: Bar[]) {
+  let spacing = 60;
+  for (let index = 1; index < bars.length; index += 1) {
+    const value = bars[index]!.time - bars[index - 1]!.time;
     if (value > 0) spacing = Math.min(spacing, value);
   }
   return spacing;

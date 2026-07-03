@@ -1,3 +1,4 @@
+use js_sys::{Array, Float64Array, Object, Reflect, Uint32Array};
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -37,6 +38,26 @@ impl CandleStore {
             store.push(bar);
         }
         store
+    }
+
+    fn from_columns(columns: CandleColumnsInput) -> Result<Self, &'static str> {
+        let len = columns.time.len();
+        if columns.open.len() != len
+            || columns.high.len() != len
+            || columns.low.len() != len
+            || columns.close.len() != len
+            || columns.volume.len() != len
+        {
+            return Err("candle column lengths must match for time/open/high/low/close/volume");
+        }
+        Ok(Self {
+            time: columns.time,
+            open: columns.open,
+            high: columns.high,
+            low: columns.low,
+            close: columns.close,
+            volume: columns.volume,
+        })
     }
 
     fn len(&self) -> usize {
@@ -129,6 +150,16 @@ struct IndicatorConfig {
     psar_max_step: Option<f64>,
 }
 
+#[derive(Deserialize)]
+struct CandleColumnsInput {
+    time: Vec<u32>,
+    open: Vec<f64>,
+    high: Vec<f64>,
+    low: Vec<f64>,
+    close: Vec<f64>,
+    volume: Vec<f64>,
+}
+
 #[derive(Serialize)]
 struct IndicatorDescriptor {
     kind: &'static str,
@@ -207,9 +238,62 @@ impl ChartEngine {
         Ok(())
     }
 
+    pub fn ingest_columns(&mut self, columns: JsValue) -> Result<(), JsValue> {
+        let columns: CandleColumnsInput = serde_wasm_bindgen::from_value(columns)
+            .map_err(|err| JsValue::from_str(&err.to_string()))?;
+        self.bars = CandleStore::from_columns(columns).map_err(JsValue::from_str)?;
+        self.recompute_indicators();
+        Ok(())
+    }
+
+    pub fn ingest_columns_fast(
+        &mut self,
+        time: Uint32Array,
+        open: Float64Array,
+        high: Float64Array,
+        low: Float64Array,
+        close: Float64Array,
+        volume: Float64Array,
+    ) -> Result<(), JsValue> {
+        self.bars = CandleStore::from_columns(CandleColumnsInput {
+            time: time.to_vec(),
+            open: open.to_vec(),
+            high: high.to_vec(),
+            low: low.to_vec(),
+            close: close.to_vec(),
+            volume: volume.to_vec(),
+        })
+        .map_err(JsValue::from_str)?;
+        self.recompute_indicators();
+        Ok(())
+    }
+
     pub fn upsert_bar(&mut self, bar: JsValue) -> Result<(), JsValue> {
         let bar: Bar = serde_wasm_bindgen::from_value(bar)
             .map_err(|err| JsValue::from_str(&err.to_string()))?;
+        self.upsert_bar_inner(bar)
+    }
+
+    pub fn upsert_bar_fast(
+        &mut self,
+        time: u32,
+        open: f64,
+        high: f64,
+        low: f64,
+        close: f64,
+        volume: f64,
+    ) -> Result<(), JsValue> {
+        self.upsert_bar_inner(Bar {
+            time,
+            open,
+            high,
+            low,
+            close,
+            volume,
+        })
+    }
+
+    fn upsert_bar_inner(&mut self, bar: Bar) -> Result<(), JsValue> {
         if upsert_candle_store(&mut self.bars, bar) && !self.update_indicators_incremental() {
             return Err(JsValue::from_str(
                 "indicator does not support incremental updates",
@@ -359,6 +443,17 @@ impl ChartEngine {
             .map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
+    pub fn candle_columns_fast(&self) -> Result<JsValue, JsValue> {
+        let out = Object::new();
+        js_set(&out, "time", Uint32Array::from(self.bars.time.as_slice()))?;
+        js_set(&out, "open", Float64Array::from(self.bars.open.as_slice()))?;
+        js_set(&out, "high", Float64Array::from(self.bars.high.as_slice()))?;
+        js_set(&out, "low", Float64Array::from(self.bars.low.as_slice()))?;
+        js_set(&out, "close", Float64Array::from(self.bars.close.as_slice()))?;
+        js_set(&out, "volume", Float64Array::from(self.bars.volume.as_slice()))?;
+        Ok(out.into())
+    }
+
     pub fn indicator_outputs_all(&self, id: u32) -> Result<JsValue, JsValue> {
         let indicator = self
             .indicators
@@ -372,6 +467,26 @@ impl ChartEngine {
             .cloned()
             .collect();
         serde_wasm_bindgen::to_value(&outputs).map_err(|err| JsValue::from_str(&err.to_string()))
+    }
+
+    pub fn indicator_output_values_fast(&self, id: u32) -> Result<JsValue, JsValue> {
+        let indicator = self
+            .indicators
+            .iter()
+            .find(|indicator| indicator.id == id)
+            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
+        let outputs = Array::new();
+        for output in indicator
+            .outputs
+            .iter()
+            .filter(|output| is_visible_output(&output.name))
+        {
+            let item = Object::new();
+            js_set(&item, "name", JsValue::from_str(&output.name))?;
+            js_set(&item, "values", Float64Array::from(option_values_to_nan(&output.values).as_slice()))?;
+            outputs.push(&item);
+        }
+        Ok(outputs.into())
     }
 
     pub fn latest_indicator_values(&self, id: u32) -> Result<JsValue, JsValue> {
@@ -390,6 +505,21 @@ impl ChartEngine {
             })
             .collect();
         serde_wasm_bindgen::to_value(&points).map_err(|err| JsValue::from_str(&err.to_string()))
+    }
+
+    pub fn latest_indicator_values_fast(&self, id: u32) -> Result<JsValue, JsValue> {
+        let indicator = self
+            .indicators
+            .iter()
+            .find(|indicator| indicator.id == id)
+            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
+        let values: Vec<f64> = indicator
+            .outputs
+            .iter()
+            .filter(|output| is_visible_output(&output.name))
+            .map(|output| output.values.last().copied().flatten().unwrap_or(f64::NAN))
+            .collect();
+        Ok(Float64Array::from(values.as_slice()).into())
     }
 
     pub fn dag_debug(&self) -> Result<JsValue, JsValue> {
@@ -854,6 +984,19 @@ fn is_visible_output(name: &str) -> bool {
 
 type Series = Vec<Option<f64>>;
 type NodeCache = HashMap<String, Series>;
+
+fn js_set(target: &Object, key: &str, value: impl Into<JsValue>) -> Result<(), JsValue> {
+    Reflect::set(target, &JsValue::from_str(key), &value.into())
+        .map(|_| ())
+        .map_err(|err| err)
+}
+
+fn option_values_to_nan(values: &[Option<f64>]) -> Vec<f64> {
+    values
+        .iter()
+        .map(|value| value.unwrap_or(f64::NAN))
+        .collect()
+}
 
 fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
     vec![
@@ -8452,6 +8595,47 @@ mod tests {
 
     fn store_from_bars(bars: Vec<Bar>) -> CandleStore {
         CandleStore::from_bars(bars)
+    }
+
+    #[test]
+    fn candle_store_from_columns_matches_from_bars() {
+        let bars = bars(&[10.0, 11.0, 12.0]);
+        let from_bars = CandleStore::from_bars(bars.clone());
+        let from_columns = CandleStore::from_columns(CandleColumnsInput {
+            time: bars.iter().map(|bar| bar.time).collect(),
+            open: bars.iter().map(|bar| bar.open).collect(),
+            high: bars.iter().map(|bar| bar.high).collect(),
+            low: bars.iter().map(|bar| bar.low).collect(),
+            close: bars.iter().map(|bar| bar.close).collect(),
+            volume: bars.iter().map(|bar| bar.volume).collect(),
+        })
+        .unwrap();
+
+        assert_eq!(from_columns.time, from_bars.time);
+        assert_eq!(from_columns.open, from_bars.open);
+        assert_eq!(from_columns.high, from_bars.high);
+        assert_eq!(from_columns.low, from_bars.low);
+        assert_eq!(from_columns.close, from_bars.close);
+        assert_eq!(from_columns.volume, from_bars.volume);
+    }
+
+    #[test]
+    fn candle_store_from_columns_rejects_mismatched_lengths() {
+        let error = CandleStore::from_columns(CandleColumnsInput {
+            time: vec![0, 1],
+            open: vec![1.0],
+            high: vec![1.0, 2.0],
+            low: vec![1.0, 2.0],
+            close: vec![1.0, 2.0],
+            volume: vec![1.0, 2.0],
+        })
+        .err()
+        .unwrap();
+
+        assert_eq!(
+            Some(error),
+            Some("candle column lengths must match for time/open/high/low/close/volume")
+        );
     }
 
     fn ohlc(values: &[(f64, f64, f64)]) -> Vec<Bar> {

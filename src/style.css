@@ -151,6 +151,7 @@ button {
 
 footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
   min-height: 20px;
@@ -169,6 +170,14 @@ footer a:hover {
 #status {
   min-height: 20px;
   margin: 0;
+}
+
+#perf {
+  flex: 1 1 320px;
+  min-height: 20px;
+  margin: 0;
+  font-size: 12px;
+  text-align: center;
 }
 
 #status.status-error {

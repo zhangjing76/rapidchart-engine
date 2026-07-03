@@ -50,6 +50,15 @@ const bars = [
 ];
 
 engine.ingestBars(bars);
+
+engine.ingestColumns({
+  time: new Uint32Array(bars.map((bar) => bar.time)),
+  open: new Float64Array(bars.map((bar) => bar.open)),
+  high: new Float64Array(bars.map((bar) => bar.high)),
+  low: new Float64Array(bars.map((bar) => bar.low)),
+  close: new Float64Array(bars.map((bar) => bar.close)),
+  volume: new Float64Array(bars.map((bar) => bar.volume)),
+});
 ```
 
 ### Add indicators
@@ -147,6 +156,7 @@ smaLine.setData(
 
 - `new RapidChartEngine()`
 - `ingestBars(bars)`
+- `ingestColumns(columns)`
 - `candles()`
 - `candleColumns()`
 - `addIndicator(config)`

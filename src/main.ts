@@ -14,6 +14,7 @@ import {
 import type { CanvasRenderingTarget2D } from "fancy-canvas";
 import {
   type Bar,
+  type CandleColumns,
   type DagDebug,
   type IndicatorConfig,
   type IndicatorDescriptor,
@@ -35,6 +36,7 @@ type IndicatorPoint = {
 type IndicatorSeries = {
   output: string;
   series: ISeriesApi<"Line"> | ISeriesApi<"Histogram">;
+  lastPoint?: IndicatorPoint;
 };
 
 type IndicatorCloud = {
@@ -60,6 +62,14 @@ type LayoutState = {
 type IndicatorPreset = {
   name: string;
   indicators: IndicatorConfig[];
+};
+
+type PerfSample = {
+  engineMs: number;
+  candlesMs: number;
+  volumeMs: number;
+  indicatorsMs: number;
+  totalMs: number;
 };
 
 const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"];
@@ -298,6 +308,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <section id="indicators"></section>
     <footer>
       <span id="status"></span>
+      <span id="perf"></span>
       <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">Charts by TradingView</a>
     </footer>
   </main>
@@ -316,8 +327,11 @@ const presetSelect = document.querySelector<HTMLSelectElement>("#preset-select")
 const applyPresetButton = document.querySelector<HTMLButtonElement>("#preset-apply")!;
 const params = document.querySelector<HTMLFieldSetElement>("#params")!;
 const status = document.querySelector<HTMLParagraphElement>("#status")!;
+const perf = document.querySelector<HTMLParagraphElement>("#perf")!;
 const indicatorList = document.querySelector<HTMLElement>("#indicators")!;
 const dag = document.querySelector<HTMLElement>("#dag")!;
+const perfSamples: PerfSample[] = [];
+const perfSampleLimit = 60;
 
 const chart = createChart(document.querySelector<HTMLElement>("#chart")!, {
   autoSize: true,
@@ -371,10 +385,10 @@ async function load() {
   detachIndicatorSeries();
   try {
     engine = new RapidChartEngine();
-    const bars = await fetchBars(symbolInput.value, intervalInput.value);
-    engine.ingestBars(bars);
-    candles.setData(engine.candles().map((bar: Bar) => ({ ...bar, time: bar.time as Time })));
-    volume.setData(bars.map(volumePoint));
+    const columns = await fetchBars(symbolInput.value, intervalInput.value);
+    engine.ingestColumnsFast(columns);
+    candles.setData(chartBarsFromColumns(columns));
+    volume.setData(volumePointsFromColumns(columns));
     attachIndicators();
     renderDag();
     chart.timeScale().fitContent();
@@ -385,7 +399,7 @@ async function load() {
   }
 }
 
-async function fetchBars(symbol: string, interval: string): Promise<Bar[]> {
+async function fetchBars(symbol: string, interval: string): Promise<CandleColumns> {
   const url = new URL("https://api.binance.com/api/v3/klines");
   url.search = new URLSearchParams({ symbol, interval, limit: "500" }).toString();
   const response = await fetch(url);
@@ -396,7 +410,7 @@ async function fetchBars(symbol: string, interval: string): Promise<Bar[]> {
     .map(barFromRestRow)
     .filter((bar): bar is Bar => bar !== undefined);
   if (bars.length === 0) throw new Error("No valid bars returned");
-  return bars;
+  return candleColumnsFromBars(bars);
 }
 
 function barFromRestRow(row: unknown): Bar | undefined {
@@ -500,17 +514,33 @@ function openStream(symbol: string, interval: string) {
   socket.addEventListener("message", (event) => {
     const bar = barFromStream(JSON.parse(event.data));
     if (!bar) return;
+    const totalStart = performance.now();
+    const engineStart = performance.now();
     try {
-      engine.upsertBar(bar);
+      engine.upsertBarFast(bar);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Live update failed", "error");
       if (stream === socket) stream = undefined;
       socket.close();
       return;
     }
+    const engineMs = performance.now() - engineStart;
+    const candleStart = performance.now();
     candles.update({ ...bar, time: bar.time as Time });
+    const candlesMs = performance.now() - candleStart;
+    const volumeStart = performance.now();
     volume.update(volumePoint(bar));
+    const volumeMs = performance.now() - volumeStart;
+    const indicatorsStart = performance.now();
     for (const indicator of indicators) updateIndicator(indicator);
+    const indicatorsMs = performance.now() - indicatorsStart;
+    pushPerfSample({
+      engineMs,
+      candlesMs,
+      volumeMs,
+      indicatorsMs,
+      totalMs: performance.now() - totalStart,
+    });
   });
   socket.addEventListener("error", () => setStatus(`${symbol} ${interval} stream failed`, "error"));
   socket.addEventListener("close", () => {
@@ -522,6 +552,52 @@ function closeStream() {
   const socket = stream;
   stream = undefined;
   socket?.close();
+}
+
+function pushPerfSample(sample: PerfSample) {
+  perfSamples.push(sample);
+  if (perfSamples.length > perfSampleLimit) perfSamples.shift();
+  renderPerf();
+}
+
+function renderPerf() {
+  if (!perfSamples.length) {
+    perf.textContent = "";
+    return;
+  }
+  const latest = perfSamples[perfSamples.length - 1]!;
+  const average = averagePerfSample(perfSamples);
+  perf.textContent =
+    `tick ${formatPerf(latest.totalMs)}/${formatPerf(average.totalMs)} ` +
+    `engine ${formatPerf(latest.engineMs)}/${formatPerf(average.engineMs)} ` +
+    `candle ${formatPerf(latest.candlesMs)}/${formatPerf(average.candlesMs)} ` +
+    `volume ${formatPerf(latest.volumeMs)}/${formatPerf(average.volumeMs)} ` +
+    `ind ${formatPerf(latest.indicatorsMs)}/${formatPerf(average.indicatorsMs)}`;
+}
+
+function averagePerfSample(samples: PerfSample[]): PerfSample {
+  const total = samples.reduce(
+    (sum, sample) => ({
+      engineMs: sum.engineMs + sample.engineMs,
+      candlesMs: sum.candlesMs + sample.candlesMs,
+      volumeMs: sum.volumeMs + sample.volumeMs,
+      indicatorsMs: sum.indicatorsMs + sample.indicatorsMs,
+      totalMs: sum.totalMs + sample.totalMs,
+    }),
+    { engineMs: 0, candlesMs: 0, volumeMs: 0, indicatorsMs: 0, totalMs: 0 },
+  );
+  const count = samples.length;
+  return {
+    engineMs: total.engineMs / count,
+    candlesMs: total.candlesMs / count,
+    volumeMs: total.volumeMs / count,
+    indicatorsMs: total.indicatorsMs / count,
+    totalMs: total.totalMs / count,
+  };
+}
+
+function formatPerf(value: number) {
+  return `${value.toFixed(value >= 10 ? 1 : 2)}ms`;
 }
 
 function barFromStream(message: unknown): Bar | undefined {
@@ -551,6 +627,35 @@ function volumePoint(bar: Bar) {
   };
 }
 
+function candleColumnsFromBars(bars: Bar[]): CandleColumns {
+  return {
+    time: Uint32Array.from(bars, (bar) => bar.time),
+    open: Float64Array.from(bars, (bar) => bar.open),
+    high: Float64Array.from(bars, (bar) => bar.high),
+    low: Float64Array.from(bars, (bar) => bar.low),
+    close: Float64Array.from(bars, (bar) => bar.close),
+    volume: Float64Array.from(bars, (bar) => bar.volume),
+  };
+}
+
+function chartBarsFromColumns(columns: CandleColumns) {
+  return Array.from(columns.time, (time, index) => ({
+    time: time as Time,
+    open: columns.open[index]!,
+    high: columns.high[index]!,
+    low: columns.low[index]!,
+    close: columns.close[index]!,
+  }));
+}
+
+function volumePointsFromColumns(columns: CandleColumns) {
+  return Array.from(columns.time, (time, index) => ({
+    time: time as Time,
+    value: columns.volume[index]!,
+    color: columns.close[index]! >= columns.open[index]! ? "#86efac" : "#fca5a5",
+  }));
+}
+
 function renderIndicator(indicator: Indicator) {
   if (!indicator.engineId) return;
   const outputSeries = engine.indicatorSeries(indicator.engineId);
@@ -558,29 +663,45 @@ function renderIndicator(indicator: Indicator) {
   for (const item of indicator.series) {
     const points = series.get(item.output);
     if (!points) continue;
-    item.series.setData(
-      points
-        .filter((point) => point.value !== null)
-        .map((point) => indicatorPoint(item.output, point)),
-    );
+    const renderedPoints = points
+      .filter((point) => point.value !== null)
+      .map((point) => indicatorPoint(item.output, point));
+    item.series.setData(renderedPoints);
+    item.lastPoint = undefined;
+    for (let index = points.length - 1; index >= 0; index -= 1) {
+      const point = points[index];
+      if (point?.value !== null) {
+        item.lastPoint = point;
+        break;
+      }
+    }
   }
   indicator.cloud?.primitive.setData(series.get("senkou_a"), series.get("senkou_b"));
 }
 
 function updateIndicator(indicator: Indicator) {
   if (!indicator.engineId) return;
-  const points = new Map(
-    engine.latestIndicatorPoints(indicator.engineId).map((point) => [
-      point.output,
-      point,
-    ]),
-  );
-  for (const item of indicator.series) {
-    const point = points.get(item.output);
-    if (!point) continue;
-    if (point.value !== null) item.series.update(indicatorPoint(item.output, point));
+  const values = engine.latestIndicatorValues(indicator.engineId);
+  let senkouA: IndicatorOutputPoint | undefined;
+  let senkouB: IndicatorOutputPoint | undefined;
+  for (let index = 0; index < indicator.series.length; index += 1) {
+    const item = indicator.series[index]!;
+    const value = values[index];
+    if (value === undefined || Number.isNaN(value)) continue;
+    const time = engine.latestIndicatorTime(indicator.engineId, item.output);
+    if (time === undefined) continue;
+    const point = { output: item.output, time, value };
+    if (item.lastPoint?.time === point.time && item.lastPoint.value === point.value) {
+      if (item.output === "senkou_a") senkouA = point;
+      if (item.output === "senkou_b") senkouB = point;
+      continue;
+    }
+    item.series.update(indicatorPoint(item.output, point));
+    item.lastPoint = point;
+    if (item.output === "senkou_a") senkouA = point;
+    if (item.output === "senkou_b") senkouB = point;
   }
-  indicator.cloud?.primitive.updatePoints(points.get("senkou_a"), points.get("senkou_b"));
+  indicator.cloud?.primitive.updatePoints(senkouA, senkouB);
 }
 
 function indicatorPoint(output: string, point: IndicatorPoint) {

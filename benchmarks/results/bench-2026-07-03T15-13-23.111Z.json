@@ -1,0 +1,219 @@
+{
+  "createdAt": "2026-07-03T15:13:20.274Z",
+  "sizes": [
+    50000
+  ],
+  "runs": 3,
+  "upserts": 250,
+  "indicators": [
+    {
+      "kind": "SMA",
+      "period": 20
+    },
+    {
+      "kind": "EMA",
+      "period": 50
+    },
+    {
+      "kind": "RSI",
+      "period": 14
+    },
+    {
+      "kind": "MACD",
+      "fast": 12,
+      "slow": 26,
+      "signal": 9
+    },
+    {
+      "kind": "BB",
+      "period": 20,
+      "multiplier": 2
+    },
+    {
+      "kind": "ATR",
+      "period": 14
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "ingestBars:50000",
+      "samplesMs": [
+        23.714,
+        26.24,
+        30.854
+      ],
+      "medianMs": 26.24,
+      "meanMs": 26.936,
+      "minMs": 23.714,
+      "maxMs": 30.854
+    },
+    {
+      "name": "ingestColumns:50000",
+      "samplesMs": [
+        27.237,
+        31.902,
+        62.648
+      ],
+      "medianMs": 31.902,
+      "meanMs": 40.596,
+      "minMs": 27.237,
+      "maxMs": 62.648
+    },
+    {
+      "name": "ingestColumnsFast:50000",
+      "samplesMs": [
+        0.939,
+        0.99,
+        1.367
+      ],
+      "medianMs": 0.99,
+      "meanMs": 1.099,
+      "minMs": 0.939,
+      "maxMs": 1.367
+    },
+    {
+      "name": "ingestBars+indicators:50000",
+      "samplesMs": [
+        48.45,
+        54.558,
+        64.169
+      ],
+      "medianMs": 54.558,
+      "meanMs": 55.726,
+      "minMs": 48.45,
+      "maxMs": 64.169
+    },
+    {
+      "name": "ingestColumns+indicators:50000",
+      "samplesMs": [
+        70.786,
+        104.007,
+        112.813
+      ],
+      "medianMs": 104.007,
+      "meanMs": 95.868,
+      "minMs": 70.786,
+      "maxMs": 112.813
+    },
+    {
+      "name": "ingestColumnsFast+indicators:50000",
+      "samplesMs": [
+        61.01,
+        78.661,
+        101.298
+      ],
+      "medianMs": 78.661,
+      "meanMs": 80.323,
+      "minMs": 61.01,
+      "maxMs": 101.298
+    },
+    {
+      "name": "upsertBar:50000+250",
+      "samplesMs": [
+        16.979,
+        18.065,
+        25.631
+      ],
+      "medianMs": 18.065,
+      "meanMs": 20.225,
+      "minMs": 16.979,
+      "maxMs": 25.631
+    },
+    {
+      "name": "appendLiveBar:50000",
+      "samplesMs": [
+        19.334,
+        41.287,
+        48.123
+      ],
+      "medianMs": 41.287,
+      "meanMs": 36.248,
+      "minMs": 19.334,
+      "maxMs": 48.123
+    },
+    {
+      "name": "replaceLastBar:50000",
+      "samplesMs": [
+        0.146,
+        0.151,
+        0.312
+      ],
+      "medianMs": 0.151,
+      "meanMs": 0.203,
+      "minMs": 0.146,
+      "maxMs": 0.312
+    },
+    {
+      "name": "appendLiveBar+latestOutputs:50000",
+      "samplesMs": [
+        24.317,
+        32.902,
+        55.126
+      ],
+      "medianMs": 32.902,
+      "meanMs": 37.448,
+      "minMs": 24.317,
+      "maxMs": 55.126
+    },
+    {
+      "name": "replaceLastBar+latestOutputs:50000",
+      "samplesMs": [
+        0.21,
+        0.269,
+        0.372
+      ],
+      "medianMs": 0.269,
+      "meanMs": 0.284,
+      "minMs": 0.21,
+      "maxMs": 0.372
+    },
+    {
+      "name": "candles:50000",
+      "samplesMs": [
+        22.655,
+        30.276,
+        40.739
+      ],
+      "medianMs": 30.276,
+      "meanMs": 31.223,
+      "minMs": 22.655,
+      "maxMs": 40.739
+    },
+    {
+      "name": "candleColumnsFast:50000",
+      "samplesMs": [
+        0.007,
+        0.013,
+        0.294
+      ],
+      "medianMs": 0.013,
+      "meanMs": 0.105,
+      "minMs": 0.007,
+      "maxMs": 0.294
+    },
+    {
+      "name": "indicatorOutputsAll:50000",
+      "samplesMs": [
+        6.508,
+        8.197,
+        10.981
+      ],
+      "medianMs": 8.197,
+      "meanMs": 8.562,
+      "minMs": 6.508,
+      "maxMs": 10.981
+    },
+    {
+      "name": "indicatorOutputValuesFast:50000",
+      "samplesMs": [
+        0.018,
+        0.018,
+        0.431
+      ],
+      "medianMs": 0.018,
+      "meanMs": 0.156,
+      "minMs": 0.018,
+      "maxMs": 0.431
+    }
+  ]
+}

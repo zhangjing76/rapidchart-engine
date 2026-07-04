@@ -14,9 +14,10 @@ const sizes = parseSizes(process.argv[2] ?? "1000,10000,50000");
 const runs = parsePositiveInt(process.argv[3] ?? "7", "runs");
 const upserts = parsePositiveInt(process.argv[4] ?? "250", "upserts");
 
-await initWasm({
+const wasmOutput = await initWasm({
   module_or_path: await readFile(wasmPath),
 });
+const wasmMemory = wasmOutput.memory;
 
 await mkdir(outDir, { recursive: true });
 
@@ -63,6 +64,29 @@ for (const size of sizes) {
         columns.close,
         columns.volume,
       );
+    }),
+    benchmarkScenario(`ingestColumnsZeroCopy:${size}`, runs, () => {
+      const engine = new ChartEngine();
+      const ptrs = engine.alloc_candle_buffer(size);
+      new Uint32Array(wasmMemory.buffer, ptrs.time_ptr, size).set(columns.time);
+      new Float64Array(wasmMemory.buffer, ptrs.open_ptr, size).set(columns.open);
+      new Float64Array(wasmMemory.buffer, ptrs.high_ptr, size).set(columns.high);
+      new Float64Array(wasmMemory.buffer, ptrs.low_ptr, size).set(columns.low);
+      new Float64Array(wasmMemory.buffer, ptrs.close_ptr, size).set(columns.close);
+      new Float64Array(wasmMemory.buffer, ptrs.volume_ptr, size).set(columns.volume);
+      engine.finalize_candle_buffer();
+    }),
+    benchmarkScenario(`ingestColumnsZeroCopy+indicators:${size}`, runs, () => {
+      const engine = new ChartEngine();
+      const ptrs = engine.alloc_candle_buffer(size);
+      new Uint32Array(wasmMemory.buffer, ptrs.time_ptr, size).set(columns.time);
+      new Float64Array(wasmMemory.buffer, ptrs.open_ptr, size).set(columns.open);
+      new Float64Array(wasmMemory.buffer, ptrs.high_ptr, size).set(columns.high);
+      new Float64Array(wasmMemory.buffer, ptrs.low_ptr, size).set(columns.low);
+      new Float64Array(wasmMemory.buffer, ptrs.close_ptr, size).set(columns.close);
+      new Float64Array(wasmMemory.buffer, ptrs.volume_ptr, size).set(columns.volume);
+      engine.finalize_candle_buffer();
+      addIndicators(engine, indicators);
     }),
     benchmarkScenario(`ingestBars+indicators:${size}`, runs, () => {
       const engine = new ChartEngine();
@@ -164,7 +188,7 @@ for (const size of sizes) {
       const bar = nextBar(bars[bars.length - 1], 1);
       engine.upsert_bar_fast(bar.time, bar.open, bar.high, bar.low, bar.close, bar.volume);
       for (const id of ids) {
-        engine.latest_indicator_values(id);
+        engine.latest_indicator_values_fast(id);
       }
     }),
     benchmarkScenarioWithSetup(`replaceLastBar+latestOutputs:${size}`, runs, () => {
@@ -183,7 +207,7 @@ for (const size of sizes) {
       const bar = replaceBar(bars[bars.length - 1]);
       engine.upsert_bar_fast(bar.time, bar.open, bar.high, bar.low, bar.close, bar.volume);
       for (const id of ids) {
-        engine.latest_indicator_values(id);
+        engine.latest_indicator_values_fast(id);
       }
     }),
     benchmarkScenario(`candles:${size}`, runs, () => {

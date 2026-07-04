@@ -3,6 +3,13 @@ name = "rapidchart-engine"
 version = "0.1.0"
 edition = "2021"
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = true
+
+[profile.release]
+lto = true
+opt-level = 3
+
 [lib]
 name = "rapidchart_engine"
 crate-type = ["cdylib", "rlib"]

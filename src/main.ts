@@ -20,12 +20,15 @@ import {
   type IndicatorDescriptor,
   type IndicatorKind,
   type IndicatorOutputPoint,
-  type IndicatorOutputSeries,
   type OutputDescriptor,
   type ParamDescriptor,
   RapidChartEngine,
   initEngine,
+  indicatorOutputShift,
+  seriesSpacingSeconds,
+  shiftedOutputTime,
 } from "./index";
+import { fixtureColumns } from "./fixtures";
 import "./style.css";
 
 type IndicatorPoint = {
@@ -72,12 +75,36 @@ type PerfSample = {
   totalMs: number;
 };
 
+type LoadBreakdown = {
+  source: "cache" | "fixture" | "network";
+  fetchMs: number;
+  parseMs: number;
+  ingestMs: number;
+  candleRenderMs: number;
+  volumeRenderMs: number;
+  indicatorRenderMs: number;
+  dagMs: number;
+  fitMs: number;
+  streamMs: number;
+  totalMs: number;
+};
+
+type PresetBreakdown = {
+  preset: string;
+  clearMs: number;
+  attachMs: number;
+  listMs: number;
+  dagMs: number;
+  totalMs: number;
+};
+
 const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"];
 const intervals = ["1m", "5m", "15m", "1h", "4h", "1d"];
 const colors = ["#2563eb", "#dc2626", "#059669", "#9333ea", "#ea580c"];
 const ichimokuBullCloud = "rgba(5, 150, 105, 0.18)";
 const ichimokuBearCloud = "rgba(220, 38, 38, 0.18)";
 const layoutStorageKey = "rapidchart.layouts";
+const candleCacheKey = "rapidchart.candles";
 const presets: IndicatorPreset[] = [
   {
     name: "Trend Stack",
@@ -333,6 +360,14 @@ const dag = document.querySelector<HTMLElement>("#dag")!;
 const perfSamples: PerfSample[] = [];
 const perfSampleLimit = 60;
 
+declare global {
+  interface Window {
+    __rapidChartLoadBreakdown?: LoadBreakdown;
+    __rapidChartBenchmarkTick?: () => boolean;
+    __rapidChartPresetBreakdown?: PresetBreakdown;
+  }
+}
+
 const chart = createChart(document.querySelector<HTMLElement>("#chart")!, {
   autoSize: true,
   layout: { attributionLogo: false, background: { color: "#ffffff" }, textColor: "#111827" },
@@ -353,10 +388,15 @@ let engine: RapidChartEngine;
 let indicators: Indicator[] = [];
 let stream: WebSocket | undefined;
 let descriptors: IndicatorDescriptor[] = [];
+let currentColumns: CandleColumns | undefined;
+let currentSpacing = 60;
+const dataMode = readDataMode();
+const fixtureName = readFixtureName();
 
 await initEngine();
 engine = new RapidChartEngine();
 descriptors = engine.indicatorDescriptors();
+window.__rapidChartBenchmarkTick = benchmarkTick;
 renderIndicatorPicker();
 renderLayoutPicker();
 renderPresetPicker();
@@ -383,47 +423,158 @@ async function load() {
   setStatus("Loading...");
   closeStream();
   detachIndicatorSeries();
+  const loadStart = performance.now();
   try {
     engine = new RapidChartEngine();
-    const columns = await fetchBars(symbolInput.value, intervalInput.value);
+    const { columns, source, fetchMs, parseMs } = await fetchBars(symbolInput.value, intervalInput.value);
+    const ingestStart = performance.now();
     engine.ingestColumnsFast(columns);
-    candles.setData(chartBarsFromColumns(columns));
-    volume.setData(volumePointsFromColumns(columns));
+    const ingestMs = performance.now() - ingestStart;
+    currentColumns = engine.candleColumns();
+    currentSpacing = seriesSpacingSeconds(currentColumns.time);
+    const candleRenderStart = performance.now();
+    candles.setData(chartBarsFromColumns(currentColumns));
+    const candleRenderMs = performance.now() - candleRenderStart;
+    const volumeRenderStart = performance.now();
+    volume.setData(volumePointsFromColumns(currentColumns));
+    const volumeRenderMs = performance.now() - volumeRenderStart;
+    const indicatorRenderStart = performance.now();
     attachIndicators();
+    const indicatorRenderMs = performance.now() - indicatorRenderStart;
+    const dagStart = performance.now();
     renderDag();
+    const dagMs = performance.now() - dagStart;
+    const fitStart = performance.now();
     chart.timeScale().fitContent();
-    openStream(symbolInput.value, intervalInput.value);
-    setStatus(`${symbolInput.value} ${intervalInput.value} live`);
+    const fitMs = performance.now() - fitStart;
+    const streamStart = performance.now();
+    if (dataMode === "live") openStream(symbolInput.value, intervalInput.value);
+    const streamMs = performance.now() - streamStart;
+    window.__rapidChartLoadBreakdown = {
+      source,
+      fetchMs,
+      parseMs,
+      ingestMs,
+      candleRenderMs,
+      volumeRenderMs,
+      indicatorRenderMs,
+      dagMs,
+      fitMs,
+      streamMs,
+      totalMs: performance.now() - loadStart,
+    };
+    setStatus(
+      `${symbolInput.value} ${intervalInput.value} ${
+        dataMode === "live" ? "live" : dataMode === "fixture" ? `fixture:${fixtureName}` : "cached"
+      }`,
+    );
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Failed to load data", "error");
   }
 }
 
-async function fetchBars(symbol: string, interval: string): Promise<CandleColumns> {
+async function fetchBars(
+  symbol: string,
+  interval: string,
+): Promise<{ columns: CandleColumns; source: "cache" | "fixture" | "network"; fetchMs: number; parseMs: number }> {
+  if (dataMode === "fixture") {
+    const columns = fixtureColumns(fixtureName);
+    if (!columns) throw new Error(`Unknown fixture ${fixtureName}`);
+    return { columns, source: "fixture", fetchMs: 0, parseMs: 0 };
+  }
+  const cached = readCachedColumns(symbol, interval);
+  if (cached && dataMode === "cached") {
+    return { columns: cached, source: "cache", fetchMs: 0, parseMs: 0 };
+  }
   const url = new URL("https://api.binance.com/api/v3/klines");
   url.search = new URLSearchParams({ symbol, interval, limit: "500" }).toString();
+  const fetchStart = performance.now();
   const response = await fetch(url);
+  const fetchMs = performance.now() - fetchStart;
   if (!response.ok) throw new Error(`Binance returned ${response.status}`);
+  const parseStart = performance.now();
   const rows = await response.json();
   if (!Array.isArray(rows)) throw new Error("Unexpected Binance response");
-  const bars = rows
-    .map(barFromRestRow)
-    .filter((bar): bar is Bar => bar !== undefined);
-  if (bars.length === 0) throw new Error("No valid bars returned");
-  return candleColumnsFromBars(bars);
+  const validRows = rows.filter(isFiniteRestRow);
+  if (validRows.length === 0) throw new Error("No valid bars returned");
+  const columns = {
+    time: Uint32Array.from(validRows, (row) => Math.floor(Number(row[0]) / 1000)),
+    open: Float64Array.from(validRows, (row) => Number(row[1])),
+    high: Float64Array.from(validRows, (row) => Number(row[2])),
+    low: Float64Array.from(validRows, (row) => Number(row[3])),
+    close: Float64Array.from(validRows, (row) => Number(row[4])),
+    volume: Float64Array.from(validRows, (row) => Number(row[5])),
+  };
+  writeCachedColumns(symbol, interval, columns);
+  return {
+    columns,
+    source: "network",
+    fetchMs,
+    parseMs: performance.now() - parseStart,
+  };
 }
 
-function barFromRestRow(row: unknown): Bar | undefined {
-  if (!Array.isArray(row)) return undefined;
-  const bar = {
-    time: Math.floor(Number(row[0]) / 1000),
-    open: Number(row[1]),
-    high: Number(row[2]),
-    low: Number(row[3]),
-    close: Number(row[4]),
-    volume: Number(row[5]),
-  };
-  return isFiniteBar(bar) ? bar : undefined;
+function readDataMode(): "live" | "cached" | "fixture" {
+  const mode = new URLSearchParams(window.location.search).get("data");
+  if (mode === "fixture") return "fixture";
+  return mode === "cached" ? "cached" : "live";
+}
+
+function readFixtureName() {
+  return new URLSearchParams(window.location.search).get("fixture") ?? "btcusdt-1m";
+}
+
+function readCachedColumns(symbol: string, interval: string): CandleColumns | undefined {
+  try {
+    const raw = localStorage.getItem(candleCacheKey);
+    if (!raw) return undefined;
+    const cache = JSON.parse(raw) as Record<string, number[][] | undefined>;
+    const entry = cache[`${symbol}:${interval}`];
+    if (!Array.isArray(entry) || entry.length !== 6) return undefined;
+    const [time, open, high, low, close, volume] = entry;
+    if (
+      !Array.isArray(time) || !Array.isArray(open) || !Array.isArray(high)
+      || !Array.isArray(low) || !Array.isArray(close) || !Array.isArray(volume)
+    ) return undefined;
+    return {
+      time: Uint32Array.from(time),
+      open: Float64Array.from(open),
+      high: Float64Array.from(high),
+      low: Float64Array.from(low),
+      close: Float64Array.from(close),
+      volume: Float64Array.from(volume),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedColumns(symbol: string, interval: string, columns: CandleColumns) {
+  try {
+    const raw = localStorage.getItem(candleCacheKey);
+    const cache = raw ? JSON.parse(raw) as Record<string, number[][]> : {};
+    cache[`${symbol}:${interval}`] = [
+      Array.from(columns.time),
+      Array.from(columns.open),
+      Array.from(columns.high),
+      Array.from(columns.low),
+      Array.from(columns.close),
+      Array.from(columns.volume),
+    ];
+    localStorage.setItem(candleCacheKey, JSON.stringify(cache));
+  } catch {
+    // ponytail: cache is best-effort for repeatable testing; ignore quota/parse failures.
+  }
+}
+
+function isFiniteRestRow(row: unknown): row is unknown[] {
+  return Array.isArray(row)
+    && Number.isFinite(Math.floor(Number(row[0]) / 1000))
+    && Number.isFinite(Number(row[1]))
+    && Number.isFinite(Number(row[2]))
+    && Number.isFinite(Number(row[3]))
+    && Number.isFinite(Number(row[4]))
+    && Number.isFinite(Number(row[5]));
 }
 
 function addIndicator(kind: IndicatorKind) {
@@ -450,12 +601,16 @@ function indicatorFromConfig(config: IndicatorConfig): Indicator {
 
 function attachIndicator(indicator: Indicator, index: number) {
   indicator.engineId = engine.addIndicator(indicatorConfig(indicator));
+  attachIndicatorSeries(indicator, index);
+  renderIndicator(indicator);
+}
+
+function attachIndicatorSeries(indicator: Indicator, index: number) {
   indicator.series = descriptorFor(indicator.kind).outputs.map((output, outputIndex) =>
     addOutputSeries(output, colors[(index + outputIndex) % colors.length]),
   );
   if (indicator.kind === "ICHIMOKU") attachIchimokuCloud(indicator);
   if (indicator.kind === "RSI") addRsiGuides(indicator.series[0].series as ISeriesApi<"Line">);
-  renderIndicator(indicator);
 }
 
 function attachIchimokuCloud(indicator: Indicator) {
@@ -505,7 +660,13 @@ function addRsiGuides(series: ISeriesApi<"Line">) {
 }
 
 function attachIndicators() {
-  indicators.forEach((indicator, index) => attachIndicator(indicator, index));
+  const configs = indicators.map((indicator) => indicatorConfig(indicator));
+  const ids = engine.addIndicators(configs);
+  indicators.forEach((indicator, index) => {
+    indicator.engineId = ids[index];
+    attachIndicatorSeries(indicator, index);
+  });
+  renderIndicators(indicators);
 }
 
 function openStream(symbol: string, interval: string) {
@@ -514,33 +675,13 @@ function openStream(symbol: string, interval: string) {
   socket.addEventListener("message", (event) => {
     const bar = barFromStream(JSON.parse(event.data));
     if (!bar) return;
-    const totalStart = performance.now();
-    const engineStart = performance.now();
     try {
-      engine.upsertBarFast(bar);
+      applyBarUpdate(bar);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Live update failed", "error");
       if (stream === socket) stream = undefined;
       socket.close();
-      return;
     }
-    const engineMs = performance.now() - engineStart;
-    const candleStart = performance.now();
-    candles.update({ ...bar, time: bar.time as Time });
-    const candlesMs = performance.now() - candleStart;
-    const volumeStart = performance.now();
-    volume.update(volumePoint(bar));
-    const volumeMs = performance.now() - volumeStart;
-    const indicatorsStart = performance.now();
-    for (const indicator of indicators) updateIndicator(indicator);
-    const indicatorsMs = performance.now() - indicatorsStart;
-    pushPerfSample({
-      engineMs,
-      candlesMs,
-      volumeMs,
-      indicatorsMs,
-      totalMs: performance.now() - totalStart,
-    });
   });
   socket.addEventListener("error", () => setStatus(`${symbol} ${interval} stream failed`, "error"));
   socket.addEventListener("close", () => {
@@ -552,6 +693,51 @@ function closeStream() {
   const socket = stream;
   stream = undefined;
   socket?.close();
+}
+
+function benchmarkTick() {
+  const columns = currentColumns;
+  if (!columns || columns.time.length === 0) return false;
+  const lastIndex = columns.time.length - 1;
+  const lastTime = columns.time[lastIndex]!;
+  const open = columns.close[lastIndex]!;
+  const close = open + Math.sin(lastTime / 600) * 12 + Math.cos(lastTime / 180) * 4;
+  const high = Math.max(open, close) + 6;
+  const low = Math.min(open, close) - 6;
+  const volumeValue = columns.volume[lastIndex]! + 5;
+  applyBarUpdate({
+    time: lastTime + Math.max(currentSpacing, 60),
+    open,
+    high,
+    low,
+    close,
+    volume: volumeValue,
+  });
+  return true;
+}
+
+function applyBarUpdate(bar: Bar) {
+  const totalStart = performance.now();
+  const engineStart = performance.now();
+  engine.upsertBarFast(bar);
+  currentColumns = engine.candleColumns();
+  const engineMs = performance.now() - engineStart;
+  const candleStart = performance.now();
+  candles.update({ ...bar, time: bar.time as Time });
+  const candlesMs = performance.now() - candleStart;
+  const volumeStart = performance.now();
+  volume.update(volumePoint(bar));
+  const volumeMs = performance.now() - volumeStart;
+  const indicatorsStart = performance.now();
+  for (const indicator of indicators) updateIndicator(indicator);
+  const indicatorsMs = performance.now() - indicatorsStart;
+  pushPerfSample({
+    engineMs,
+    candlesMs,
+    volumeMs,
+    indicatorsMs,
+    totalMs: performance.now() - totalStart,
+  });
 }
 
 function pushPerfSample(sample: PerfSample) {
@@ -627,25 +813,18 @@ function volumePoint(bar: Bar) {
   };
 }
 
-function candleColumnsFromBars(bars: Bar[]): CandleColumns {
-  return {
-    time: Uint32Array.from(bars, (bar) => bar.time),
-    open: Float64Array.from(bars, (bar) => bar.open),
-    high: Float64Array.from(bars, (bar) => bar.high),
-    low: Float64Array.from(bars, (bar) => bar.low),
-    close: Float64Array.from(bars, (bar) => bar.close),
-    volume: Float64Array.from(bars, (bar) => bar.volume),
-  };
-}
-
 function chartBarsFromColumns(columns: CandleColumns) {
-  return Array.from(columns.time, (time, index) => ({
-    time: time as Time,
-    open: columns.open[index]!,
-    high: columns.high[index]!,
-    low: columns.low[index]!,
-    close: columns.close[index]!,
-  }));
+  const bars = new Array(columns.time.length);
+  for (let index = 0; index < columns.time.length; index += 1) {
+    bars[index] = {
+      time: columns.time[index]! as Time,
+      open: columns.open[index]!,
+      high: columns.high[index]!,
+      low: columns.low[index]!,
+      close: columns.close[index]!,
+    };
+  }
+  return bars;
 }
 
 function volumePointsFromColumns(columns: CandleColumns) {
@@ -656,27 +835,82 @@ function volumePointsFromColumns(columns: CandleColumns) {
   }));
 }
 
-function renderIndicator(indicator: Indicator) {
-  if (!indicator.engineId) return;
-  const outputSeries = engine.indicatorSeries(indicator.engineId);
-  const series = new Map(outputSeries.map((item) => [item.output, item.points]));
-  for (const item of indicator.series) {
-    const points = series.get(item.output);
-    if (!points) continue;
-    const renderedPoints = points
-      .filter((point) => point.value !== null)
-      .map((point) => indicatorPoint(item.output, point));
-    item.series.setData(renderedPoints);
+function shiftedTimes(shift: number, cache: Map<number, Time[]>) {
+  if (shift === 0 || !currentColumns) return undefined;
+  const cached = cache.get(shift);
+  if (cached) return cached;
+  const times = new Array(currentColumns.time.length);
+  for (let index = 0; index < currentColumns.time.length; index += 1) {
+    times[index] = shiftedOutputTime(currentColumns.time[index]!, currentSpacing, shift);
+  }
+  cache.set(shift, times);
+  return times;
+}
+
+function isSimpleLineIndicator(indicator: Indicator) {
+  return !indicator.cloud && indicator.series.every((item) =>
+    item.series.seriesType() === "Line" && indicatorOutputShift(indicator.config, item.output) === 0
+  );
+}
+
+function renderSimpleLineIndicator(indicator: Indicator, outputs: ReturnType<RapidChartEngine["indicatorValueSeries"]>) {
+  if (!currentColumns) return;
+  for (let outputIndex = 0; outputIndex < indicator.series.length; outputIndex += 1) {
+    const item = indicator.series[outputIndex]!;
+    const output = outputs[outputIndex];
+    if (!output || output.output !== item.output) continue;
+    const renderedPoints = [];
     item.lastPoint = undefined;
-    for (let index = points.length - 1; index >= 0; index -= 1) {
-      const point = points[index];
-      if (point?.value !== null) {
+    for (let index = 0; index < currentColumns.time.length; index += 1) {
+      const value = output.values[index];
+      if (value === undefined || Number.isNaN(value)) continue;
+      const point = { time: currentColumns.time[index]!, value };
+      renderedPoints.push({ time: point.time as Time, value: point.value });
+      item.lastPoint = point;
+    }
+    item.series.setData(renderedPoints);
+  }
+}
+
+function renderIndicator(indicator: Indicator, shiftedTimesCache = new Map<number, Time[]>()) {
+  if (!indicator.engineId || !currentColumns) return;
+  const outputs = engine.indicatorValueSeries(indicator.engineId);
+  if (isSimpleLineIndicator(indicator)) {
+    renderSimpleLineIndicator(indicator, outputs);
+    return;
+  }
+  const cloudA: IndicatorPoint[] = [];
+  const cloudB: IndicatorPoint[] = [];
+  for (let outputIndex = 0; outputIndex < indicator.series.length; outputIndex += 1) {
+    const item = indicator.series[outputIndex]!;
+    const output = outputs[outputIndex];
+    if (!output || output.output !== item.output) continue;
+    const renderedPoints = [];
+    item.lastPoint = undefined;
+    const shift = indicatorOutputShift(indicator.config, item.output);
+    const times = shiftedTimes(shift, shiftedTimesCache);
+    for (let index = 0; index < currentColumns.time.length; index += 1) {
+      const value = output.values[index];
+      if (value === undefined || Number.isNaN(value)) continue;
+      const point = {
+        time: times ? times[index]! as number : currentColumns.time[index]!,
+        value,
+      };
+      renderedPoints.push(indicatorPoint(item.output, point));
+      if (item.output === "senkou_a") cloudA.push(point);
+      if (item.output === "senkou_b") cloudB.push(point);
+      if (item.lastPoint === undefined || point.time >= item.lastPoint.time) {
         item.lastPoint = point;
-        break;
       }
     }
+    item.series.setData(renderedPoints);
   }
-  indicator.cloud?.primitive.setData(series.get("senkou_a"), series.get("senkou_b"));
+  indicator.cloud?.primitive.setData(cloudA, cloudB);
+}
+
+function renderIndicators(items: Indicator[]) {
+  const shiftedTimesCache = new Map<number, Time[]>();
+  for (const indicator of items) renderIndicator(indicator, shiftedTimesCache);
 }
 
 function updateIndicator(indicator: Indicator) {
@@ -1068,11 +1302,28 @@ async function applyLayout(layout: LayoutState) {
 function applySelectedPreset() {
   const preset = presets.find((item) => item.name === presetSelect.value);
   if (!preset) return;
+  const totalStart = performance.now();
+  const clearStart = performance.now();
   clearIndicators();
+  const clearMs = performance.now() - clearStart;
   indicators = preset.indicators.map(indicatorFromConfig);
+  const attachStart = performance.now();
   attachIndicators();
+  const attachMs = performance.now() - attachStart;
+  const listStart = performance.now();
   renderIndicatorList();
+  const listMs = performance.now() - listStart;
+  const dagStart = performance.now();
   renderDag();
+  const dagMs = performance.now() - dagStart;
+  window.__rapidChartPresetBreakdown = {
+    preset: preset.name,
+    clearMs,
+    attachMs,
+    listMs,
+    dagMs,
+    totalMs: performance.now() - totalStart,
+  };
   setStatus(`Applied preset ${preset.name}`);
 }
 

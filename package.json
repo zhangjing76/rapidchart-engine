@@ -14,6 +14,8 @@
     "build:wasm": "wasm-pack build --target web --out-dir pkg",
     "bench": "node scripts/bench.mjs",
     "bench:browser": "npm run build && node scripts/bench-browser.mjs",
+    "bench:load-browser": "npm run build && node scripts/bench-load-browser.mjs",
+    "bench:snapshot-browser": "npm run build && node scripts/bench-snapshot-browser.mjs",
     "bench:compare": "node scripts/bench-compare.mjs",
     "dev": "npm run build:wasm && vite --host 127.0.0.1",
     "build": "npm run build:wasm && tsc && vite build"

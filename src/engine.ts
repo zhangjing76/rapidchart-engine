@@ -1,6 +1,7 @@
 import initWasm, {
   ChartEngine as WasmChartEngine,
   type InitInput,
+  type InitOutput,
 } from "../pkg/rapidchart_engine";
 
 export type Bar = {
@@ -143,10 +144,18 @@ export type DagDebug = {
   edges: { from: string; to: string }[];
 };
 
+let wasmMemory: WebAssembly.Memory | undefined;
+
 export async function initEngine(
   moduleOrPath?: InitInput | Promise<InitInput>,
 ): Promise<void> {
-  await initWasm(moduleOrPath);
+  const output = await initWasm(moduleOrPath);
+  wasmMemory = output.memory;
+}
+
+export function getWasmMemory(): WebAssembly.Memory {
+  if (!wasmMemory) throw new Error("Engine not initialized. Call initEngine() first.");
+  return wasmMemory;
 }
 
 export class RapidChartEngine {
@@ -184,6 +193,36 @@ export class RapidChartEngine {
     this.#seriesSpacing = seriesSpacingSeconds(columns.time);
   }
 
+  /**
+   * Zero-copy ingest: writes candle data directly into WASM linear memory,
+   * avoiding the TypedArray-to-Vec copy that ingestColumnsFast performs.
+   */
+  ingestColumnsZeroCopy(columns: CandleColumns): void {
+    const len = columns.time.length;
+    const memory = getWasmMemory();
+    const ptrs = this.#engine.alloc_candle_buffer(len) as {
+      time_ptr: number;
+      open_ptr: number;
+      high_ptr: number;
+      low_ptr: number;
+      close_ptr: number;
+      volume_ptr: number;
+      len: number;
+    };
+
+    // Write directly into WASM linear memory — one copy from JS heap to WASM heap
+    new Uint32Array(memory.buffer, ptrs.time_ptr, len).set(columns.time);
+    new Float64Array(memory.buffer, ptrs.open_ptr, len).set(columns.open);
+    new Float64Array(memory.buffer, ptrs.high_ptr, len).set(columns.high);
+    new Float64Array(memory.buffer, ptrs.low_ptr, len).set(columns.low);
+    new Float64Array(memory.buffer, ptrs.close_ptr, len).set(columns.close);
+    new Float64Array(memory.buffer, ptrs.volume_ptr, len).set(columns.volume);
+
+    this.#engine.finalize_candle_buffer();
+    this.#lastBarTime = columns.time.at(-1);
+    this.#seriesSpacing = seriesSpacingSeconds(columns.time);
+  }
+
   upsertBar(bar: Bar): void {
     this.#engine.upsert_bar(bar);
     this.#updateSpacingForBar(bar.time);
@@ -213,6 +252,15 @@ export class RapidChartEngine {
     const id = this.#engine.add_indicator_config(config);
     this.#configs.set(id, { ...config });
     return id;
+  }
+
+  addIndicators(configs: IndicatorConfig[]): number[] {
+    const ids = this.#engine.add_indicator_configs(configs) as number[];
+    ids.forEach((id, index) => {
+      const config = configs[index];
+      if (config) this.#configs.set(id, { ...config });
+    });
+    return ids;
   }
 
   removeIndicator(id: number): boolean {
@@ -294,7 +342,7 @@ export class RapidChartEngine {
   }
 }
 
-function seriesSpacingSeconds(times: Uint32Array) {
+export function seriesSpacingSeconds(times: Uint32Array) {
   let spacing = 60;
   for (let index = 1; index < times.length; index += 1) {
     const value = times[index]! - times[index - 1]!;
@@ -303,7 +351,7 @@ function seriesSpacingSeconds(times: Uint32Array) {
   return spacing;
 }
 
-function seriesSpacingFromBars(bars: Bar[]) {
+export function seriesSpacingFromBars(bars: Bar[]) {
   let spacing = 60;
   for (let index = 1; index < bars.length; index += 1) {
     const value = bars[index]!.time - bars[index - 1]!.time;
@@ -312,7 +360,7 @@ function seriesSpacingFromBars(bars: Bar[]) {
   return spacing;
 }
 
-function indicatorOutputShift(config: IndicatorConfig | undefined, output: string) {
+export function indicatorOutputShift(config: IndicatorConfig | undefined, output: string) {
   if (config?.kind !== "ICHIMOKU") return 0;
   const shift = config.kijun_period ?? 26;
   if (output === "senkou_a" || output === "senkou_b") return shift;
@@ -320,7 +368,7 @@ function indicatorOutputShift(config: IndicatorConfig | undefined, output: strin
   return 0;
 }
 
-function shiftedOutputTime(baseTime: number, spacing: number, shift: number) {
+export function shiftedOutputTime(baseTime: number, spacing: number, shift: number) {
   const delta = spacing * Math.abs(shift);
   return shift >= 0 ? baseTime + delta : baseTime - delta;
 }

@@ -1947,7 +1947,7 @@ fn compute_indicator_store(
         "KELTNER" => keltner_store(store, period, multiplier, nodes),
         "STARC" => starc_store(store, period, multiplier, nodes),
         "WMA" => one_output(rc_into_owned(wma_store(store, period, nodes))),
-        "HMA" => one_output(hma_store(store, period, nodes)),
+        "HMA" => one_output(rc_into_owned(hma_store(store, period, nodes))),
         "LINEAR_REGRESSION" => one_output(linear_regression_store(store, period, nodes)),
         "DEMA" => one_output(dema_store(store, period, nodes)),
         "TEMA" => one_output(tema_store(store, period, nodes)),
@@ -3089,13 +3089,13 @@ fn latest_wma_store(store: &CandleStore, period: usize) -> Option<f64> {
     Some(weighted_sum / denominator)
 }
 
-fn hma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn hma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("hma:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     if period == 0 {
-        return vec![f64::NAN; store.len()];
+        return Rc::new(vec![f64::NAN; store.len()]);
     }
     let half_period = (period / 2).max(1);
     let sqrt_period = ((period as f64).sqrt().round() as usize).max(1);
@@ -3109,9 +3109,9 @@ fn hma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
             _ => f64::NAN,
         })
         .collect();
-    let values = wma_from_values(&raw, sqrt_period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(wma_from_values(&raw, sqrt_period));
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_hma_store(store: &CandleStore, period: usize) -> Option<f64> {

@@ -1910,6 +1910,13 @@ fn one_output(values: Vec<f64>) -> Vec<IndicatorOutput> {
     }]
 }
 
+fn rc_one_output(rc: RcSeries) -> Vec<IndicatorOutput> {
+    vec![IndicatorOutput {
+        name: "value".to_string(),
+        values: rc_into_owned(rc),
+    }]
+}
+
 fn compute_indicator_store(
     store: &CandleStore,
     kind: &str,
@@ -1931,16 +1938,16 @@ fn compute_indicator_store(
         "SMA" => one_output(rc_into_owned(sma_close_store(store, period, nodes))),
         "EMA" => one_output(rc_into_owned(ema_close_store(store, period, nodes))),
         "RSI" => rsi_outputs_store(store, period, nodes),
-        "ROC" => one_output(roc_store(store, period, nodes)),
-        "CCI" => one_output(cci_store(store, period, nodes)),
-        "MFI" => one_output(mfi_store(store, period, nodes)),
-        "CMF" => one_output(cmf_store(store, period, nodes)),
-        "WILLIAMS_R" => one_output(williams_r_store(store, period, nodes)),
+        "ROC" => rc_one_output(roc_store(store, period, nodes)),
+        "CCI" => rc_one_output(cci_store(store, period, nodes)),
+        "MFI" => rc_one_output(mfi_store(store, period, nodes)),
+        "CMF" => rc_one_output(cmf_store(store, period, nodes)),
+        "WILLIAMS_R" => rc_one_output(williams_r_store(store, period, nodes)),
         "OBV" => one_output(rc_into_owned(obv_store(store, nodes))),
         "ADL" => one_output(rc_into_owned(adl_store(store, nodes))),
         "VWAP" => vwap_store(store, nodes),
-        "VWMA" => one_output(vwma_store(store, period, nodes)),
-        "WILLIAMS_AD" => one_output(williams_ad_store(store, nodes)),
+        "VWMA" => rc_one_output(vwma_store(store, period, nodes)),
+        "WILLIAMS_AD" => rc_one_output(williams_ad_store(store, nodes)),
         "ATR" => one_output(rc_into_owned(atr_store(store, period, nodes))),
         "ADX" => adx_store(store, period, nodes),
         "SUPERTREND" => supertrend_store(store, period, multiplier, nodes),
@@ -1948,19 +1955,19 @@ fn compute_indicator_store(
         "STARC" => starc_store(store, period, multiplier, nodes),
         "WMA" => one_output(rc_into_owned(wma_store(store, period, nodes))),
         "HMA" => one_output(rc_into_owned(hma_store(store, period, nodes))),
-        "LINEAR_REGRESSION" => one_output(linear_regression_store(store, period, nodes)),
-        "DEMA" => one_output(dema_store(store, period, nodes)),
-        "TEMA" => one_output(tema_store(store, period, nodes)),
-        "TRIMA" => one_output(trima_store(store, period, nodes)),
+        "LINEAR_REGRESSION" => rc_one_output(linear_regression_store(store, period, nodes)),
+        "DEMA" => rc_one_output(dema_store(store, period, nodes)),
+        "TEMA" => rc_one_output(tema_store(store, period, nodes)),
+        "TRIMA" => rc_one_output(trima_store(store, period, nodes)),
         "STDDEV" => one_output(rc_into_owned(stddev_store(store, period, nodes))),
         "ENVELOPE" => envelope_store(store, period, multiplier, nodes),
-        "TRIX" => one_output(trix_store(store, period, nodes)),
-        "TSI" => one_output(tsi_store(store, period, stoch_period, nodes)),
-        "KST" => one_output(kst_store(store, nodes)),
-        "BOP" => one_output(bop_store(store, nodes)),
-        "MOMENTUM" => one_output(momentum_store(store, period, nodes)),
-        "DPO" => one_output(dpo_store(store, period, nodes)),
-        "FORCE_INDEX" => one_output(force_index_store(store, period, nodes)),
+        "TRIX" => rc_one_output(trix_store(store, period, nodes)),
+        "TSI" => rc_one_output(tsi_store(store, period, stoch_period, nodes)),
+        "KST" => rc_one_output(kst_store(store, nodes)),
+        "BOP" => rc_one_output(bop_store(store, nodes)),
+        "MOMENTUM" => rc_one_output(momentum_store(store, period, nodes)),
+        "DPO" => rc_one_output(dpo_store(store, period, nodes)),
+        "FORCE_INDEX" => rc_one_output(force_index_store(store, period, nodes)),
         "PRICE_CHANNEL" => price_channel_store(store, period, nodes),
         "STOCHASTIC" => stochastic_store(store, period, smooth, nodes),
         "BB" => bollinger_store(store, period, multiplier, nodes),
@@ -1976,7 +1983,7 @@ fn compute_indicator_store(
             smooth,
             nodes,
         )),
-        "CHAIKIN_VOLATILITY" => one_output(chaikin_volatility_store(store, period, nodes)),
+        "CHAIKIN_VOLATILITY" => rc_one_output(chaikin_volatility_store(store, period, nodes)),
         "STOCH_RSI" => stoch_rsi_store(store, period, stoch_period, smooth, signal, nodes),
         "CHAIKIN_OSCILLATOR" => one_output(chaikin_oscillator_store(
             store,
@@ -3192,23 +3199,23 @@ fn latest_linear_regression(bars: &[Bar], period: usize) -> Option<f64> {
     linear_regression(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("linreg:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
     let n = period as f64;
     let sum_x = (0..period).map(|x| x as f64).sum::<f64>();
     let sum_xx = (0..period).map(|x| (x * x) as f64).sum::<f64>();
     let denominator = n * sum_xx - sum_x * sum_x;
     if denominator == 0.0 {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
     for index in period - 1..store.len() {
         let window = &store.close[index + 1 - period..=index];
@@ -3222,8 +3229,8 @@ fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeC
         let intercept = (sum_y - slope * sum_x) / n;
         out[index] = intercept + slope * (period - 1) as f64;
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_linear_regression_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -3272,10 +3279,10 @@ fn latest_dema(bars: &[Bar], period: usize) -> Option<f64> {
     dema(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("dema:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let ema1 = rc_into_owned(ema_close_store(store, period, nodes));
     let ema2_key = format!("dema:ema2:{period}");
@@ -3292,8 +3299,8 @@ fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(values); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_dema_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -3351,10 +3358,10 @@ fn latest_tema(bars: &[Bar], period: usize) -> Option<f64> {
     tema(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("tema:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let ema1 = rc_into_owned(ema_close_store(store, period, nodes));
     let ema2_key = format!("tema:ema2:{period}");
@@ -3378,8 +3385,8 @@ fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(values); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_tema_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -3406,14 +3413,14 @@ fn latest_trima(bars: &[Bar], period: usize) -> Option<f64> {
     trima(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn trima_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn trima_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("trima:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let values = sma_from_series(&sma_close_store(store, period, nodes), period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(values); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_trima_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -3672,10 +3679,10 @@ fn latest_trix(bars: &[Bar], period: usize) -> Option<f64> {
     trix(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("trix:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let ema1 = rc_into_owned(ema_close_store(store, period, nodes));
     let ema2_key = format!("trix:ema2:{period}");
@@ -3689,8 +3696,8 @@ fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
     for index in 1..store.len() {
         { let previous = ema3[index - 1]; let current = ema3[index]; if !previous.is_nan() && !current.is_nan() { out[index] = if previous != 0.0 { 100.0 * (current / previous - 1.0) } else { 0.0 }; } }
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_trix_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -3735,10 +3742,10 @@ fn latest_tsi(bars: &[Bar], long: usize, short: usize) -> Option<f64> {
     tsi(bars, long, short).last().copied().and_then(nan_to_none)
 }
 
-fn tsi_store(store: &CandleStore, long: usize, short: usize, nodes: &mut NodeCache) -> Series {
+fn tsi_store(store: &CandleStore, long: usize, short: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("tsi:{long}:{short}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut momentum = vec![f64::NAN; store.len()];
     let mut abs_momentum = vec![f64::NAN; store.len()];
@@ -3760,8 +3767,8 @@ fn tsi_store(store: &CandleStore, long: usize, short: usize, nodes: &mut NodeCac
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(values); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_tsi_store(store: &CandleStore, long: usize, short: usize) -> Option<f64> {
@@ -3795,21 +3802,21 @@ fn latest_momentum(bars: &[Bar], period: usize) -> Option<f64> {
     momentum(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("momentum:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if store.len() <= period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
     for index in period..store.len() {
         out[index] = store.close[index] - store.close[index - period];
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_momentum_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -3857,10 +3864,10 @@ fn latest_dpo(bars: &[Bar], period: usize) -> Option<f64> {
     dpo(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("dpo:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let sma_values = rc_into_owned(sma_close_store(store, period, nodes));
     let shift = period / 2 + 1;
@@ -3871,8 +3878,8 @@ fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         }
         let mean = sma_values[index]; if !mean.is_nan() { out[index] = store.close[index - shift] - mean; }
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_dpo_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -3953,10 +3960,10 @@ fn latest_kst(bars: &[Bar]) -> Option<f64> {
     kst(bars).last().copied().and_then(nan_to_none)
 }
 
-fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
+fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "kst:value".to_string();
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let roc1 = roc_store(store, 10, nodes);
     let roc2 = roc_store(store, 15, nodes);
@@ -3976,8 +3983,8 @@ fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(values); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_kst_store(store: &CandleStore) -> Option<f64> {
@@ -4009,15 +4016,15 @@ fn latest_bop(bars: &[Bar]) -> Option<f64> {
     bop(bars).last().copied().and_then(nan_to_none)
 }
 
-fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
+fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "bop:ohlc".to_string();
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let values: Vec<_> = (0..store.len()).map(|index| { let range = store.high[index] - store.low[index]; if range == 0.0 { 0.0 } else { (store.close[index] - store.open[index]) / range } })
         .collect();
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(values); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_bop_store(store: &CandleStore) -> Option<f64> {
@@ -4158,18 +4165,18 @@ fn latest_force_index(bars: &[Bar], period: usize) -> Option<f64> {
     force_index(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn force_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn force_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("force:close:volume:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut raw = vec![f64::NAN; store.len()];
     for index in 1..store.len() {
         raw[index] = (store.close[index] - store.close[index - 1]) * store.volume[index];
     }
     let values = ema_series(&raw, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(values); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_force_index_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -4677,10 +4684,10 @@ fn williams_ad_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     values
 }
 
-fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
+fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "wad:ohlc".to_string();
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = Vec::with_capacity(store.len());
     let mut current = 0.0;
@@ -4695,8 +4702,8 @@ fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
         }
         out.push(current);
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_williams_ad(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {
@@ -4916,15 +4923,15 @@ fn vwma_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     values
 }
 
-fn vwma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn vwma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("vwma:close:volume:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
     for index in period - 1..store.len() {
         let start = index + 1 - period;
@@ -4937,8 +4944,8 @@ fn vwma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
             .sum::<f64>();
         out[index] = weighted_sum / volume_sum;
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_vwma(bars: &[Bar], period: usize) -> Option<f64> {
@@ -4960,15 +4967,15 @@ fn latest_vwma_store(store: &CandleStore, period: usize) -> Option<f64> {
     Some(weighted_sum / volume_sum)
 }
 
-fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("cmf:hlcv:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
     for index in period - 1..store.len() {
         let start = index + 1 - period;
@@ -4984,8 +4991,8 @@ fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         }
         out[index] = if volume_sum != 0.0 { mfv_sum / volume_sum } else { f64::NAN };
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_cmf_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -5088,15 +5095,15 @@ fn latest_cci(bars: &[Bar], period: usize) -> Option<f64> {
     })
 }
 
-fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("cci:hlc:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
 
     for index in period - 1..store.len() {
@@ -5110,8 +5117,8 @@ fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
             / period as f64;
         out[index] = if mean_deviation == 0.0 { 0.0 } else { (typical_price_at(store, index) - sma) / (0.015 * mean_deviation) };
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_cci_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -5176,15 +5183,15 @@ fn latest_williams_r(bars: &[Bar], period: usize) -> Option<f64> {
     })
 }
 
-fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("willr:hlc:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
 
     for index in period - 1..store.len() {
@@ -5197,8 +5204,8 @@ fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -
         let range = highest_high - lowest_low;
         out[index] = if range == 0.0 { 0.0 } else { -100.0 * (highest_high - store.close[index]) / range };
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_williams_r_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -5281,15 +5288,15 @@ fn latest_mfi(bars: &[Bar], period: usize) -> Option<f64> {
     Some(mfi_value(positive_flow, negative_flow))
 }
 
-fn mfi_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn mfi_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("mfi:hlcv:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
 
     for index in period..store.len() {
@@ -5308,8 +5315,8 @@ fn mfi_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         }
         out[index] = mfi_value(positive_flow, negative_flow);
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_mfi_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -5358,22 +5365,22 @@ fn latest_roc(bars: &[Bar], period: usize) -> Option<f64> {
     roc(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn roc_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn roc_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("roc:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
     for index in period..store.len() {
         let previous = store.close[index - period];
         out[index] = if previous == 0.0 { 0.0 } else { 100.0 * (store.close[index] / previous - 1.0) };
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_roc_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -8322,10 +8329,10 @@ fn latest_chaikin_volatility(bars: &[Bar], period: usize) -> Option<f64> {
     chaikin_volatility(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn chaikin_volatility_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn chaikin_volatility_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("cvol:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let ema_key = format!("cvol:ema:{period}");
     let ranges: Vec<_> = (0..store.len())
@@ -8345,8 +8352,8 @@ fn chaikin_volatility_store(store: &CandleStore, period: usize, nodes: &mut Node
             }
         }
     }
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(values); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_chaikin_volatility_store(store: &CandleStore, period: usize) -> Option<f64> {

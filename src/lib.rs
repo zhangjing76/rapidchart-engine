@@ -1,5 +1,6 @@
 use js_sys::{Array, Float64Array, Object, Reflect, Uint32Array};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -1211,7 +1212,14 @@ fn is_visible_output(name: &str) -> bool {
 }
 
 type Series = Vec<f64>;
-type NodeCache = HashMap<String, Series>;
+type RcSeries = Rc<Series>;
+type NodeCache = HashMap<String, RcSeries>;
+
+/// Unwrap an Rc<Vec<f64>> into owned Vec<f64>. Zero-cost if sole owner, clones if shared.
+#[inline]
+fn rc_into_owned(rc: RcSeries) -> Series {
+    Rc::try_unwrap(rc).unwrap_or_else(|rc| (*rc).clone())
+}
 
 #[inline(always)]
 fn nan_to_none(v: f64) -> Option<f64> {
@@ -2910,20 +2918,20 @@ fn latest_sma_store(store: &CandleStore, period: usize) -> Option<f64> {
 fn sma_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("sma:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = sma(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
 fn sma_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("sma:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = sma_close_values(&store.close, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -2934,20 +2942,20 @@ fn ema(bars: &[Bar], period: usize) -> Series {
 fn ema_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("ema:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = ema(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
 fn ema_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("ema:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = ema_values(store.close.iter().copied(), period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3045,10 +3053,10 @@ fn wma(bars: &[Bar], period: usize) -> Series {
 fn wma_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("wma:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = wma(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3059,11 +3067,11 @@ fn latest_wma(bars: &[Bar], period: usize) -> Option<f64> {
 fn wma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("wma:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values: Vec<_> = store.close.iter().copied().collect();
     let out = wma_from_values(&values, period);
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -3084,7 +3092,7 @@ fn latest_wma_store(store: &CandleStore, period: usize) -> Option<f64> {
 fn hma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("hma:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     if period == 0 {
         return vec![f64::NAN; store.len()];
@@ -3102,7 +3110,7 @@ fn hma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         })
         .collect();
     let values = wma_from_values(&raw, sqrt_period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3115,7 +3123,7 @@ fn latest_hma_store(store: &CandleStore, period: usize) -> Option<f64> {
 fn hma(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("hma:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     if period == 0 {
         return vec![f64::NAN; bars.len()];
@@ -3133,7 +3141,7 @@ fn hma(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
         })
         .collect();
     let values = wma_from_values(&raw, sqrt_period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3173,10 +3181,10 @@ fn linear_regression(bars: &[Bar], period: usize) -> Series {
 fn linear_regression_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("linreg:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = linear_regression(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3187,11 +3195,11 @@ fn latest_linear_regression(bars: &[Bar], period: usize) -> Option<f64> {
 fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("linreg:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
     let n = period as f64;
@@ -3199,7 +3207,7 @@ fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeC
     let sum_xx = (0..period).map(|x| (x * x) as f64).sum::<f64>();
     let denominator = n * sum_xx - sum_x * sum_x;
     if denominator == 0.0 {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
     for index in period - 1..store.len() {
@@ -3214,7 +3222,7 @@ fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeC
         let intercept = (sum_y - slope * sum_x) / n;
         out[index] = intercept + slope * (period - 1) as f64;
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -3239,15 +3247,15 @@ fn dema(bars: &[Bar], period: usize) -> Series {
 fn dema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("dema:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let ema1 = ema_close(bars, period, nodes);
     let ema2_key = format!("dema:ema2:{period}");
     let ema2 = nodes
         .get(&ema2_key)
-        .cloned()
+        .map(|rc| (**rc).clone())
         .unwrap_or_else(|| ema_series(&ema1, period));
-    nodes.insert(ema2_key, ema2.clone());
+    nodes.insert(ema2_key, Rc::new(ema2.clone()));
     let values: Vec<_> = ema1
         .iter()
         .zip(ema2.iter())
@@ -3256,7 +3264,7 @@ fn dema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3267,15 +3275,15 @@ fn latest_dema(bars: &[Bar], period: usize) -> Option<f64> {
 fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("dema:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let ema1 = ema_close_store(store, period, nodes);
     let ema2_key = format!("dema:ema2:{period}");
     let ema2 = nodes
         .get(&ema2_key)
-        .cloned()
+        .map(|rc| (**rc).clone())
         .unwrap_or_else(|| ema_series(&ema1, period));
-    nodes.insert(ema2_key, ema2.clone());
+    nodes.insert(ema2_key, Rc::new(ema2.clone()));
     let values: Vec<_> = ema1
         .iter()
         .zip(ema2.iter())
@@ -3284,7 +3292,7 @@ fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3311,21 +3319,21 @@ fn tema(bars: &[Bar], period: usize) -> Series {
 fn tema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("tema:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let ema1 = ema_close(bars, period, nodes);
     let ema2_key = format!("tema:ema2:{period}");
     let ema3_key = format!("tema:ema3:{period}");
     let ema2 = nodes
         .get(&ema2_key)
-        .cloned()
+        .map(|rc| (**rc).clone())
         .unwrap_or_else(|| ema_series(&ema1, period));
-    nodes.insert(ema2_key, ema2.clone());
+    nodes.insert(ema2_key, Rc::new(ema2.clone()));
     let ema3 = nodes
         .get(&ema3_key)
-        .cloned()
+        .map(|rc| (**rc).clone())
         .unwrap_or_else(|| ema_series(&ema2, period));
-    nodes.insert(ema3_key, ema3.clone());
+    nodes.insert(ema3_key, Rc::new(ema3.clone()));
     let values: Vec<_> = ema1
         .iter()
         .zip(ema2.iter())
@@ -3335,7 +3343,7 @@ fn tema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3346,21 +3354,21 @@ fn latest_tema(bars: &[Bar], period: usize) -> Option<f64> {
 fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("tema:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let ema1 = ema_close_store(store, period, nodes);
     let ema2_key = format!("tema:ema2:{period}");
     let ema3_key = format!("tema:ema3:{period}");
     let ema2 = nodes
         .get(&ema2_key)
-        .cloned()
+        .map(|rc| (**rc).clone())
         .unwrap_or_else(|| ema_series(&ema1, period));
-    nodes.insert(ema2_key, ema2.clone());
+    nodes.insert(ema2_key, Rc::new(ema2.clone()));
     let ema3 = nodes
         .get(&ema3_key)
-        .cloned()
+        .map(|rc| (**rc).clone())
         .unwrap_or_else(|| ema_series(&ema2, period));
-    nodes.insert(ema3_key, ema3.clone());
+    nodes.insert(ema3_key, Rc::new(ema3.clone()));
     let values: Vec<_> = ema1
         .iter()
         .zip(ema2.iter())
@@ -3370,7 +3378,7 @@ fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3387,10 +3395,10 @@ fn trima(bars: &[Bar], period: usize) -> Series {
 fn trima_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("trima:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = sma_from_series(&sma_close(bars, period, nodes), period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3401,10 +3409,10 @@ fn latest_trima(bars: &[Bar], period: usize) -> Option<f64> {
 fn trima_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("trima:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = sma_from_series(&sma_close_store(store, period, nodes), period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3438,10 +3446,10 @@ fn stddev(bars: &[Bar], period: usize) -> Series {
 fn stddev_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("stddev:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = stddev(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3452,11 +3460,11 @@ fn latest_stddev(bars: &[Bar], period: usize) -> Option<f64> {
 fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("stddev:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
     for index in period - 1..store.len() {
@@ -3472,7 +3480,7 @@ fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Se
             / period as f64;
         out[index] = variance.sqrt();
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -3501,15 +3509,15 @@ fn envelope(
         return vec![
             IndicatorOutput {
                 name: "upper".to_string(),
-                values: upper.clone(),
+                values: (**upper).clone(),
             },
             IndicatorOutput {
                 name: "middle".to_string(),
-                values: middle.clone(),
+                values: (**middle).clone(),
             },
             IndicatorOutput {
                 name: "lower".to_string(),
-                values: lower.clone(),
+                values: (**lower).clone(),
             },
         ];
     }
@@ -3521,10 +3529,10 @@ fn envelope(
         .iter()
         .map(|&value| if value.is_nan() { f64::NAN } else { value * (1.0 - multiplier / 100.0) })
         .collect();
-    nodes.insert(upper_key, upper.clone());
-    nodes.insert(middle_key, middle.clone());
-    nodes.insert(lower_key, lower.clone());
-    nodes.insert(key_base, middle.clone());
+    nodes.insert(upper_key, Rc::new(upper.clone()));
+    nodes.insert(middle_key, Rc::new(middle.clone()));
+    nodes.insert(lower_key, Rc::new(lower.clone()));
+    nodes.insert(key_base, Rc::new(middle.clone()));
     vec![
         IndicatorOutput {
             name: "upper".to_string(),
@@ -3574,15 +3582,15 @@ fn envelope_store(
         return vec![
             IndicatorOutput {
                 name: "upper".to_string(),
-                values: upper.clone(),
+                values: (**upper).clone(),
             },
             IndicatorOutput {
                 name: "middle".to_string(),
-                values: middle.clone(),
+                values: (**middle).clone(),
             },
             IndicatorOutput {
                 name: "lower".to_string(),
-                values: lower.clone(),
+                values: (**lower).clone(),
             },
         ];
     }
@@ -3594,10 +3602,10 @@ fn envelope_store(
         .iter()
         .map(|&value| if value.is_nan() { f64::NAN } else { value * (1.0 - multiplier / 100.0) })
         .collect();
-    nodes.insert(upper_key, upper.clone());
-    nodes.insert(middle_key, middle.clone());
-    nodes.insert(lower_key, lower.clone());
-    nodes.insert(key_base, middle.clone());
+    nodes.insert(upper_key, Rc::new(upper.clone()));
+    nodes.insert(middle_key, Rc::new(middle.clone()));
+    nodes.insert(lower_key, Rc::new(lower.clone()));
+    nodes.insert(key_base, Rc::new(middle.clone()));
     vec![
         IndicatorOutput {
             name: "upper".to_string(),
@@ -3642,21 +3650,21 @@ fn trix(bars: &[Bar], period: usize) -> Series {
 fn trix_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("trix:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let ema1 = ema_close(bars, period, nodes);
     let ema2_key = format!("trix:ema2:{period}");
     let ema2 = nodes
         .get(&ema2_key)
-        .cloned()
+        .map(|rc| (**rc).clone())
         .unwrap_or_else(|| ema_series(&ema1, period));
-    nodes.insert(ema2_key, ema2.clone());
+    nodes.insert(ema2_key, Rc::new(ema2.clone()));
     let ema3 = ema_series(&ema2, period);
     let mut out = vec![f64::NAN; bars.len()];
     for index in 1..bars.len() {
         { let previous = ema3[index - 1]; let current = ema3[index]; if !previous.is_nan() && !current.is_nan() { out[index] = if previous != 0.0 { 100.0 * (current / previous - 1.0) } else { 0.0 }; } }
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -3667,21 +3675,21 @@ fn latest_trix(bars: &[Bar], period: usize) -> Option<f64> {
 fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("trix:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let ema1 = ema_close_store(store, period, nodes);
     let ema2_key = format!("trix:ema2:{period}");
     let ema2 = nodes
         .get(&ema2_key)
-        .cloned()
+        .map(|rc| (**rc).clone())
         .unwrap_or_else(|| ema_series(&ema1, period));
-    nodes.insert(ema2_key, ema2.clone());
+    nodes.insert(ema2_key, Rc::new(ema2.clone()));
     let ema3 = ema_series(&ema2, period);
     let mut out = vec![f64::NAN; store.len()];
     for index in 1..store.len() {
         { let previous = ema3[index - 1]; let current = ema3[index]; if !previous.is_nan() && !current.is_nan() { out[index] = if previous != 0.0 { 100.0 * (current / previous - 1.0) } else { 0.0 }; } }
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -3716,10 +3724,10 @@ fn tsi(bars: &[Bar], long: usize, short: usize) -> Series {
 fn tsi_node(bars: &[Bar], long: usize, short: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("tsi:{long}:{short}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = tsi(bars, long, short);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3730,7 +3738,7 @@ fn latest_tsi(bars: &[Bar], long: usize, short: usize) -> Option<f64> {
 fn tsi_store(store: &CandleStore, long: usize, short: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("tsi:{long}:{short}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut momentum = vec![f64::NAN; store.len()];
     let mut abs_momentum = vec![f64::NAN; store.len()];
@@ -3752,7 +3760,7 @@ fn tsi_store(store: &CandleStore, long: usize, short: usize, nodes: &mut NodeCac
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3776,10 +3784,10 @@ fn momentum(bars: &[Bar], period: usize) -> Series {
 fn momentum_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("momentum:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = momentum(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3790,17 +3798,17 @@ fn latest_momentum(bars: &[Bar], period: usize) -> Option<f64> {
 fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("momentum:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if store.len() <= period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
     for index in period..store.len() {
         out[index] = store.close[index] - store.close[index - period];
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -3826,12 +3834,12 @@ fn dpo(bars: &[Bar], period: usize) -> Series {
 fn dpo_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("dpo:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let sma_key = format!("sma:close:{period}");
     let sma_values = nodes
         .get(&sma_key)
-        .cloned()
+        .map(|rc| (**rc).clone())
         .unwrap_or_else(|| sma_close(bars, period, nodes));
     let shift = period / 2 + 1;
     let mut out = vec![f64::NAN; bars.len()];
@@ -3841,7 +3849,7 @@ fn dpo_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
         }
         let mean = sma_values[index]; if !mean.is_nan() { out[index] = bars[index - shift].close - mean; }
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -3852,7 +3860,7 @@ fn latest_dpo(bars: &[Bar], period: usize) -> Option<f64> {
 fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("dpo:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let sma_values = sma_close_store(store, period, nodes);
     let shift = period / 2 + 1;
@@ -3863,7 +3871,7 @@ fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         }
         let mean = sma_values[index]; if !mean.is_nan() { out[index] = store.close[index - shift] - mean; }
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -3917,7 +3925,7 @@ fn sma_from_series(values: &[f64], period: usize) -> Series {
 fn kst_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     let key = "kst:value".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let roc1 = roc_node(bars, 10, nodes);
     let roc2 = roc_node(bars, 15, nodes);
@@ -3937,7 +3945,7 @@ fn kst_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3948,7 +3956,7 @@ fn latest_kst(bars: &[Bar]) -> Option<f64> {
 fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
     let key = "kst:value".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let roc1 = roc_store(store, 10, nodes);
     let roc2 = roc_store(store, 15, nodes);
@@ -3968,7 +3976,7 @@ fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -3990,10 +3998,10 @@ fn bop(bars: &[Bar]) -> Series {
 fn bop_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     let key = "bop:ohlc".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = bop(bars);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -4004,11 +4012,11 @@ fn latest_bop(bars: &[Bar]) -> Option<f64> {
 fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
     let key = "bop:ohlc".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values: Vec<_> = (0..store.len()).map(|index| { let range = store.high[index] - store.low[index]; if range == 0.0 { 0.0 } else { (store.close[index] - store.open[index]) / range } })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -4057,10 +4065,10 @@ fn ultimate_oscillator_node(
 ) -> Series {
     let key = format!("uo:{short}:{medium}:{long}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = ultimate_oscillator(bars, short, medium, long);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -4084,11 +4092,11 @@ fn ultimate_oscillator_store(
 ) -> Series {
     let key = format!("uo:{short}:{medium}:{long}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if short == 0 || medium == 0 || long == 0 || store.len() <= long {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
     let mut bp = vec![0.0; store.len()];
@@ -4113,7 +4121,7 @@ fn ultimate_oscillator_store(
         };
         out[index] = 100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0;
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -4139,10 +4147,10 @@ fn force_index(bars: &[Bar], period: usize) -> Series {
 fn force_index_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("force:close:volume:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = force_index(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -4153,14 +4161,14 @@ fn latest_force_index(bars: &[Bar], period: usize) -> Option<f64> {
 fn force_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("force:close:volume:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut raw = vec![f64::NAN; store.len()];
     for index in 1..store.len() {
         raw[index] = (store.close[index] - store.close[index - 1]) * store.volume[index];
     }
     let values = ema_series(&raw, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -4258,15 +4266,15 @@ fn rsi_outputs_store(
         return vec![
             IndicatorOutput {
                 name: "value".to_string(),
-                values: values.clone(),
+                values: (**values).clone(),
             },
             IndicatorOutput {
                 name: "avg_gain".to_string(),
-                values: avg_gains.clone(),
+                values: (**avg_gains).clone(),
             },
             IndicatorOutput {
                 name: "avg_loss".to_string(),
-                values: avg_losses.clone(),
+                values: (**avg_losses).clone(),
             },
         ];
     }
@@ -4275,9 +4283,9 @@ fn rsi_outputs_store(
     let mut avg_gains = vec![f64::NAN; store.len()];
     let mut avg_losses = vec![f64::NAN; store.len()];
     if store.len() <= period {
-        nodes.insert(key, values.clone());
-        nodes.insert(gain_key, avg_gains.clone());
-        nodes.insert(loss_key, avg_losses.clone());
+        nodes.insert(key, Rc::new(values.clone()));
+        nodes.insert(gain_key, Rc::new(avg_gains.clone()));
+        nodes.insert(loss_key, Rc::new(avg_losses.clone()));
         return vec![
             IndicatorOutput {
                 name: "value".to_string(),
@@ -4321,9 +4329,9 @@ fn rsi_outputs_store(
         avg_losses[index] = avg_loss;
     }
 
-    nodes.insert(key, values.clone());
-    nodes.insert(gain_key, avg_gains.clone());
-    nodes.insert(loss_key, avg_losses.clone());
+    nodes.insert(key, Rc::new(values.clone()));
+    nodes.insert(gain_key, Rc::new(avg_gains.clone()));
+    nodes.insert(loss_key, Rc::new(avg_losses.clone()));
     vec![
         IndicatorOutput {
             name: "value".to_string(),
@@ -4445,20 +4453,20 @@ fn latest_rsi_store(
 fn rsi_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("rsi:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = rsi_outputs(bars, period).remove(0).values;
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
 fn rsi_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("rsi:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = rsi_outputs_store(store, period, nodes).remove(0).values;
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -4502,17 +4510,17 @@ fn latest_obv(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {
 fn obv_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     let key = "obv:close:volume".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = obv(bars);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
 fn obv_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
     let key = "obv:close:volume".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = Vec::with_capacity(store.len());
     let mut current = 0.0;
@@ -4528,7 +4536,7 @@ fn obv_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
         }
         out.push(current);
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -4578,17 +4586,17 @@ fn adl(bars: &[Bar]) -> Series {
 fn adl_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     let key = "adl:hlcv".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = adl(bars);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
 fn adl_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
     let key = "adl:hlcv".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = Vec::with_capacity(store.len());
     let mut current = 0.0;
@@ -4598,7 +4606,7 @@ fn adl_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
                 * store.volume[index];
         out.push(current);
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -4662,17 +4670,17 @@ fn williams_ad(bars: &[Bar]) -> Series {
 fn williams_ad_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     let key = "wad:ohlc".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = williams_ad(bars);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
 fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
     let key = "wad:ohlc".to_string();
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = Vec::with_capacity(store.len());
     let mut current = 0.0;
@@ -4687,7 +4695,7 @@ fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
         }
         out.push(current);
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -4739,11 +4747,11 @@ fn typical_price_parts(high: f64, low: f64, close: f64) -> f64 {
 fn vwap(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     if let Some(values) = nodes.get("vwap:hlcv") {
         return vwap_outputs(
-            values.clone(),
-            nodes.get("vwap:cumulative_pv").cloned().unwrap_or_default(),
+            (**values).clone(),
+            nodes.get("vwap:cumulative_pv").map(|rc| (**rc).clone()).unwrap_or_default(),
             nodes
                 .get("vwap:cumulative_volume")
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
         );
     }
@@ -4761,14 +4769,14 @@ fn vwap(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
         cumulative_volume_values.push(cumulative_volume);
     }
 
-    nodes.insert("vwap:hlcv".to_string(), values.clone());
+    nodes.insert("vwap:hlcv".to_string(), Rc::new(values.clone()));
     nodes.insert(
         "vwap:cumulative_pv".to_string(),
-        cumulative_pv_values.clone(),
+        Rc::new(cumulative_pv_values.clone()),
     );
     nodes.insert(
         "vwap:cumulative_volume".to_string(),
-        cumulative_volume_values.clone(),
+        Rc::new(cumulative_volume_values.clone()),
     );
     vwap_outputs(values, cumulative_pv_values, cumulative_volume_values)
 }
@@ -4776,11 +4784,11 @@ fn vwap(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
 fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     if let Some(values) = nodes.get("vwap:hlcv") {
         return vwap_outputs(
-            values.clone(),
-            nodes.get("vwap:cumulative_pv").cloned().unwrap_or_default(),
+            (**values).clone(),
+            nodes.get("vwap:cumulative_pv").map(|rc| (**rc).clone()).unwrap_or_default(),
             nodes
                 .get("vwap:cumulative_volume")
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
         );
     }
@@ -4800,14 +4808,14 @@ fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOutput
         cumulative_volume_values.push(cumulative_volume);
     }
 
-    nodes.insert("vwap:hlcv".to_string(), values.clone());
+    nodes.insert("vwap:hlcv".to_string(), Rc::new(values.clone()));
     nodes.insert(
         "vwap:cumulative_pv".to_string(),
-        cumulative_pv_values.clone(),
+        Rc::new(cumulative_pv_values.clone()),
     );
     nodes.insert(
         "vwap:cumulative_volume".to_string(),
-        cumulative_volume_values.clone(),
+        Rc::new(cumulative_volume_values.clone()),
     );
     vwap_outputs(values, cumulative_pv_values, cumulative_volume_values)
 }
@@ -4901,21 +4909,21 @@ fn vwma(bars: &[Bar], period: usize) -> Series {
 fn vwma_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("vwma:close:volume:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = vwma(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
 fn vwma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("vwma:close:volume:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
     for index in period - 1..store.len() {
@@ -4929,7 +4937,7 @@ fn vwma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
             .sum::<f64>();
         out[index] = weighted_sum / volume_sum;
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -4955,11 +4963,11 @@ fn latest_vwma_store(store: &CandleStore, period: usize) -> Option<f64> {
 fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("cmf:hlcv:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
     for index in period - 1..store.len() {
@@ -4976,7 +4984,7 @@ fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         }
         out[index] = if volume_sum != 0.0 { mfv_sum / volume_sum } else { f64::NAN };
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -5016,10 +5024,10 @@ fn cmf(bars: &[Bar], period: usize) -> Series {
 fn cmf_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("cmf:hlcv:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = cmf(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -5054,10 +5062,10 @@ fn cci(bars: &[Bar], period: usize) -> Series {
 fn cci_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("cci:hlc:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = cci(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -5083,11 +5091,11 @@ fn latest_cci(bars: &[Bar], period: usize) -> Option<f64> {
 fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("cci:hlc:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
 
@@ -5102,7 +5110,7 @@ fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
             / period as f64;
         out[index] = if mean_deviation == 0.0 { 0.0 } else { (typical_price_at(store, index) - sma) / (0.015 * mean_deviation) };
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -5146,10 +5154,10 @@ fn williams_r(bars: &[Bar], period: usize) -> Series {
 fn williams_r_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("willr:hlc:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = williams_r(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -5171,11 +5179,11 @@ fn latest_williams_r(bars: &[Bar], period: usize) -> Option<f64> {
 fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("willr:hlc:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
 
@@ -5189,7 +5197,7 @@ fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -
         let range = highest_high - lowest_low;
         out[index] = if range == 0.0 { 0.0 } else { -100.0 * (highest_high - store.close[index]) / range };
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -5236,10 +5244,10 @@ fn mfi(bars: &[Bar], period: usize) -> Series {
 fn mfi_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("mfi:hlcv:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = mfi(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -5276,11 +5284,11 @@ fn latest_mfi(bars: &[Bar], period: usize) -> Option<f64> {
 fn mfi_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("mfi:hlcv:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
 
@@ -5300,7 +5308,7 @@ fn mfi_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         }
         out[index] = mfi_value(positive_flow, negative_flow);
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -5339,10 +5347,10 @@ fn roc(bars: &[Bar], period: usize) -> Series {
 fn roc_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("roc:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = roc(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -5353,18 +5361,18 @@ fn latest_roc(bars: &[Bar], period: usize) -> Option<f64> {
 fn roc_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("roc:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
     for index in period..store.len() {
         let previous = store.close[index - period];
         out[index] = if previous == 0.0 { 0.0 } else { 100.0 * (store.close[index] / previous - 1.0) };
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -5386,20 +5394,20 @@ fn aroon(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOut
         return vec![
             IndicatorOutput {
                 name: "up".to_string(),
-                values: values.clone(),
+                values: (**values).clone(),
             },
             IndicatorOutput {
                 name: "down".to_string(),
                 values: nodes
                     .get(&format!("aroon:down:{period}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "oscillator".to_string(),
                 values: nodes
                     .get(&format!("aroon:oscillator:{period}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
         ];
@@ -5448,9 +5456,9 @@ fn aroon(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOut
         oscillator[index] = up_value - down_value;
     }
 
-    nodes.insert(key, up.clone());
-    nodes.insert(format!("aroon:down:{period}"), down.clone());
-    nodes.insert(format!("aroon:oscillator:{period}"), oscillator.clone());
+    nodes.insert(key, Rc::new(up.clone()));
+    nodes.insert(format!("aroon:down:{period}"), Rc::new(down.clone()));
+    nodes.insert(format!("aroon:oscillator:{period}"), Rc::new(oscillator.clone()));
     vec![
         IndicatorOutput {
             name: "up".to_string(),
@@ -5483,20 +5491,20 @@ fn aroon_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec
         return vec![
             IndicatorOutput {
                 name: "up".to_string(),
-                values: values.clone(),
+                values: (**values).clone(),
             },
             IndicatorOutput {
                 name: "down".to_string(),
                 values: nodes
                     .get(&format!("aroon:down:{period}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "oscillator".to_string(),
                 values: nodes
                     .get(&format!("aroon:oscillator:{period}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
         ];
@@ -5547,9 +5555,9 @@ fn aroon_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec
         oscillator[index] = up_value - down_value;
     }
 
-    nodes.insert(key, up.clone());
-    nodes.insert(format!("aroon:down:{period}"), down.clone());
-    nodes.insert(format!("aroon:oscillator:{period}"), oscillator.clone());
+    nodes.insert(key, Rc::new(up.clone()));
+    nodes.insert(format!("aroon:down:{period}"), Rc::new(down.clone()));
+    nodes.insert(format!("aroon:oscillator:{period}"), Rc::new(oscillator.clone()));
     vec![
         IndicatorOutput {
             name: "up".to_string(),
@@ -5654,7 +5662,7 @@ fn stochastic(
     ];
     nodes.insert(
         format!("stoch:hlc:{period}:{smooth}"),
-        outputs[0].values.clone(),
+        Rc::new(outputs[0].values.clone()),
     );
     outputs
 }
@@ -5698,7 +5706,7 @@ fn stochastic_store(
     ];
     nodes.insert(
         format!("stoch:hlc:{period}:{smooth}"),
-        outputs[0].values.clone(),
+        Rc::new(outputs[0].values.clone()),
     );
     outputs
 }
@@ -5727,7 +5735,7 @@ fn stoch_rsi(
     ];
     nodes.insert(
         format!("stoch:rsi:{period}:{stoch_period}:{smooth}:{signal}"),
-        outputs[0].values.clone(),
+        Rc::new(outputs[0].values.clone()),
     );
     outputs
 }
@@ -5756,7 +5764,7 @@ fn stoch_rsi_store(
     ];
     nodes.insert(
         format!("stoch:rsi:{period}:{stoch_period}:{smooth}:{signal}"),
-        outputs[0].values.clone(),
+        Rc::new(outputs[0].values.clone()),
     );
     outputs
 }
@@ -5920,21 +5928,21 @@ fn atr(bars: &[Bar], period: usize) -> Series {
 fn atr_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("atr:ohlc:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let values = atr(bars, period);
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
 fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("atr:ohlc:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
-        nodes.insert(key, out.clone());
+        nodes.insert(key, Rc::new(out.clone()));
         return out;
     }
 
@@ -5948,7 +5956,7 @@ fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         current = (current * (period - 1) as f64 + true_range_store(store, index)) / period as f64;
         out[index] = current;
     }
-    nodes.insert(key, out.clone());
+    nodes.insert(key, Rc::new(out.clone()));
     out
 }
 
@@ -6074,7 +6082,7 @@ fn supertrend(
         values[index] = if current_trend < 0.0 { current_upper } else { current_lower };
     }
 
-    nodes.insert(format!("supertrend:{period}:{multiplier}"), values.clone());
+    nodes.insert(format!("supertrend:{period}:{multiplier}"), Rc::new(values.clone()));
     supertrend_outputs(values, upper_band, lower_band, trend)
 }
 
@@ -6150,7 +6158,7 @@ fn supertrend_store(
         values[index] = if current_trend < 0.0 { current_upper } else { current_lower };
     }
 
-    nodes.insert(format!("supertrend:{period}:{multiplier}"), values.clone());
+    nodes.insert(format!("supertrend:{period}:{multiplier}"), Rc::new(values.clone()));
     supertrend_outputs(values, upper_band, lower_band, trend)
 }
 
@@ -6304,27 +6312,27 @@ fn parabolic_sar(
         return vec![
             IndicatorOutput {
                 name: "value".to_string(),
-                values: values.clone(),
+                values: (**values).clone(),
             },
             IndicatorOutput {
                 name: "ep".to_string(),
                 values: nodes
                     .get(&format!("psar:ep:{step}:{max_step}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "af".to_string(),
                 values: nodes
                     .get(&format!("psar:af:{step}:{max_step}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "trend".to_string(),
                 values: nodes
                     .get(&format!("psar:trend:{step}:{max_step}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
         ];
@@ -6409,12 +6417,12 @@ fn parabolic_sar(
         trend_values[index] = trend;
     }
 
-    nodes.insert(key, values.clone());
-    nodes.insert(format!("psar:ep:{step}:{max_step}"), ep_values.clone());
-    nodes.insert(format!("psar:af:{step}:{max_step}"), af_values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
+    nodes.insert(format!("psar:ep:{step}:{max_step}"), Rc::new(ep_values.clone()));
+    nodes.insert(format!("psar:af:{step}:{max_step}"), Rc::new(af_values.clone()));
     nodes.insert(
         format!("psar:trend:{step}:{max_step}"),
-        trend_values.clone(),
+        Rc::new(trend_values.clone()),
     );
     vec![
         IndicatorOutput {
@@ -6509,27 +6517,27 @@ fn parabolic_sar_store(
         return vec![
             IndicatorOutput {
                 name: "value".to_string(),
-                values: values.clone(),
+                values: (**values).clone(),
             },
             IndicatorOutput {
                 name: "ep".to_string(),
                 values: nodes
                     .get(&format!("psar:ep:{step}:{max_step}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "af".to_string(),
                 values: nodes
                     .get(&format!("psar:af:{step}:{max_step}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "trend".to_string(),
                 values: nodes
                     .get(&format!("psar:trend:{step}:{max_step}"))
-                    .cloned()
+                    .map(|rc| (**rc).clone())
                     .unwrap_or_default(),
             },
         ];
@@ -6616,12 +6624,12 @@ fn parabolic_sar_store(
         trend_values[index] = trend;
     }
 
-    nodes.insert(key, values.clone());
-    nodes.insert(format!("psar:ep:{step}:{max_step}"), ep_values.clone());
-    nodes.insert(format!("psar:af:{step}:{max_step}"), af_values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
+    nodes.insert(format!("psar:ep:{step}:{max_step}"), Rc::new(ep_values.clone()));
+    nodes.insert(format!("psar:af:{step}:{max_step}"), Rc::new(af_values.clone()));
     nodes.insert(
         format!("psar:trend:{step}:{max_step}"),
-        trend_values.clone(),
+        Rc::new(trend_values.clone()),
     );
     vec![
         IndicatorOutput {
@@ -6756,23 +6764,23 @@ fn ichimoku(
         return vec![
             IndicatorOutput {
                 name: "tenkan".to_string(),
-                values: values.clone(),
+                values: (**values).clone(),
             },
             IndicatorOutput {
                 name: "kijun".to_string(),
-                values: nodes.get(&kijun_key).cloned().unwrap_or_default(),
+                values: nodes.get(&kijun_key).map(|rc| (**rc).clone()).unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "senkou_a".to_string(),
-                values: nodes.get(&senkou_a_key).cloned().unwrap_or_default(),
+                values: nodes.get(&senkou_a_key).map(|rc| (**rc).clone()).unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "senkou_b".to_string(),
-                values: nodes.get(&senkou_b_key).cloned().unwrap_or_default(),
+                values: nodes.get(&senkou_b_key).map(|rc| (**rc).clone()).unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "chikou".to_string(),
-                values: nodes.get("ichimoku:chikou").cloned().unwrap_or_default(),
+                values: nodes.get("ichimoku:chikou").map(|rc| (**rc).clone()).unwrap_or_default(),
             },
         ];
     }
@@ -6798,11 +6806,11 @@ fn ichimoku(
         }
     }
 
-    nodes.insert(tenkan_key, tenkan.clone());
-    nodes.insert(kijun_key, kijun.clone());
-    nodes.insert(senkou_a_key, senkou_a.clone());
-    nodes.insert(senkou_b_key, senkou_b.clone());
-    nodes.insert("ichimoku:chikou".to_string(), chikou.clone());
+    nodes.insert(tenkan_key, Rc::new(tenkan.clone()));
+    nodes.insert(kijun_key, Rc::new(kijun.clone()));
+    nodes.insert(senkou_a_key, Rc::new(senkou_a.clone()));
+    nodes.insert(senkou_b_key, Rc::new(senkou_b.clone()));
+    nodes.insert("ichimoku:chikou".to_string(), Rc::new(chikou.clone()));
     vec![
         IndicatorOutput {
             name: "tenkan".to_string(),
@@ -6842,23 +6850,23 @@ fn ichimoku_store(
         return vec![
             IndicatorOutput {
                 name: "tenkan".to_string(),
-                values: values.clone(),
+                values: (**values).clone(),
             },
             IndicatorOutput {
                 name: "kijun".to_string(),
-                values: nodes.get(&kijun_key).cloned().unwrap_or_default(),
+                values: nodes.get(&kijun_key).map(|rc| (**rc).clone()).unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "senkou_a".to_string(),
-                values: nodes.get(&senkou_a_key).cloned().unwrap_or_default(),
+                values: nodes.get(&senkou_a_key).map(|rc| (**rc).clone()).unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "senkou_b".to_string(),
-                values: nodes.get(&senkou_b_key).cloned().unwrap_or_default(),
+                values: nodes.get(&senkou_b_key).map(|rc| (**rc).clone()).unwrap_or_default(),
             },
             IndicatorOutput {
                 name: "chikou".to_string(),
-                values: nodes.get("ichimoku:chikou").cloned().unwrap_or_default(),
+                values: nodes.get("ichimoku:chikou").map(|rc| (**rc).clone()).unwrap_or_default(),
             },
         ];
     }
@@ -6884,11 +6892,11 @@ fn ichimoku_store(
         }
     }
 
-    nodes.insert(tenkan_key, tenkan.clone());
-    nodes.insert(kijun_key, kijun.clone());
-    nodes.insert(senkou_a_key, senkou_a.clone());
-    nodes.insert(senkou_b_key, senkou_b.clone());
-    nodes.insert("ichimoku:chikou".to_string(), chikou.clone());
+    nodes.insert(tenkan_key, Rc::new(tenkan.clone()));
+    nodes.insert(kijun_key, Rc::new(kijun.clone()));
+    nodes.insert(senkou_a_key, Rc::new(senkou_a.clone()));
+    nodes.insert(senkou_b_key, Rc::new(senkou_b.clone()));
+    nodes.insert("ichimoku:chikou".to_string(), Rc::new(chikou.clone()));
     vec![
         IndicatorOutput {
             name: "tenkan".to_string(),
@@ -6987,11 +6995,11 @@ fn pivot_points(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
         r2[index] = pivot + range;
         s2[index] = pivot - range;
     }
-    nodes.insert("pivot:pp".to_string(), pp.clone());
-    nodes.insert("pivot:r1".to_string(), r1.clone());
-    nodes.insert("pivot:s1".to_string(), s1.clone());
-    nodes.insert("pivot:r2".to_string(), r2.clone());
-    nodes.insert("pivot:s2".to_string(), s2.clone());
+    nodes.insert("pivot:pp".to_string(), Rc::new(pp.clone()));
+    nodes.insert("pivot:r1".to_string(), Rc::new(r1.clone()));
+    nodes.insert("pivot:s1".to_string(), Rc::new(s1.clone()));
+    nodes.insert("pivot:r2".to_string(), Rc::new(r2.clone()));
+    nodes.insert("pivot:s2".to_string(), Rc::new(s2.clone()));
     vec![
         IndicatorOutput {
             name: "pp".to_string(),
@@ -7031,11 +7039,11 @@ fn pivot_points_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<Indicat
         r2[index] = pivot + range;
         s2[index] = pivot - range;
     }
-    nodes.insert("pivot:pp".to_string(), pp.clone());
-    nodes.insert("pivot:r1".to_string(), r1.clone());
-    nodes.insert("pivot:s1".to_string(), s1.clone());
-    nodes.insert("pivot:r2".to_string(), r2.clone());
-    nodes.insert("pivot:s2".to_string(), s2.clone());
+    nodes.insert("pivot:pp".to_string(), Rc::new(pp.clone()));
+    nodes.insert("pivot:r1".to_string(), Rc::new(r1.clone()));
+    nodes.insert("pivot:s1".to_string(), Rc::new(s1.clone()));
+    nodes.insert("pivot:r2".to_string(), Rc::new(r2.clone()));
+    nodes.insert("pivot:s2".to_string(), Rc::new(s2.clone()));
     vec![
         IndicatorOutput {
             name: "pp".to_string(),
@@ -7145,7 +7153,7 @@ fn keltner(
     for output in &outputs {
         nodes.insert(
             format!("keltner:{}:{}:{}", output.name, period, multiplier),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -7197,7 +7205,7 @@ fn starc(
     for output in &outputs {
         nodes.insert(
             format!("starc:{}:{}:{}", output.name, period, multiplier),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -7255,7 +7263,7 @@ fn keltner_store(
     for output in &outputs {
         nodes.insert(
             format!("keltner:{}:{}:{}", output.name, period, multiplier),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -7304,7 +7312,7 @@ fn starc_store(
     for output in &outputs {
         nodes.insert(
             format!("starc:{}:{}:{}", output.name, period, multiplier),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -7354,7 +7362,7 @@ fn donchian(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<Indicator
     for output in &outputs {
         nodes.insert(
             format!("donchian:{}:{}", output.name, period),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -7406,7 +7414,7 @@ fn donchian_store(
     for output in &outputs {
         nodes.insert(
             format!("donchian:{}:{}", output.name, period),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -7435,7 +7443,7 @@ fn price_channel(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<Indi
     for output in &outputs {
         nodes.insert(
             format!("price_channel:{}:{}", output.name, period),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -7473,7 +7481,7 @@ fn price_channel_store(
     for output in &outputs {
         nodes.insert(
             format!("price_channel:{}:{}", output.name, period),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -7539,30 +7547,30 @@ fn adx(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutpu
     let key = format!("adx:ohlc:{period}");
     if let Some(values) = nodes.get(&key) {
         return adx_outputs(
-            values.clone(),
+            (**values).clone(),
             nodes
                 .get(&format!("adx:plus_di:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:minus_di:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:tr_avg:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:plus_dm_avg:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:minus_dm_avg:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:dx:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
         );
     }
@@ -7631,19 +7639,19 @@ fn adx(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutpu
         }
     }
 
-    nodes.insert(key, values.clone());
-    nodes.insert(format!("adx:plus_di:{period}"), plus_di_values.clone());
-    nodes.insert(format!("adx:minus_di:{period}"), minus_di_values.clone());
-    nodes.insert(format!("adx:tr_avg:{period}"), tr_avg_values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
+    nodes.insert(format!("adx:plus_di:{period}"), Rc::new(plus_di_values.clone()));
+    nodes.insert(format!("adx:minus_di:{period}"), Rc::new(minus_di_values.clone()));
+    nodes.insert(format!("adx:tr_avg:{period}"), Rc::new(tr_avg_values.clone()));
     nodes.insert(
         format!("adx:plus_dm_avg:{period}"),
-        plus_dm_avg_values.clone(),
+        Rc::new(plus_dm_avg_values.clone()),
     );
     nodes.insert(
         format!("adx:minus_dm_avg:{period}"),
-        minus_dm_avg_values.clone(),
+        Rc::new(minus_dm_avg_values.clone()),
     );
-    nodes.insert(format!("adx:dx:{period}"), dx_values.clone());
+    nodes.insert(format!("adx:dx:{period}"), Rc::new(dx_values.clone()));
     adx_outputs(
         values,
         plus_di_values,
@@ -7659,30 +7667,30 @@ fn adx_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<I
     let key = format!("adx:ohlc:{period}");
     if let Some(values) = nodes.get(&key) {
         return adx_outputs(
-            values.clone(),
+            (**values).clone(),
             nodes
                 .get(&format!("adx:plus_di:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:minus_di:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:tr_avg:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:plus_dm_avg:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:minus_dm_avg:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
             nodes
                 .get(&format!("adx:dx:{period}"))
-                .cloned()
+                .map(|rc| (**rc).clone())
                 .unwrap_or_default(),
         );
     }
@@ -7751,19 +7759,19 @@ fn adx_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<I
         }
     }
 
-    nodes.insert(key, values.clone());
-    nodes.insert(format!("adx:plus_di:{period}"), plus_di_values.clone());
-    nodes.insert(format!("adx:minus_di:{period}"), minus_di_values.clone());
-    nodes.insert(format!("adx:tr_avg:{period}"), tr_avg_values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
+    nodes.insert(format!("adx:plus_di:{period}"), Rc::new(plus_di_values.clone()));
+    nodes.insert(format!("adx:minus_di:{period}"), Rc::new(minus_di_values.clone()));
+    nodes.insert(format!("adx:tr_avg:{period}"), Rc::new(tr_avg_values.clone()));
     nodes.insert(
         format!("adx:plus_dm_avg:{period}"),
-        plus_dm_avg_values.clone(),
+        Rc::new(plus_dm_avg_values.clone()),
     );
     nodes.insert(
         format!("adx:minus_dm_avg:{period}"),
-        minus_dm_avg_values.clone(),
+        Rc::new(minus_dm_avg_values.clone()),
     );
-    nodes.insert(format!("adx:dx:{period}"), dx_values.clone());
+    nodes.insert(format!("adx:dx:{period}"), Rc::new(dx_values.clone()));
     adx_outputs(
         values,
         plus_di_values,
@@ -8036,7 +8044,7 @@ fn bollinger(
     for output in &outputs {
         nodes.insert(
             format!("bb:{}:{}:{}", output.name, period, multiplier),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -8076,7 +8084,7 @@ fn bollinger_store(
     for output in &outputs {
         nodes.insert(
             format!("bb:{}:{}:{}", output.name, period, multiplier),
-            output.values.clone(),
+            Rc::new(output.values.clone()),
         );
     }
     outputs
@@ -8247,7 +8255,7 @@ fn chaikin_oscillator(bars: &[Bar], params: MacdParams) -> Series {
 fn chaikin_oscillator_node(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Series {
     let key = format!("chaikin:{}:{}", params.fast, params.slow);
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let adl_values = adl_node(bars, nodes);
     let fast = ema_series(&adl_values, params.fast);
@@ -8260,7 +8268,7 @@ fn chaikin_oscillator_node(bars: &[Bar], params: MacdParams, nodes: &mut NodeCac
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -8286,12 +8294,12 @@ fn chaikin_volatility(bars: &[Bar], period: usize) -> Series {
 fn chaikin_volatility_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("cvol:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let ema_key = format!("cvol:ema:{period}");
     let ranges: Vec<_> = bars.iter().map(|bar| bar.high - bar.low).collect();
     let ema = ema_series(&ranges, period);
-    nodes.insert(ema_key, ema.clone());
+    nodes.insert(ema_key, Rc::new(ema.clone()));
     let mut values = vec![f64::NAN; bars.len()];
     if period != 0 && bars.len() > period {
         for index in period..bars.len() {
@@ -8304,7 +8312,7 @@ fn chaikin_volatility_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -
             }
         }
     }
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -8315,14 +8323,14 @@ fn latest_chaikin_volatility(bars: &[Bar], period: usize) -> Option<f64> {
 fn chaikin_volatility_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("cvol:value:{period}");
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let ema_key = format!("cvol:ema:{period}");
     let ranges: Vec<_> = (0..store.len())
         .map(|index| store.high[index] - store.low[index])
         .collect();
     let ema = ema_series(&ranges, period);
-    nodes.insert(ema_key, ema.clone());
+    nodes.insert(ema_key, Rc::new(ema.clone()));
     let mut values = vec![f64::NAN; store.len()];
     if period != 0 && store.len() > period {
         for index in period..store.len() {
@@ -8335,7 +8343,7 @@ fn chaikin_volatility_store(store: &CandleStore, period: usize, nodes: &mut Node
             }
         }
     }
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -8418,23 +8426,23 @@ fn macd_store(
         return vec![
             IndicatorOutput {
                 name: "macd".to_string(),
-                values: macd.clone(),
+                values: (**macd).clone(),
             },
             IndicatorOutput {
                 name: "signal".to_string(),
-                values: signal.clone(),
+                values: (**signal).clone(),
             },
             IndicatorOutput {
                 name: "histogram".to_string(),
-                values: histogram.clone(),
+                values: (**histogram).clone(),
             },
             IndicatorOutput {
                 name: "fast_ema".to_string(),
-                values: fast_ema.clone(),
+                values: (**fast_ema).clone(),
             },
             IndicatorOutput {
                 name: "slow_ema".to_string(),
-                values: slow_ema.clone(),
+                values: (**slow_ema).clone(),
             },
         ];
     }
@@ -8458,9 +8466,9 @@ fn macd_store(
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(macd_key, macd.clone());
-    nodes.insert(signal_key, signal.clone());
-    nodes.insert(histogram_key, histogram.clone());
+    nodes.insert(macd_key, Rc::new(macd.clone()));
+    nodes.insert(signal_key, Rc::new(signal.clone()));
+    nodes.insert(histogram_key, Rc::new(histogram.clone()));
     vec![
         IndicatorOutput {
             name: "macd".to_string(),
@@ -8544,7 +8552,7 @@ fn chaikin_oscillator_store(
 ) -> Series {
     let key = format!("chaikin:{}:{}", params.fast, params.slow);
     if let Some(values) = nodes.get(&key) {
-        return values.clone();
+        return (**values).clone();
     }
     let adl_values = adl_store(store, nodes);
     let fast = ema_series(&adl_values, params.fast);
@@ -8557,7 +8565,7 @@ fn chaikin_oscillator_store(
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, values.clone());
+    nodes.insert(key, Rc::new(values.clone()));
     values
 }
 
@@ -8592,15 +8600,15 @@ fn ppo_store(
         return vec![
             IndicatorOutput {
                 name: "ppo".to_string(),
-                values: ppo.clone(),
+                values: (**ppo).clone(),
             },
             IndicatorOutput {
                 name: "signal".to_string(),
-                values: signal.clone(),
+                values: (**signal).clone(),
             },
             IndicatorOutput {
                 name: "histogram".to_string(),
-                values: histogram.clone(),
+                values: (**histogram).clone(),
             },
         ];
     }
@@ -8634,9 +8642,9 @@ fn ppo_store(
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(ppo_key, ppo.clone());
-    nodes.insert(signal_key, signal.clone());
-    nodes.insert(histogram_key, histogram.clone());
+    nodes.insert(ppo_key, Rc::new(ppo.clone()));
+    nodes.insert(signal_key, Rc::new(signal.clone()));
+    nodes.insert(histogram_key, Rc::new(histogram.clone()));
     vec![
         IndicatorOutput {
             name: "ppo".to_string(),

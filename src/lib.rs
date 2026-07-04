@@ -50,32 +50,31 @@ impl CandleStore {
         {
             return Err("candle column lengths must match for time/open/high/low/close/volume");
         }
-        Ok(Self {
-            time: columns.time,
-            open: columns.open,
-            high: columns.high,
-            low: columns.low,
-            close: columns.close,
-            volume: columns.volume,
-        })
+        Ok(Self::from_raw_columns(
+            columns.time,
+            columns.open,
+            columns.high,
+            columns.low,
+            columns.close,
+            columns.volume,
+        ))
     }
 
     fn from_raw_columns(
-        time: Vec<u32>,
-        open: Vec<f64>,
-        high: Vec<f64>,
-        low: Vec<f64>,
-        close: Vec<f64>,
-        volume: Vec<f64>,
+        mut time: Vec<u32>,
+        mut open: Vec<f64>,
+        mut high: Vec<f64>,
+        mut low: Vec<f64>,
+        mut close: Vec<f64>,
+        mut volume: Vec<f64>,
     ) -> Self {
-        Self {
-            time,
-            open,
-            high,
-            low,
-            close,
-            volume,
-        }
+        time.reserve(256);
+        open.reserve(256);
+        high.reserve(256);
+        low.reserve(256);
+        close.reserve(256);
+        volume.reserve(256);
+        Self { time, open, high, low, close, volume }
     }
 
     fn len(&self) -> usize {
@@ -207,7 +206,7 @@ struct OutputDescriptor {
 #[derive(Clone, Serialize)]
 struct IndicatorOutput {
     name: String,
-    values: Vec<Option<f64>>,
+    values: Vec<f64>,
 }
 
 #[derive(Serialize)]
@@ -298,6 +297,48 @@ impl ChartEngine {
         );
         self.recompute_indicators();
         Ok(())
+    }
+
+    /// Allocate candle column buffers of the given length and return their byte offsets
+    /// into WASM linear memory. JS can then write directly into these buffers using
+    /// TypedArray views over wasm.memory.buffer, eliminating the copy in ingest_columns_fast.
+    pub fn alloc_candle_buffer(&mut self, len: u32) -> Result<JsValue, JsValue> {
+        let len = len as usize;
+        let mut time = Vec::<u32>::with_capacity(len + 256);
+        let mut open = Vec::<f64>::with_capacity(len + 256);
+        let mut high = Vec::<f64>::with_capacity(len + 256);
+        let mut low = Vec::<f64>::with_capacity(len + 256);
+        let mut close = Vec::<f64>::with_capacity(len + 256);
+        let mut volume = Vec::<f64>::with_capacity(len + 256);
+
+        // SAFETY: We set the length to `len` so the memory is addressable.
+        // JS will write all values before finalize_candle_buffer is called.
+        unsafe {
+            time.set_len(len);
+            open.set_len(len);
+            high.set_len(len);
+            low.set_len(len);
+            close.set_len(len);
+            volume.set_len(len);
+        }
+
+        let out = Object::new();
+        js_set(&out, "time_ptr", JsValue::from_f64(time.as_ptr() as u32 as f64))?;
+        js_set(&out, "open_ptr", JsValue::from_f64(open.as_ptr() as u32 as f64))?;
+        js_set(&out, "high_ptr", JsValue::from_f64(high.as_ptr() as u32 as f64))?;
+        js_set(&out, "low_ptr", JsValue::from_f64(low.as_ptr() as u32 as f64))?;
+        js_set(&out, "close_ptr", JsValue::from_f64(close.as_ptr() as u32 as f64))?;
+        js_set(&out, "volume_ptr", JsValue::from_f64(volume.as_ptr() as u32 as f64))?;
+        js_set(&out, "len", JsValue::from_f64(len as f64))?;
+
+        self.bars = CandleStore { time, open, high, low, close, volume };
+        Ok(out.into())
+    }
+
+    /// Finalize a previously allocated candle buffer. Call this after writing data
+    /// via the pointers returned by alloc_candle_buffer. Triggers indicator recompute.
+    pub fn finalize_candle_buffer(&mut self) {
+        self.recompute_indicators();
     }
 
     pub fn upsert_bar(&mut self, bar: JsValue) -> Result<(), JsValue> {
@@ -491,12 +532,12 @@ impl ChartEngine {
 
     pub fn candle_columns_fast(&self) -> Result<JsValue, JsValue> {
         let out = Object::new();
-        js_set(&out, "time", Uint32Array::from(self.bars.time.as_slice()))?;
-        js_set(&out, "open", Float64Array::from(self.bars.open.as_slice()))?;
-        js_set(&out, "high", Float64Array::from(self.bars.high.as_slice()))?;
-        js_set(&out, "low", Float64Array::from(self.bars.low.as_slice()))?;
-        js_set(&out, "close", Float64Array::from(self.bars.close.as_slice()))?;
-        js_set(&out, "volume", Float64Array::from(self.bars.volume.as_slice()))?;
+        js_set(&out, "time", unsafe { Uint32Array::view(&self.bars.time) })?;
+        js_set(&out, "open", unsafe { Float64Array::view(&self.bars.open) })?;
+        js_set(&out, "high", unsafe { Float64Array::view(&self.bars.high) })?;
+        js_set(&out, "low", unsafe { Float64Array::view(&self.bars.low) })?;
+        js_set(&out, "close", unsafe { Float64Array::view(&self.bars.close) })?;
+        js_set(&out, "volume", unsafe { Float64Array::view(&self.bars.volume) })?;
         Ok(out.into())
     }
 
@@ -515,27 +556,24 @@ impl ChartEngine {
         serde_wasm_bindgen::to_value(&outputs).map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
-    pub fn indicator_output_values_fast(&mut self, id: u32) -> Result<JsValue, JsValue> {
-        self.populate_indicator_output_values_scratch(id)?;
+    pub fn indicator_output_values_fast(&self, id: u32) -> Result<JsValue, JsValue> {
         let indicator = self
             .indicators
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
         let outputs = Array::new();
-        for (index, output) in indicator
+        for output in indicator
             .outputs
             .iter()
             .filter(|output| is_visible_output(&output.name))
-            .enumerate()
         {
             let item = Object::new();
             js_set(&item, "name", JsValue::from_str(&output.name))?;
             js_set(
                 &item,
                 "values",
-                // ponytail: ephemeral wasm-memory views for snapshot reads; move to a stable shared buffer API only if callers need to retain them across engine calls.
-                unsafe { Float64Array::view(self.indicator_values_scratch[index].as_slice()) },
+                unsafe { Float64Array::view(&output.values) },
             )?;
             outputs.push(&item);
         }
@@ -554,7 +592,7 @@ impl ChartEngine {
             .filter(|output| is_visible_output(&output.name))
             .map(|output| IndicatorLatestValue {
                 output: output.name.clone(),
-                value: output.values.last().copied().flatten(),
+                value: output.values.last().copied().and_then(nan_to_none),
             })
             .collect();
         serde_wasm_bindgen::to_value(&points).map_err(|err| JsValue::from_str(&err.to_string()))
@@ -601,6 +639,9 @@ impl ChartEngine {
                 &mut nodes,
                 &mut bars_snapshot,
             );
+            for output in &mut indicator.outputs {
+                output.values.reserve(256);
+            }
             let indicator_node = indicator_node(indicator);
             dag.nodes.push(indicator_node.clone());
             for node in indicator_nodes(indicator) {
@@ -961,7 +1002,7 @@ impl ChartEngine {
         self.latest_values_scratch.extend(indicator.outputs
             .iter()
             .filter(|output| is_visible_output(&output.name))
-            .map(|output| output.values.last().copied().flatten().unwrap_or(f64::NAN))
+            .map(|output| output.values.last().copied().and_then(nan_to_none).unwrap_or(f64::NAN))
         );
         Ok(self.latest_values_scratch.as_slice())
     }
@@ -989,12 +1030,7 @@ impl ChartEngine {
         {
             let scratch = &mut self.indicator_values_scratch[index];
             scratch.clear();
-            scratch.extend(
-                output
-                    .values
-                    .iter()
-                    .map(|value| value.unwrap_or(f64::NAN)),
-            );
+            scratch.extend(output.values.iter().copied());
         }
         Ok(())
     }
@@ -1074,8 +1110,13 @@ fn is_visible_output(name: &str) -> bool {
     )
 }
 
-type Series = Vec<Option<f64>>;
+type Series = Vec<f64>;
 type NodeCache = HashMap<String, Series>;
+
+#[inline(always)]
+fn nan_to_none(v: f64) -> Option<f64> {
+    if v.is_nan() { None } else { Some(v) }
+}
 
 fn js_set(target: &Object, key: &str, value: impl Into<JsValue>) -> Result<(), JsValue> {
     Reflect::set(target, &JsValue::from_str(key), &value.into())
@@ -1754,7 +1795,7 @@ fn compute_indicator(
     }
 }
 
-fn one_output(values: Vec<Option<f64>>) -> Vec<IndicatorOutput> {
+fn one_output(values: Vec<f64>) -> Vec<IndicatorOutput> {
     vec![IndicatorOutput {
         name: "value".to_string(),
         values,
@@ -2702,10 +2743,11 @@ fn upsert_output(
     target_len: usize,
     value: Option<f64>,
 ) {
+    let val = value.unwrap_or(f64::NAN);
     let Some(output) = outputs.iter_mut().find(|output| output.name == name) else {
-        let mut values = vec![None; target_len];
+        let mut values = vec![f64::NAN; target_len];
         if let Some(last) = values.last_mut() {
-            *last = value;
+            *last = val;
         }
         outputs.push(IndicatorOutput {
             name: name.to_string(),
@@ -2714,9 +2756,9 @@ fn upsert_output(
         return;
     };
 
-    output.values.resize(target_len, None);
+    output.values.resize(target_len, f64::NAN);
     if let Some(last) = output.values.last_mut() {
-        *last = value;
+        *last = val;
     }
 }
 
@@ -2726,10 +2768,10 @@ fn output_at(outputs: &[IndicatorOutput], name: &str, index: usize) -> Option<f6
         .find(|output| output.name == name)
         .and_then(|output| output.values.get(index))
         .copied()
-        .flatten()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
-fn sma(bars: &[Bar], period: usize) -> Vec<Option<f64>> {
+fn sma(bars: &[Bar], period: usize) -> Series {
     let mut out = Vec::with_capacity(bars.len());
     let mut sum = 0.0;
     for (i, bar) in bars.iter().enumerate() {
@@ -2737,7 +2779,7 @@ fn sma(bars: &[Bar], period: usize) -> Vec<Option<f64>> {
         if i >= period {
             sum -= bars[i - period].close;
         }
-        out.push((i + 1 >= period).then_some(sum / period as f64));
+        out.push(if i + 1 >= period { sum / period as f64 } else { f64::NAN });
     }
     out
 }
@@ -2750,7 +2792,7 @@ fn sma_close_values(values: &[f64], period: usize) -> Series {
         if index >= period {
             sum -= values[index - period];
         }
-        out.push((period > 0 && index + 1 >= period).then_some(sum / period as f64));
+        out.push(if period > 0 && index + 1 >= period { sum / period as f64 } else { f64::NAN });
     }
     out
 }
@@ -2829,27 +2871,25 @@ fn ema_values(values: impl IntoIterator<Item = f64>, period: usize) -> Series {
             None => value,
         };
         current = Some(next);
-        out.push(Some(next));
+        out.push(next);
     }
     out
 }
 
-fn ema_series(values: &[Option<f64>], period: usize) -> Series {
+fn ema_series(values: &[f64], period: usize) -> Series {
     let alpha = 2.0 / (period as f64 + 1.0);
     let mut current = None::<f64>;
     let mut out = Vec::with_capacity(values.len());
-    for value in values {
-        match (*value, current) {
-            (Some(value), Some(previous)) => {
-                let next = alpha * value + (1.0 - alpha) * previous;
-                current = Some(next);
-                out.push(Some(next));
-            }
-            (Some(value), None) => {
-                current = Some(value);
-                out.push(Some(value));
-            }
-            (None, _) => out.push(None),
+    for &value in values {
+        if value.is_nan() {
+            out.push(f64::NAN);
+        } else {
+            let next = match current {
+                Some(previous) => alpha * value + (1.0 - alpha) * previous,
+                None => value,
+            };
+            current = Some(next);
+            out.push(next);
         }
     }
     out
@@ -2863,8 +2903,7 @@ fn latest_ema(bars: &[Bar], period: usize, output: Option<&IndicatorOutput>) -> 
 
     let previous = output
         .and_then(|output| output.values.get(bars.len() - 2))
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
         .unwrap_or(bars[bars.len() - 2].close);
     let alpha = 2.0 / (period as f64 + 1.0);
     Some(alpha * last.close + (1.0 - alpha) * previous)
@@ -2882,35 +2921,34 @@ fn latest_ema_store(
 
     let previous = output
         .and_then(|output| output.values.get(store.len() - 2))
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
         .unwrap_or(store.close[store.len() - 2]);
     Some(ema_next(last, previous, period))
 }
 
-fn wma_from_values(values: &[Option<f64>], period: usize) -> Series {
-    let mut out = vec![None; values.len()];
+fn wma_from_values(values: &[f64], period: usize) -> Series {
+    let mut out = vec![f64::NAN; values.len()];
     if period == 0 || values.len() < period {
         return out;
     }
     let denominator = (period * (period + 1) / 2) as f64;
     for index in period - 1..values.len() {
         let window = &values[index + 1 - period..=index];
-        if window.iter().any(|value| value.is_none()) {
+        if window.iter().any(|value| value.is_nan()) {
             continue;
         }
         let weighted_sum = window
             .iter()
             .enumerate()
-            .map(|(offset, value)| (offset + 1) as f64 * value.unwrap_or(0.0))
+            .map(|(offset, value)| (offset + 1) as f64 * value)
             .sum::<f64>();
-        out[index] = Some(weighted_sum / denominator);
+        out[index] = weighted_sum / denominator;
     }
     out
 }
 
 fn wma(bars: &[Bar], period: usize) -> Series {
-    let values: Vec<_> = bars.iter().map(|bar| Some(bar.close)).collect();
+    let values: Vec<_> = bars.iter().map(|bar| bar.close).collect();
     wma_from_values(&values, period)
 }
 
@@ -2925,7 +2963,7 @@ fn wma_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_wma(bars: &[Bar], period: usize) -> Option<f64> {
-    wma(bars, period).last().copied().flatten()
+    wma(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn wma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -2933,7 +2971,7 @@ fn wma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let values: Vec<_> = store.close.iter().copied().map(Some).collect();
+    let values: Vec<_> = store.close.iter().copied().collect();
     let out = wma_from_values(&values, period);
     nodes.insert(key, out.clone());
     out
@@ -2959,7 +2997,7 @@ fn hma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         return values.clone();
     }
     if period == 0 {
-        return vec![None; store.len()];
+        return vec![f64::NAN; store.len()];
     }
     let half_period = (period / 2).max(1);
     let sqrt_period = ((period as f64).sqrt().round() as usize).max(1);
@@ -2969,8 +3007,8 @@ fn hma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         .iter()
         .zip(full.iter())
         .map(|(half, full)| match (half, full) {
-            (Some(half), Some(full)) => Some(2.0 * half - full),
-            _ => None,
+            (half, full) if !half.is_nan() && !full.is_nan() => 2.0 * *half - *full,
+            _ => f64::NAN,
         })
         .collect();
     let values = wma_from_values(&raw, sqrt_period);
@@ -2981,8 +3019,7 @@ fn hma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
 fn latest_hma_store(store: &CandleStore, period: usize) -> Option<f64> {
     hma_store(store, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn hma(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
@@ -2991,7 +3028,7 @@ fn hma(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
         return values.clone();
     }
     if period == 0 {
-        return vec![None; bars.len()];
+        return vec![f64::NAN; bars.len()];
     }
     let half_period = (period / 2).max(1);
     let sqrt_period = ((period as f64).sqrt().round() as usize).max(1);
@@ -3001,8 +3038,8 @@ fn hma(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
         .iter()
         .zip(full.iter())
         .map(|(half, full)| match (half, full) {
-            (Some(half), Some(full)) => Some(2.0 * half - full),
-            _ => None,
+            (half, full) if !half.is_nan() && !full.is_nan() => 2.0 * *half - *full,
+            _ => f64::NAN,
         })
         .collect();
     let values = wma_from_values(&raw, sqrt_period);
@@ -3013,12 +3050,11 @@ fn hma(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 fn latest_hma(bars: &[Bar], period: usize) -> Option<f64> {
     hma(bars, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn linear_regression(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
         return out;
     }
@@ -3039,7 +3075,7 @@ fn linear_regression(bars: &[Bar], period: usize) -> Series {
             .sum::<f64>();
         let slope = (n * sum_xy - sum_x * sum_y) / denominator;
         let intercept = (sum_y - slope * sum_x) / n;
-        out[index] = Some(intercept + slope * (period - 1) as f64);
+        out[index] = intercept + slope * (period - 1) as f64;
     }
     out
 }
@@ -3055,7 +3091,7 @@ fn linear_regression_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) ->
 }
 
 fn latest_linear_regression(bars: &[Bar], period: usize) -> Option<f64> {
-    linear_regression(bars, period).last().copied().flatten()
+    linear_regression(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -3063,7 +3099,7 @@ fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeC
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         nodes.insert(key, out.clone());
         return out;
@@ -3086,7 +3122,7 @@ fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeC
             .sum::<f64>();
         let slope = (n * sum_xy - sum_x * sum_y) / denominator;
         let intercept = (sum_y - slope * sum_x) / n;
-        out[index] = Some(intercept + slope * (period - 1) as f64);
+        out[index] = intercept + slope * (period - 1) as f64;
     }
     nodes.insert(key, out.clone());
     out
@@ -3095,8 +3131,7 @@ fn linear_regression_store(store: &CandleStore, period: usize, nodes: &mut NodeC
 fn latest_linear_regression_store(store: &CandleStore, period: usize) -> Option<f64> {
     linear_regression_store(store, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn dema(bars: &[Bar], period: usize) -> Series {
@@ -3105,8 +3140,8 @@ fn dema(bars: &[Bar], period: usize) -> Series {
     ema1.iter()
         .zip(ema2.iter())
         .map(|(first, second)| match (first, second) {
-            (Some(first), Some(second)) => Some(2.0 * first - second),
-            _ => None,
+            (first, second) if !first.is_nan() && !second.is_nan() => 2.0 * *first - *second,
+            _ => f64::NAN,
         })
         .collect()
 }
@@ -3127,8 +3162,8 @@ fn dema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
         .iter()
         .zip(ema2.iter())
         .map(|(first, second)| match (first, second) {
-            (Some(first), Some(second)) => Some(2.0 * first - second),
-            _ => None,
+            (first, second) if !first.is_nan() && !second.is_nan() => 2.0 * *first - *second,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(key, values.clone());
@@ -3136,7 +3171,7 @@ fn dema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_dema(bars: &[Bar], period: usize) -> Option<f64> {
-    dema(bars, period).last().copied().flatten()
+    dema(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -3155,8 +3190,8 @@ fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
         .iter()
         .zip(ema2.iter())
         .map(|(first, second)| match (first, second) {
-            (Some(first), Some(second)) => Some(2.0 * first - second),
-            _ => None,
+            (first, second) if !first.is_nan() && !second.is_nan() => 2.0 * *first - *second,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(key, values.clone());
@@ -3166,8 +3201,7 @@ fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
 fn latest_dema_store(store: &CandleStore, period: usize) -> Option<f64> {
     dema_store(store, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn tema(bars: &[Bar], period: usize) -> Series {
@@ -3178,8 +3212,8 @@ fn tema(bars: &[Bar], period: usize) -> Series {
         .zip(ema2.iter())
         .zip(ema3.iter())
         .map(|((first, second), third)| match (first, second, third) {
-            (Some(first), Some(second), Some(third)) => Some(3.0 * first - 3.0 * second + third),
-            _ => None,
+            (first, second, third) if !first.is_nan() && !second.is_nan() && !third.is_nan() => 3.0 * *first - 3.0 * *second + *third,
+            _ => f64::NAN,
         })
         .collect()
 }
@@ -3207,8 +3241,8 @@ fn tema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
         .zip(ema2.iter())
         .zip(ema3.iter())
         .map(|((first, second), third)| match (first, second, third) {
-            (Some(first), Some(second), Some(third)) => Some(3.0 * first - 3.0 * second + third),
-            _ => None,
+            (first, second, third) if !first.is_nan() && !second.is_nan() && !third.is_nan() => 3.0 * *first - 3.0 * *second + *third,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(key, values.clone());
@@ -3216,7 +3250,7 @@ fn tema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_tema(bars: &[Bar], period: usize) -> Option<f64> {
-    tema(bars, period).last().copied().flatten()
+    tema(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -3242,8 +3276,8 @@ fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
         .zip(ema2.iter())
         .zip(ema3.iter())
         .map(|((first, second), third)| match (first, second, third) {
-            (Some(first), Some(second), Some(third)) => Some(3.0 * first - 3.0 * second + third),
-            _ => None,
+            (first, second, third) if !first.is_nan() && !second.is_nan() && !third.is_nan() => 3.0 * *first - 3.0 * *second + *third,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(key, values.clone());
@@ -3253,8 +3287,7 @@ fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
 fn latest_tema_store(store: &CandleStore, period: usize) -> Option<f64> {
     tema_store(store, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn trima(bars: &[Bar], period: usize) -> Series {
@@ -3272,7 +3305,7 @@ fn trima_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_trima(bars: &[Bar], period: usize) -> Option<f64> {
-    trima(bars, period).last().copied().flatten()
+    trima(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn trima_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -3288,12 +3321,11 @@ fn trima_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Ser
 fn latest_trima_store(store: &CandleStore, period: usize) -> Option<f64> {
     trima_store(store, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn stddev(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
         return out;
     }
@@ -3308,7 +3340,7 @@ fn stddev(bars: &[Bar], period: usize) -> Series {
             })
             .sum::<f64>()
             / period as f64;
-        out[index] = Some(variance.sqrt());
+        out[index] = variance.sqrt();
     }
     out
 }
@@ -3324,7 +3356,7 @@ fn stddev_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_stddev(bars: &[Bar], period: usize) -> Option<f64> {
-    stddev(bars, period).last().copied().flatten()
+    stddev(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -3332,7 +3364,7 @@ fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Se
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         nodes.insert(key, out.clone());
         return out;
@@ -3348,7 +3380,7 @@ fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Se
             })
             .sum::<f64>()
             / period as f64;
-        out[index] = Some(variance.sqrt());
+        out[index] = variance.sqrt();
     }
     nodes.insert(key, out.clone());
     out
@@ -3357,8 +3389,7 @@ fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Se
 fn latest_stddev_store(store: &CandleStore, period: usize) -> Option<f64> {
     stddev_store(store, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn envelope(
@@ -3394,11 +3425,11 @@ fn envelope(
     }
     let upper: Vec<_> = middle
         .iter()
-        .map(|value| value.map(|middle| middle * (1.0 + multiplier / 100.0)))
+        .map(|&value| if value.is_nan() { f64::NAN } else { value * (1.0 + multiplier / 100.0) })
         .collect();
     let lower: Vec<_> = middle
         .iter()
-        .map(|value| value.map(|middle| middle * (1.0 - multiplier / 100.0)))
+        .map(|&value| if value.is_nan() { f64::NAN } else { value * (1.0 - multiplier / 100.0) })
         .collect();
     nodes.insert(upper_key, upper.clone());
     nodes.insert(middle_key, middle.clone());
@@ -3467,11 +3498,11 @@ fn envelope_store(
     }
     let upper: Vec<_> = middle
         .iter()
-        .map(|value| value.map(|middle| middle * (1.0 + multiplier / 100.0)))
+        .map(|&value| if value.is_nan() { f64::NAN } else { value * (1.0 + multiplier / 100.0) })
         .collect();
     let lower: Vec<_> = middle
         .iter()
-        .map(|value| value.map(|middle| middle * (1.0 - multiplier / 100.0)))
+        .map(|&value| if value.is_nan() { f64::NAN } else { value * (1.0 - multiplier / 100.0) })
         .collect();
     nodes.insert(upper_key, upper.clone());
     nodes.insert(middle_key, middle.clone());
@@ -3511,15 +3542,9 @@ fn trix(bars: &[Bar], period: usize) -> Series {
     let ema1 = ema_close(bars, period, &mut HashMap::new());
     let ema2 = ema_series(&ema1, period);
     let ema3 = ema_series(&ema2, period);
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     for index in 1..bars.len() {
-        match (ema3[index - 1], ema3[index]) {
-            (Some(previous), Some(current)) if previous != 0.0 => {
-                out[index] = Some(100.0 * (current / previous - 1.0));
-            }
-            (Some(_), Some(_)) => out[index] = Some(0.0),
-            _ => {}
-        }
+        { let previous = ema3[index - 1]; let current = ema3[index]; if !previous.is_nan() && !current.is_nan() { out[index] = if previous != 0.0 { 100.0 * (current / previous - 1.0) } else { 0.0 }; } }
     }
     out
 }
@@ -3537,22 +3562,16 @@ fn trix_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
         .unwrap_or_else(|| ema_series(&ema1, period));
     nodes.insert(ema2_key, ema2.clone());
     let ema3 = ema_series(&ema2, period);
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     for index in 1..bars.len() {
-        match (ema3[index - 1], ema3[index]) {
-            (Some(previous), Some(current)) if previous != 0.0 => {
-                out[index] = Some(100.0 * (current / previous - 1.0));
-            }
-            (Some(_), Some(_)) => out[index] = Some(0.0),
-            _ => {}
-        }
+        { let previous = ema3[index - 1]; let current = ema3[index]; if !previous.is_nan() && !current.is_nan() { out[index] = if previous != 0.0 { 100.0 * (current / previous - 1.0) } else { 0.0 }; } }
     }
     nodes.insert(key, out.clone());
     out
 }
 
 fn latest_trix(bars: &[Bar], period: usize) -> Option<f64> {
-    trix(bars, period).last().copied().flatten()
+    trix(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -3568,15 +3587,9 @@ fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
         .unwrap_or_else(|| ema_series(&ema1, period));
     nodes.insert(ema2_key, ema2.clone());
     let ema3 = ema_series(&ema2, period);
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     for index in 1..store.len() {
-        match (ema3[index - 1], ema3[index]) {
-            (Some(previous), Some(current)) if previous != 0.0 => {
-                out[index] = Some(100.0 * (current / previous - 1.0));
-            }
-            (Some(_), Some(_)) => out[index] = Some(0.0),
-            _ => {}
-        }
+        { let previous = ema3[index - 1]; let current = ema3[index]; if !previous.is_nan() && !current.is_nan() { out[index] = if previous != 0.0 { 100.0 * (current / previous - 1.0) } else { 0.0 }; } }
     }
     nodes.insert(key, out.clone());
     out
@@ -3585,17 +3598,16 @@ fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
 fn latest_trix_store(store: &CandleStore, period: usize) -> Option<f64> {
     trix_store(store, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn tsi(bars: &[Bar], long: usize, short: usize) -> Series {
-    let mut momentum = vec![None; bars.len()];
-    let mut abs_momentum = vec![None; bars.len()];
+    let mut momentum = vec![f64::NAN; bars.len()];
+    let mut abs_momentum = vec![f64::NAN; bars.len()];
     for index in 1..bars.len() {
         let value = bars[index].close - bars[index - 1].close;
-        momentum[index] = Some(value);
-        abs_momentum[index] = Some(value.abs());
+        momentum[index] = value;
+        abs_momentum[index] = value.abs();
     }
     let ema1 = ema_series(&momentum, long);
     let ema2 = ema_series(&ema1, short);
@@ -3604,9 +3616,9 @@ fn tsi(bars: &[Bar], long: usize, short: usize) -> Series {
     ema2.iter()
         .zip(abs_ema2.iter())
         .map(|(num, den)| match (num, den) {
-            (Some(num), Some(den)) if *den != 0.0 => Some(100.0 * num / den),
-            (Some(_), Some(_)) => Some(0.0),
-            _ => None,
+            (num, den) if !num.is_nan() && !den.is_nan() && *den != 0.0 => 100.0 * *num / *den,
+            (a, b) if !a.is_nan() && !b.is_nan() => 0.0,
+            _ => f64::NAN,
         })
         .collect()
 }
@@ -3622,7 +3634,7 @@ fn tsi_node(bars: &[Bar], long: usize, short: usize, nodes: &mut NodeCache) -> S
 }
 
 fn latest_tsi(bars: &[Bar], long: usize, short: usize) -> Option<f64> {
-    tsi(bars, long, short).last().copied().flatten()
+    tsi(bars, long, short).last().copied().and_then(nan_to_none)
 }
 
 fn tsi_store(store: &CandleStore, long: usize, short: usize, nodes: &mut NodeCache) -> Series {
@@ -3630,12 +3642,12 @@ fn tsi_store(store: &CandleStore, long: usize, short: usize, nodes: &mut NodeCac
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut momentum = vec![None; store.len()];
-    let mut abs_momentum = vec![None; store.len()];
+    let mut momentum = vec![f64::NAN; store.len()];
+    let mut abs_momentum = vec![f64::NAN; store.len()];
     for index in 1..store.len() {
         let value = store.close[index] - store.close[index - 1];
-        momentum[index] = Some(value);
-        abs_momentum[index] = Some(value.abs());
+        momentum[index] = value;
+        abs_momentum[index] = value.abs();
     }
     let ema1 = ema_series(&momentum, long);
     let ema2 = ema_series(&ema1, short);
@@ -3645,9 +3657,9 @@ fn tsi_store(store: &CandleStore, long: usize, short: usize, nodes: &mut NodeCac
         .iter()
         .zip(abs_ema2.iter())
         .map(|(num, den)| match (num, den) {
-            (Some(num), Some(den)) if *den != 0.0 => Some(100.0 * num / den),
-            (Some(_), Some(_)) => Some(0.0),
-            _ => None,
+            (num, den) if !num.is_nan() && !den.is_nan() && *den != 0.0 => 100.0 * *num / *den,
+            (a, b) if !a.is_nan() && !b.is_nan() => 0.0,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(key, values.clone());
@@ -3657,17 +3669,16 @@ fn tsi_store(store: &CandleStore, long: usize, short: usize, nodes: &mut NodeCac
 fn latest_tsi_store(store: &CandleStore, long: usize, short: usize) -> Option<f64> {
     tsi_store(store, long, short, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn momentum(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if bars.len() <= period {
         return out;
     }
     for index in period..bars.len() {
-        out[index] = Some(bars[index].close - bars[index - period].close);
+        out[index] = bars[index].close - bars[index - period].close;
     }
     out
 }
@@ -3683,7 +3694,7 @@ fn momentum_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_momentum(bars: &[Bar], period: usize) -> Option<f64> {
-    momentum(bars, period).last().copied().flatten()
+    momentum(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -3691,13 +3702,13 @@ fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if store.len() <= period {
         nodes.insert(key, out.clone());
         return out;
     }
     for index in period..store.len() {
-        out[index] = Some(store.close[index] - store.close[index - period]);
+        out[index] = store.close[index] - store.close[index - period];
     }
     nodes.insert(key, out.clone());
     out
@@ -3706,19 +3717,18 @@ fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
 fn latest_momentum_store(store: &CandleStore, period: usize) -> Option<f64> {
     momentum_store(store, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn dpo(bars: &[Bar], period: usize) -> Series {
     let sma_values = sma(bars, period);
     let shift = period / 2 + 1;
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     for index in 0..bars.len() {
         if index < period.saturating_sub(1) || index < shift {
             continue;
         }
-        out[index] = sma_values[index].map(|mean| bars[index - shift].close - mean);
+        let mean = sma_values[index]; if !mean.is_nan() { out[index] = bars[index - shift].close - mean; }
     }
     out
 }
@@ -3734,19 +3744,19 @@ fn dpo_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
         .cloned()
         .unwrap_or_else(|| sma_close(bars, period, nodes));
     let shift = period / 2 + 1;
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     for index in 0..bars.len() {
         if index < period.saturating_sub(1) || index < shift {
             continue;
         }
-        out[index] = sma_values[index].map(|mean| bars[index - shift].close - mean);
+        let mean = sma_values[index]; if !mean.is_nan() { out[index] = bars[index - shift].close - mean; }
     }
     nodes.insert(key, out.clone());
     out
 }
 
 fn latest_dpo(bars: &[Bar], period: usize) -> Option<f64> {
-    dpo(bars, period).last().copied().flatten()
+    dpo(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -3756,12 +3766,12 @@ fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
     }
     let sma_values = sma_close_store(store, period, nodes);
     let shift = period / 2 + 1;
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     for index in 0..store.len() {
         if index < period.saturating_sub(1) || index < shift {
             continue;
         }
-        out[index] = sma_values[index].map(|mean| store.close[index - shift] - mean);
+        let mean = sma_values[index]; if !mean.is_nan() { out[index] = store.close[index - shift] - mean; }
     }
     nodes.insert(key, out.clone());
     out
@@ -3793,24 +3803,23 @@ fn kst(bars: &[Bar]) -> Series {
         .zip(sma3.iter())
         .zip(sma4.iter())
         .map(|(((a, b), c), d)| match (a, b, c, d) {
-            (Some(a), Some(b), Some(c), Some(d)) => Some(a + 2.0 * b + 3.0 * c + 4.0 * d),
-            _ => None,
+            (a, b, c, d) if !a.is_nan() && !b.is_nan() && !c.is_nan() && !d.is_nan() => *a + 2.0 * *b + 3.0 * *c + 4.0 * *d,
+            _ => f64::NAN,
         })
         .collect()
 }
 
-fn sma_from_series(values: &[Option<f64>], period: usize) -> Series {
-    let mut out = vec![None; values.len()];
+fn sma_from_series(values: &[f64], period: usize) -> Series {
+    let mut out = vec![f64::NAN; values.len()];
     if period == 0 || values.len() < period {
         return out;
     }
     for index in period - 1..values.len() {
         let window = &values[index + 1 - period..=index];
-        if window.iter().any(|value| value.is_none()) {
+        if window.iter().any(|value| value.is_nan()) {
             continue;
         }
-        out[index] =
-            Some(window.iter().map(|value| value.unwrap_or(0.0)).sum::<f64>() / period as f64);
+        out[index] = window.iter().sum::<f64>() / period as f64;
     }
     out
 }
@@ -3834,8 +3843,8 @@ fn kst_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
         .zip(sma3.iter())
         .zip(sma4.iter())
         .map(|(((a, b), c), d)| match (a, b, c, d) {
-            (Some(a), Some(b), Some(c), Some(d)) => Some(a + 2.0 * b + 3.0 * c + 4.0 * d),
-            _ => None,
+            (a, b, c, d) if !a.is_nan() && !b.is_nan() && !c.is_nan() && !d.is_nan() => *a + 2.0 * *b + 3.0 * *c + 4.0 * *d,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(key, values.clone());
@@ -3843,7 +3852,7 @@ fn kst_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_kst(bars: &[Bar]) -> Option<f64> {
-    kst(bars).last().copied().flatten()
+    kst(bars).last().copied().and_then(nan_to_none)
 }
 
 fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
@@ -3865,8 +3874,8 @@ fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
         .zip(sma3.iter())
         .zip(sma4.iter())
         .map(|(((a, b), c), d)| match (a, b, c, d) {
-            (Some(a), Some(b), Some(c), Some(d)) => Some(a + 2.0 * b + 3.0 * c + 4.0 * d),
-            _ => None,
+            (a, b, c, d) if !a.is_nan() && !b.is_nan() && !c.is_nan() && !d.is_nan() => *a + 2.0 * *b + 3.0 * *c + 4.0 * *d,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(key, values.clone());
@@ -3876,19 +3885,14 @@ fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
 fn latest_kst_store(store: &CandleStore) -> Option<f64> {
     kst_store(store, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn bop(bars: &[Bar]) -> Series {
     bars.iter()
         .map(|bar| {
             let range = bar.high - bar.low;
-            Some(if range == 0.0 {
-                0.0
-            } else {
-                (bar.close - bar.open) / range
-            })
+            if range == 0.0 { 0.0 } else { (bar.close - bar.open) / range }
         })
         .collect()
 }
@@ -3904,7 +3908,7 @@ fn bop_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_bop(bars: &[Bar]) -> Option<f64> {
-    bop(bars).last().copied().flatten()
+    bop(bars).last().copied().and_then(nan_to_none)
 }
 
 fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
@@ -3912,15 +3916,7 @@ fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let values: Vec<_> = (0..store.len())
-        .map(|index| {
-            let range = store.high[index] - store.low[index];
-            Some(if range == 0.0 {
-                0.0
-            } else {
-                (store.close[index] - store.open[index]) / range
-            })
-        })
+    let values: Vec<_> = (0..store.len()).map(|index| { let range = store.high[index] - store.low[index]; if range == 0.0 { 0.0 } else { (store.close[index] - store.open[index]) / range } })
         .collect();
     nodes.insert(key, values.clone());
     values
@@ -3929,12 +3925,11 @@ fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
 fn latest_bop_store(store: &CandleStore) -> Option<f64> {
     bop_store(store, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn ultimate_oscillator(bars: &[Bar], short: usize, medium: usize, long: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if short == 0 || medium == 0 || long == 0 || bars.len() <= long {
         return out;
     }
@@ -3958,7 +3953,7 @@ fn ultimate_oscillator(bars: &[Bar], short: usize, medium: usize, long: usize) -
                 bp_sum / tr_sum
             }
         };
-        out[index] = Some(100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0);
+        out[index] = 100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0;
     }
     out
 }
@@ -3987,8 +3982,7 @@ fn latest_ultimate_oscillator(
 ) -> Option<f64> {
     ultimate_oscillator(bars, short, medium, long)
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn ultimate_oscillator_store(
@@ -4002,7 +3996,7 @@ fn ultimate_oscillator_store(
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if short == 0 || medium == 0 || long == 0 || store.len() <= long {
         nodes.insert(key, out.clone());
         return out;
@@ -4027,7 +4021,7 @@ fn ultimate_oscillator_store(
                 bp_sum / tr_sum
             }
         };
-        out[index] = Some(100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0);
+        out[index] = 100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0;
     }
     nodes.insert(key, out.clone());
     out
@@ -4041,14 +4035,13 @@ fn latest_ultimate_oscillator_store(
 ) -> Option<f64> {
     ultimate_oscillator_store(store, short, medium, long, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn force_index(bars: &[Bar], period: usize) -> Series {
-    let mut raw = vec![None; bars.len()];
+    let mut raw = vec![f64::NAN; bars.len()];
     for index in 1..bars.len() {
-        raw[index] = Some((bars[index].close - bars[index - 1].close) * bars[index].volume);
+        raw[index] = (bars[index].close - bars[index - 1].close) * bars[index].volume;
     }
     ema_series(&raw, period)
 }
@@ -4064,7 +4057,7 @@ fn force_index_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Serie
 }
 
 fn latest_force_index(bars: &[Bar], period: usize) -> Option<f64> {
-    force_index(bars, period).last().copied().flatten()
+    force_index(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn force_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -4072,9 +4065,9 @@ fn force_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) 
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut raw = vec![None; store.len()];
+    let mut raw = vec![f64::NAN; store.len()];
     for index in 1..store.len() {
-        raw[index] = Some((store.close[index] - store.close[index - 1]) * store.volume[index]);
+        raw[index] = (store.close[index] - store.close[index - 1]) * store.volume[index];
     }
     let values = ema_series(&raw, period);
     nodes.insert(key, values.clone());
@@ -4085,22 +4078,22 @@ fn latest_force_index_store(store: &CandleStore, period: usize) -> Option<f64> {
     if store.len() < 2 {
         return None;
     }
-    let mut raw = vec![None; store.len()];
+    let mut raw = vec![f64::NAN; store.len()];
     for index in 1..store.len() {
-        raw[index] = Some((store.close[index] - store.close[index - 1]) * store.volume[index]);
+        raw[index] = (store.close[index] - store.close[index - 1]) * store.volume[index];
     }
-    ema_series(&raw, period).last().copied().flatten()
+    ema_series(&raw, period).last().copied().and_then(nan_to_none)
 }
 
 #[cfg(test)]
-fn rsi(bars: &[Bar], period: usize) -> Vec<Option<f64>> {
+fn rsi(bars: &[Bar], period: usize) -> Series {
     rsi_outputs(bars, period).remove(0).values
 }
 
 fn rsi_outputs(bars: &[Bar], period: usize) -> Vec<IndicatorOutput> {
-    let mut values = vec![None; bars.len()];
-    let mut avg_gains = vec![None; bars.len()];
-    let mut avg_losses = vec![None; bars.len()];
+    let mut values = vec![f64::NAN; bars.len()];
+    let mut avg_gains = vec![f64::NAN; bars.len()];
+    let mut avg_losses = vec![f64::NAN; bars.len()];
     if bars.len() <= period {
         return vec![
             IndicatorOutput {
@@ -4130,9 +4123,9 @@ fn rsi_outputs(bars: &[Bar], period: usize) -> Vec<IndicatorOutput> {
     }
     avg_gain /= period as f64;
     avg_loss /= period as f64;
-    values[period] = Some(rsi_value(avg_gain, avg_loss));
-    avg_gains[period] = Some(avg_gain);
-    avg_losses[period] = Some(avg_loss);
+    values[period] = rsi_value(avg_gain, avg_loss);
+    avg_gains[period] = avg_gain;
+    avg_losses[period] = avg_loss;
 
     for i in period + 1..bars.len() {
         let change = bars[i].close - bars[i - 1].close;
@@ -4140,9 +4133,9 @@ fn rsi_outputs(bars: &[Bar], period: usize) -> Vec<IndicatorOutput> {
         let loss = (-change).max(0.0);
         avg_gain = (avg_gain * (period - 1) as f64 + gain) / period as f64;
         avg_loss = (avg_loss * (period - 1) as f64 + loss) / period as f64;
-        values[i] = Some(rsi_value(avg_gain, avg_loss));
-        avg_gains[i] = Some(avg_gain);
-        avg_losses[i] = Some(avg_loss);
+        values[i] = rsi_value(avg_gain, avg_loss);
+        avg_gains[i] = avg_gain;
+        avg_losses[i] = avg_loss;
     }
 
     vec![
@@ -4188,9 +4181,9 @@ fn rsi_outputs_store(
         ];
     }
 
-    let mut values = vec![None; store.len()];
-    let mut avg_gains = vec![None; store.len()];
-    let mut avg_losses = vec![None; store.len()];
+    let mut values = vec![f64::NAN; store.len()];
+    let mut avg_gains = vec![f64::NAN; store.len()];
+    let mut avg_losses = vec![f64::NAN; store.len()];
     if store.len() <= period {
         nodes.insert(key, values.clone());
         nodes.insert(gain_key, avg_gains.clone());
@@ -4223,9 +4216,9 @@ fn rsi_outputs_store(
     }
     avg_gain /= period as f64;
     avg_loss /= period as f64;
-    values[period] = Some(rsi_value(avg_gain, avg_loss));
-    avg_gains[period] = Some(avg_gain);
-    avg_losses[period] = Some(avg_loss);
+    values[period] = rsi_value(avg_gain, avg_loss);
+    avg_gains[period] = avg_gain;
+    avg_losses[period] = avg_loss;
 
     for index in period + 1..store.len() {
         let change = store.close[index] - store.close[index - 1];
@@ -4233,9 +4226,9 @@ fn rsi_outputs_store(
         let loss = (-change).max(0.0);
         avg_gain = (avg_gain * (period - 1) as f64 + gain) / period as f64;
         avg_loss = (avg_loss * (period - 1) as f64 + loss) / period as f64;
-        values[index] = Some(rsi_value(avg_gain, avg_loss));
-        avg_gains[index] = Some(avg_gain);
-        avg_losses[index] = Some(avg_loss);
+        values[index] = rsi_value(avg_gain, avg_loss);
+        avg_gains[index] = avg_gain;
+        avg_losses[index] = avg_loss;
     }
 
     nodes.insert(key, values.clone());
@@ -4391,7 +4384,7 @@ fn obv(bars: &[Bar]) -> Series {
                 current -= bar.volume;
             }
         }
-        out.push(Some(current));
+        out.push(current);
     }
     out
 }
@@ -4404,8 +4397,7 @@ fn latest_obv(bars: &[Bar], output: Option<&IndicatorOutput>) -> Option<f64> {
 
     let previous = output
         .and_then(|output| output.values.get(bars.len() - 2))
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
         .unwrap_or(0.0);
     let previous_close = bars[bars.len() - 2].close;
     if last.close > previous_close {
@@ -4444,7 +4436,7 @@ fn obv_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
                 current -= store.volume[index];
             }
         }
-        out.push(Some(current));
+        out.push(current);
     }
     nodes.insert(key, out.clone());
     out
@@ -4458,8 +4450,7 @@ fn latest_obv_store(store: &CandleStore, output: Option<&IndicatorOutput>) -> Op
 
     let previous = output
         .and_then(|output| output.values.get(store.len() - 2))
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
         .unwrap_or(0.0);
     let previous_close = store.close[store.len() - 2];
     if last > previous_close {
@@ -4489,7 +4480,7 @@ fn adl(bars: &[Bar]) -> Series {
     let mut current = 0.0;
     for bar in bars {
         current += money_flow_multiplier(bar) * bar.volume;
-        out.push(Some(current));
+        out.push(current);
     }
     out
 }
@@ -4515,7 +4506,7 @@ fn adl_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
         current +=
             money_flow_multiplier_parts(store.high[index], store.low[index], store.close[index])
                 * store.volume[index];
-        out.push(Some(current));
+        out.push(current);
     }
     nodes.insert(key, out.clone());
     out
@@ -4529,8 +4520,7 @@ fn latest_adl(bars: &[Bar], output: Option<&IndicatorOutput>) -> Option<f64> {
         .and_then(|index| {
             output
                 .and_then(|output| output.values.get(index))
-                .copied()
-                .flatten()
+                .copied().and_then(nan_to_none)
         })
         .unwrap_or(0.0);
     Some(previous + money_flow_multiplier(last) * last.volume)
@@ -4543,8 +4533,7 @@ fn latest_adl_store(store: &CandleStore, output: Option<&IndicatorOutput>) -> Op
         .and_then(|previous_index| {
             output
                 .and_then(|output| output.values.get(previous_index))
-                .copied()
-                .flatten()
+                .copied().and_then(nan_to_none)
         })
         .unwrap_or(0.0);
     Some(
@@ -4575,7 +4564,7 @@ fn williams_ad(bars: &[Bar]) -> Series {
         if index > 0 {
             current += williams_ad_step(bars[index - 1].close, bar);
         }
-        out.push(Some(current));
+        out.push(current);
     }
     out
 }
@@ -4606,7 +4595,7 @@ fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
                 store.close[index],
             );
         }
-        out.push(Some(current));
+        out.push(current);
     }
     nodes.insert(key, out.clone());
     out
@@ -4623,8 +4612,7 @@ fn latest_williams_ad(bars: &[Bar], output: Option<&IndicatorOutput>) -> Option<
         .and_then(|index| {
             output
                 .and_then(|output| output.values.get(index))
-                .copied()
-                .flatten()
+                .copied().and_then(nan_to_none)
         })
         .unwrap_or(0.0);
     Some(previous + williams_ad_step(bars[bars.len() - 2].close, last))
@@ -4637,8 +4625,7 @@ fn latest_williams_ad_store(store: &CandleStore, output: Option<&IndicatorOutput
     }
     let previous = output
         .and_then(|output| output.values.get(index - 1))
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
         .unwrap_or(0.0);
     Some(
         previous
@@ -4679,9 +4666,9 @@ fn vwap(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     for bar in bars {
         cumulative_pv += typical_price(bar) * bar.volume;
         cumulative_volume += bar.volume;
-        values.push((cumulative_volume > 0.0).then_some(cumulative_pv / cumulative_volume));
-        cumulative_pv_values.push(Some(cumulative_pv));
-        cumulative_volume_values.push(Some(cumulative_volume));
+        values.push(if cumulative_volume > 0.0 { cumulative_pv / cumulative_volume } else { f64::NAN });
+        cumulative_pv_values.push(cumulative_pv);
+        cumulative_volume_values.push(cumulative_volume);
     }
 
     nodes.insert("vwap:hlcv".to_string(), values.clone());
@@ -4718,9 +4705,9 @@ fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOutput
             typical_price_parts(store.high[index], store.low[index], store.close[index])
                 * store.volume[index];
         cumulative_volume += store.volume[index];
-        values.push((cumulative_volume > 0.0).then_some(cumulative_pv / cumulative_volume));
-        cumulative_pv_values.push(Some(cumulative_pv));
-        cumulative_volume_values.push(Some(cumulative_volume));
+        values.push(if cumulative_volume > 0.0 { cumulative_pv / cumulative_volume } else { f64::NAN });
+        cumulative_pv_values.push(cumulative_pv);
+        cumulative_volume_values.push(cumulative_volume);
     }
 
     nodes.insert("vwap:hlcv".to_string(), values.clone());
@@ -4805,7 +4792,7 @@ fn latest_vwap_store(
 }
 
 fn vwma(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
         return out;
     }
@@ -4816,7 +4803,7 @@ fn vwma(bars: &[Bar], period: usize) -> Series {
             continue;
         }
         let weighted_sum = window.iter().map(|bar| bar.close * bar.volume).sum::<f64>();
-        out[index] = Some(weighted_sum / volume_sum);
+        out[index] = weighted_sum / volume_sum;
     }
     out
 }
@@ -4836,7 +4823,7 @@ fn vwma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         nodes.insert(key, out.clone());
         return out;
@@ -4850,14 +4837,14 @@ fn vwma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
         let weighted_sum = (start..=index)
             .map(|window_index| store.close[window_index] * store.volume[window_index])
             .sum::<f64>();
-        out[index] = Some(weighted_sum / volume_sum);
+        out[index] = weighted_sum / volume_sum;
     }
     nodes.insert(key, out.clone());
     out
 }
 
 fn latest_vwma(bars: &[Bar], period: usize) -> Option<f64> {
-    vwma(bars, period).last().copied().flatten()
+    vwma(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn latest_vwma_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -4880,7 +4867,7 @@ fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         nodes.insert(key, out.clone());
         return out;
@@ -4897,7 +4884,7 @@ fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
             ) * store.volume[window_index];
             volume_sum += store.volume[window_index];
         }
-        out[index] = (volume_sum != 0.0).then_some(mfv_sum / volume_sum);
+        out[index] = if volume_sum != 0.0 { mfv_sum / volume_sum } else { f64::NAN };
     }
     nodes.insert(key, out.clone());
     out
@@ -4920,7 +4907,7 @@ fn latest_cmf_store(store: &CandleStore, period: usize) -> Option<f64> {
 }
 
 fn cmf(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
         return out;
     }
@@ -4931,7 +4918,7 @@ fn cmf(bars: &[Bar], period: usize) -> Series {
             .map(|bar| money_flow_multiplier(bar) * bar.volume)
             .sum::<f64>();
         let volume_sum = window.iter().map(|bar| bar.volume).sum::<f64>();
-        out[index] = (volume_sum != 0.0).then_some(mfv_sum / volume_sum);
+        out[index] = if volume_sum != 0.0 { mfv_sum / volume_sum } else { f64::NAN };
     }
     out
 }
@@ -4947,7 +4934,7 @@ fn cmf_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_cmf(bars: &[Bar], period: usize) -> Option<f64> {
-    cmf(bars, period).last().copied().flatten()
+    cmf(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn typical_price_at(store: &CandleStore, index: usize) -> f64 {
@@ -4955,7 +4942,7 @@ fn typical_price_at(store: &CandleStore, index: usize) -> f64 {
 }
 
 fn cci(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
         return out;
     }
@@ -4969,11 +4956,7 @@ fn cci(bars: &[Bar], period: usize) -> Series {
             .map(|value| (value - sma).abs())
             .sum::<f64>()
             / period as f64;
-        out[index] = Some(if mean_deviation == 0.0 {
-            0.0
-        } else {
-            (typical_price(&bars[index]) - sma) / (0.015 * mean_deviation)
-        });
+        out[index] = if mean_deviation == 0.0 { 0.0 } else { (typical_price(&bars[index]) - sma) / (0.015 * mean_deviation) };
     }
     out
 }
@@ -5012,7 +4995,7 @@ fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         nodes.insert(key, out.clone());
         return out;
@@ -5027,11 +5010,7 @@ fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
             .map(|value| (value - sma).abs())
             .sum::<f64>()
             / period as f64;
-        out[index] = Some(if mean_deviation == 0.0 {
-            0.0
-        } else {
-            (typical_price_at(store, index) - sma) / (0.015 * mean_deviation)
-        });
+        out[index] = if mean_deviation == 0.0 { 0.0 } else { (typical_price_at(store, index) - sma) / (0.015 * mean_deviation) };
     }
     nodes.insert(key, out.clone());
     out
@@ -5059,7 +5038,7 @@ fn latest_cci_store(store: &CandleStore, period: usize) -> Option<f64> {
 }
 
 fn williams_r(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
         return out;
     }
@@ -5069,11 +5048,7 @@ fn williams_r(bars: &[Bar], period: usize) -> Series {
         let highest_high = window.iter().map(|bar| bar.high).fold(f64::MIN, f64::max);
         let lowest_low = window.iter().map(|bar| bar.low).fold(f64::MAX, f64::min);
         let range = highest_high - lowest_low;
-        out[index] = Some(if range == 0.0 {
-            0.0
-        } else {
-            -100.0 * (highest_high - bars[index].close) / range
-        });
+        out[index] = if range == 0.0 { 0.0 } else { -100.0 * (highest_high - bars[index].close) / range };
     }
     out
 }
@@ -5108,7 +5083,7 @@ fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         nodes.insert(key, out.clone());
         return out;
@@ -5122,11 +5097,7 @@ fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -
             .fold(f64::MIN, f64::max);
         let lowest_low = window.map(|i| store.low[i]).fold(f64::MAX, f64::min);
         let range = highest_high - lowest_low;
-        out[index] = Some(if range == 0.0 {
-            0.0
-        } else {
-            -100.0 * (highest_high - store.close[index]) / range
-        });
+        out[index] = if range == 0.0 { 0.0 } else { -100.0 * (highest_high - store.close[index]) / range };
     }
     nodes.insert(key, out.clone());
     out
@@ -5148,7 +5119,7 @@ fn latest_williams_r_store(store: &CandleStore, period: usize) -> Option<f64> {
 }
 
 fn mfi(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() <= period {
         return out;
     }
@@ -5167,7 +5138,7 @@ fn mfi(bars: &[Bar], period: usize) -> Series {
                 negative_flow += raw_flow;
             }
         }
-        out[index] = Some(mfi_value(positive_flow, negative_flow));
+        out[index] = mfi_value(positive_flow, negative_flow);
     }
     out
 }
@@ -5217,7 +5188,7 @@ fn mfi_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
         nodes.insert(key, out.clone());
         return out;
@@ -5237,7 +5208,7 @@ fn mfi_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
                 negative_flow += raw_flow;
             }
         }
-        out[index] = Some(mfi_value(positive_flow, negative_flow));
+        out[index] = mfi_value(positive_flow, negative_flow);
     }
     nodes.insert(key, out.clone());
     out
@@ -5264,17 +5235,13 @@ fn latest_mfi_store(store: &CandleStore, period: usize) -> Option<f64> {
 }
 
 fn roc(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() <= period {
         return out;
     }
     for index in period..bars.len() {
         let previous = bars[index - period].close;
-        out[index] = Some(if previous == 0.0 {
-            0.0
-        } else {
-            100.0 * (bars[index].close / previous - 1.0)
-        });
+        out[index] = if previous == 0.0 { 0.0 } else { 100.0 * (bars[index].close / previous - 1.0) };
     }
     out
 }
@@ -5290,7 +5257,7 @@ fn roc_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
 }
 
 fn latest_roc(bars: &[Bar], period: usize) -> Option<f64> {
-    roc(bars, period).last().copied().flatten()
+    roc(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn roc_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -5298,18 +5265,14 @@ fn roc_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
         nodes.insert(key, out.clone());
         return out;
     }
     for index in period..store.len() {
         let previous = store.close[index - period];
-        out[index] = Some(if previous == 0.0 {
-            0.0
-        } else {
-            100.0 * (store.close[index] / previous - 1.0)
-        });
+        out[index] = if previous == 0.0 { 0.0 } else { 100.0 * (store.close[index] / previous - 1.0) };
     }
     nodes.insert(key, out.clone());
     out
@@ -5352,9 +5315,9 @@ fn aroon(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOut
         ];
     }
 
-    let mut up = vec![None; bars.len()];
-    let mut down = vec![None; bars.len()];
-    let mut oscillator = vec![None; bars.len()];
+    let mut up = vec![f64::NAN; bars.len()];
+    let mut down = vec![f64::NAN; bars.len()];
+    let mut oscillator = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
         return vec![
             IndicatorOutput {
@@ -5390,9 +5353,9 @@ fn aroon(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOut
         let periods_since_low = period - 1 - lowest_index;
         let up_value = 100.0 * (period - periods_since_high) as f64 / period as f64;
         let down_value = 100.0 * (period - periods_since_low) as f64 / period as f64;
-        up[index] = Some(up_value);
-        down[index] = Some(down_value);
-        oscillator[index] = Some(up_value - down_value);
+        up[index] = up_value;
+        down[index] = down_value;
+        oscillator[index] = up_value - down_value;
     }
 
     nodes.insert(key, up.clone());
@@ -5449,9 +5412,9 @@ fn aroon_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec
         ];
     }
 
-    let mut up = vec![None; store.len()];
-    let mut down = vec![None; store.len()];
-    let mut oscillator = vec![None; store.len()];
+    let mut up = vec![f64::NAN; store.len()];
+    let mut down = vec![f64::NAN; store.len()];
+    let mut oscillator = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         return vec![
             IndicatorOutput {
@@ -5489,9 +5452,9 @@ fn aroon_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec
         let periods_since_low = period - 1 - lowest_index;
         let up_value = 100.0 * (period - periods_since_high) as f64 / period as f64;
         let down_value = 100.0 * (period - periods_since_low) as f64 / period as f64;
-        up[index] = Some(up_value);
-        down[index] = Some(down_value);
-        oscillator[index] = Some(up_value - down_value);
+        up[index] = up_value;
+        down[index] = down_value;
+        oscillator[index] = up_value - down_value;
     }
 
     nodes.insert(key, up.clone());
@@ -5527,7 +5490,7 @@ fn latest_aroon_store(
 }
 
 fn stochastic_k(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
         return out;
     }
@@ -5537,47 +5500,33 @@ fn stochastic_k(bars: &[Bar], period: usize) -> Series {
         let highest_high = window.iter().map(|bar| bar.high).fold(f64::MIN, f64::max);
         let lowest_low = window.iter().map(|bar| bar.low).fold(f64::MAX, f64::min);
         let range = highest_high - lowest_low;
-        out[index] = Some(if range == 0.0 {
-            0.0
-        } else {
-            100.0 * (bars[index].close - lowest_low) / range
-        });
+        out[index] = if range == 0.0 { 0.0 } else { 100.0 * (bars[index].close - lowest_low) / range };
     }
     out
 }
 
-fn stochastic_k_values(values: &[Option<f64>], period: usize) -> Series {
-    let mut out = vec![None; values.len()];
+fn stochastic_k_values(values: &[f64], period: usize) -> Series {
+    let mut out = vec![f64::NAN; values.len()];
     if period == 0 || values.len() < period {
         return out;
     }
 
     for index in period - 1..values.len() {
         let window = &values[index + 1 - period..=index];
-        if window.iter().any(|value| value.is_none()) {
+        if window.iter().any(|value| value.is_nan()) {
             continue;
         }
-        let highest = window
-            .iter()
-            .map(|value| value.unwrap())
-            .fold(f64::MIN, f64::max);
-        let lowest = window
-            .iter()
-            .map(|value| value.unwrap())
-            .fold(f64::MAX, f64::min);
+        let highest = window.iter().copied().fold(f64::MIN, f64::max);
+        let lowest = window.iter().copied().fold(f64::MAX, f64::min);
         let range = highest - lowest;
-        let current = values[index].unwrap();
-        out[index] = Some(if range == 0.0 {
-            0.0
-        } else {
-            100.0 * (current - lowest) / range
-        });
+        let current = values[index];
+        out[index] = if range == 0.0 { 0.0 } else { 100.0 * (current - lowest) / range };
     }
     out
 }
 
-fn smooth_series(values: &[Option<f64>], smooth: usize) -> Series {
-    let mut out = vec![None; values.len()];
+fn smooth_series(values: &[f64], smooth: usize) -> Series {
+    let mut out = vec![f64::NAN; values.len()];
     if smooth == 0 {
         return out;
     }
@@ -5586,10 +5535,10 @@ fn smooth_series(values: &[Option<f64>], smooth: usize) -> Series {
             continue;
         }
         let window = &values[index + 1 - smooth..=index];
-        if window.iter().any(|value| value.is_none()) {
+        if window.iter().any(|value| value.is_nan()) {
             continue;
         }
-        out[index] = Some(window.iter().map(|value| value.unwrap()).sum::<f64>() / smooth as f64);
+        out[index] = window.iter().sum::<f64>() / smooth as f64;
     }
     out
 }
@@ -5621,7 +5570,7 @@ fn stochastic(
 }
 
 fn stochastic_k_store(store: &CandleStore, period: usize) -> Series {
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         return out;
     }
@@ -5634,11 +5583,7 @@ fn stochastic_k_store(store: &CandleStore, period: usize) -> Series {
             .fold(f64::MIN, f64::max);
         let lowest_low = window.map(|i| store.low[i]).fold(f64::MAX, f64::min);
         let range = highest_high - lowest_low;
-        out[index] = Some(if range == 0.0 {
-            0.0
-        } else {
-            100.0 * (store.close[index] - lowest_low) / range
-        });
+        out[index] = if range == 0.0 { 0.0 } else { 100.0 * (store.close[index] - lowest_low) / range };
     }
     out
 }
@@ -5864,7 +5809,7 @@ fn true_range_store(store: &CandleStore, index: usize) -> f64 {
 }
 
 fn atr(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() <= period {
         return out;
     }
@@ -5873,11 +5818,11 @@ fn atr(bars: &[Bar], period: usize) -> Series {
         .map(|index| true_range(bars, index))
         .sum::<f64>()
         / period as f64;
-    out[period] = Some(current);
+    out[period] = current;
 
     for index in period + 1..bars.len() {
         current = (current * (period - 1) as f64 + true_range(bars, index)) / period as f64;
-        out[index] = Some(current);
+        out[index] = current;
     }
     out
 }
@@ -5897,7 +5842,7 @@ fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
     if let Some(values) = nodes.get(&key) {
         return values.clone();
     }
-    let mut out = vec![None; store.len()];
+    let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
         nodes.insert(key, out.clone());
         return out;
@@ -5907,11 +5852,11 @@ fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         .map(|index| true_range_store(store, index))
         .sum::<f64>()
         / period as f64;
-    out[period] = Some(current);
+    out[period] = current;
 
     for index in period + 1..store.len() {
         current = (current * (period - 1) as f64 + true_range_store(store, index)) / period as f64;
-        out[index] = Some(current);
+        out[index] = current;
     }
     nodes.insert(key, out.clone());
     out
@@ -5922,15 +5867,14 @@ fn latest_atr(bars: &[Bar], period: usize, output: Option<&IndicatorOutput>) -> 
         return None;
     }
     if bars.len() == period + 1 {
-        return atr(bars, period).last().copied().flatten();
+        return atr(bars, period).last().copied().and_then(nan_to_none);
     }
 
     let previous_index = bars.len() - 2;
     let previous = output
         .and_then(|output| output.values.get(previous_index))
-        .copied()
-        .flatten()
-        .unwrap_or_else(|| atr(&bars[..bars.len() - 1], period)[previous_index].unwrap_or(0.0));
+        .copied().and_then(nan_to_none)
+        .unwrap_or_else(|| atr(&bars[..bars.len() - 1], period)[previous_index]);
     Some((previous * (period - 1) as f64 + true_range(bars, bars.len() - 1)) / period as f64)
 }
 
@@ -5945,15 +5889,13 @@ fn latest_atr_store(
     if store.len() == period + 1 {
         return atr_store(store, period, &mut HashMap::new())
             .last()
-            .copied()
-            .flatten();
+            .copied().and_then(nan_to_none);
     }
 
     let previous_index = store.len() - 2;
     let previous = output
         .and_then(|output| output.values.get(previous_index))
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
         .unwrap_or_else(|| {
             let previous = CandleStore {
                 time: store.time[..store.len() - 1].to_vec(),
@@ -5963,7 +5905,7 @@ fn latest_atr_store(
                 close: store.close[..store.len() - 1].to_vec(),
                 volume: store.volume[..store.len() - 1].to_vec(),
             };
-            atr_store(&previous, period, &mut HashMap::new())[previous_index].unwrap_or(0.0)
+            atr_store(&previous, period, &mut HashMap::new())[previous_index]
         });
     Some(
         (previous * (period - 1) as f64 + true_range_store(store, store.len() - 1)) / period as f64,
@@ -5977,16 +5919,16 @@ fn supertrend(
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
     let atr = atr_node(bars, period, nodes);
-    let mut values = vec![None; bars.len()];
-    let mut upper_band = vec![None; bars.len()];
-    let mut lower_band = vec![None; bars.len()];
-    let mut trend = vec![None; bars.len()];
+    let mut values = vec![f64::NAN; bars.len()];
+    let mut upper_band = vec![f64::NAN; bars.len()];
+    let mut lower_band = vec![f64::NAN; bars.len()];
+    let mut trend = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() <= period {
         return supertrend_outputs(values, upper_band, lower_band, trend);
     }
 
     for index in period..bars.len() {
-        let Some(atr_value) = atr[index] else {
+        let atr_value = atr[index]; if atr_value.is_nan() {
             continue;
         };
         let hl2 = (bars[index].high + bars[index].low) / 2.0;
@@ -5997,7 +5939,7 @@ fn supertrend(
         let current_upper = if index == period {
             basic_upper
         } else {
-            let previous_upper = upper_band[index - 1].unwrap_or(basic_upper);
+            let previous_upper = { let __v = upper_band[index - 1]; if __v.is_nan() { basic_upper } else { __v } };
             if basic_upper < previous_upper || previous_close > previous_upper {
                 basic_upper
             } else {
@@ -6007,7 +5949,7 @@ fn supertrend(
         let current_lower = if index == period {
             basic_lower
         } else {
-            let previous_lower = lower_band[index - 1].unwrap_or(basic_lower);
+            let previous_lower = { let __v = lower_band[index - 1]; if __v.is_nan() { basic_lower } else { __v } };
             if basic_lower > previous_lower || previous_close < previous_lower {
                 basic_lower
             } else {
@@ -6015,8 +5957,8 @@ fn supertrend(
             }
         };
 
-        upper_band[index] = Some(current_upper);
-        lower_band[index] = Some(current_lower);
+        upper_band[index] = current_upper;
+        lower_band[index] = current_lower;
 
         let current_trend = if index == period {
             if bars[index].close >= hl2 {
@@ -6025,7 +5967,7 @@ fn supertrend(
                 -1.0
             }
         } else {
-            let previous_trend = trend[index - 1].unwrap_or(1.0);
+            let previous_trend = { let __v = trend[index - 1]; if __v.is_nan() { 1.0 } else { __v } };
             if previous_trend < 0.0 {
                 if bars[index].close > current_upper {
                     1.0
@@ -6038,12 +5980,8 @@ fn supertrend(
                 1.0
             }
         };
-        trend[index] = Some(current_trend);
-        values[index] = Some(if current_trend < 0.0 {
-            current_upper
-        } else {
-            current_lower
-        });
+        trend[index] = current_trend;
+        values[index] = if current_trend < 0.0 { current_upper } else { current_lower };
     }
 
     nodes.insert(format!("supertrend:{period}:{multiplier}"), values.clone());
@@ -6057,16 +5995,16 @@ fn supertrend_store(
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
     let atr = atr_store(store, period, nodes);
-    let mut values = vec![None; store.len()];
-    let mut upper_band = vec![None; store.len()];
-    let mut lower_band = vec![None; store.len()];
-    let mut trend = vec![None; store.len()];
+    let mut values = vec![f64::NAN; store.len()];
+    let mut upper_band = vec![f64::NAN; store.len()];
+    let mut lower_band = vec![f64::NAN; store.len()];
+    let mut trend = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
         return supertrend_outputs(values, upper_band, lower_band, trend);
     }
 
     for index in period..store.len() {
-        let Some(atr_value) = atr[index] else {
+        let atr_value = atr[index]; if atr_value.is_nan() {
             continue;
         };
         let hl2 = (store.high[index] + store.low[index]) / 2.0;
@@ -6077,7 +6015,7 @@ fn supertrend_store(
         let current_upper = if index == period {
             basic_upper
         } else {
-            let previous_upper = upper_band[index - 1].unwrap_or(basic_upper);
+            let previous_upper = { let __v = upper_band[index - 1]; if __v.is_nan() { basic_upper } else { __v } };
             if basic_upper < previous_upper || previous_close > previous_upper {
                 basic_upper
             } else {
@@ -6087,7 +6025,7 @@ fn supertrend_store(
         let current_lower = if index == period {
             basic_lower
         } else {
-            let previous_lower = lower_band[index - 1].unwrap_or(basic_lower);
+            let previous_lower = { let __v = lower_band[index - 1]; if __v.is_nan() { basic_lower } else { __v } };
             if basic_lower > previous_lower || previous_close < previous_lower {
                 basic_lower
             } else {
@@ -6095,8 +6033,8 @@ fn supertrend_store(
             }
         };
 
-        upper_band[index] = Some(current_upper);
-        lower_band[index] = Some(current_lower);
+        upper_band[index] = current_upper;
+        lower_band[index] = current_lower;
 
         let current_trend = if index == period {
             if store.close[index] >= hl2 {
@@ -6105,7 +6043,7 @@ fn supertrend_store(
                 -1.0
             }
         } else {
-            let previous_trend = trend[index - 1].unwrap_or(1.0);
+            let previous_trend = { let __v = trend[index - 1]; if __v.is_nan() { 1.0 } else { __v } };
             if previous_trend < 0.0 {
                 if store.close[index] > current_upper {
                     1.0
@@ -6118,12 +6056,8 @@ fn supertrend_store(
                 1.0
             }
         };
-        trend[index] = Some(current_trend);
-        values[index] = Some(if current_trend < 0.0 {
-            current_upper
-        } else {
-            current_lower
-        });
+        trend[index] = current_trend;
+        values[index] = if current_trend < 0.0 { current_upper } else { current_lower };
     }
 
     nodes.insert(format!("supertrend:{period}:{multiplier}"), values.clone());
@@ -6306,10 +6240,10 @@ fn parabolic_sar(
         ];
     }
 
-    let mut values = vec![None; bars.len()];
-    let mut ep_values = vec![None; bars.len()];
-    let mut af_values = vec![None; bars.len()];
-    let mut trend_values = vec![None; bars.len()];
+    let mut values = vec![f64::NAN; bars.len()];
+    let mut ep_values = vec![f64::NAN; bars.len()];
+    let mut af_values = vec![f64::NAN; bars.len()];
+    let mut trend_values = vec![f64::NAN; bars.len()];
     if bars.len() < 2 {
         return vec![
             IndicatorOutput {
@@ -6348,10 +6282,10 @@ fn parabolic_sar(
     };
     let mut af = step;
 
-    values[1] = Some(sar);
-    ep_values[1] = Some(ep);
-    af_values[1] = Some(af);
-    trend_values[1] = Some(trend);
+    values[1] = sar;
+    ep_values[1] = ep;
+    af_values[1] = af;
+    trend_values[1] = trend;
 
     for index in 2..bars.len() {
         let mut next_sar = sar + af * (ep - sar);
@@ -6379,10 +6313,10 @@ fn parabolic_sar(
             }
         }
         sar = next_sar;
-        values[index] = Some(sar);
-        ep_values[index] = Some(ep);
-        af_values[index] = Some(af);
-        trend_values[index] = Some(trend);
+        values[index] = sar;
+        ep_values[index] = ep;
+        af_values[index] = af;
+        trend_values[index] = trend;
     }
 
     nodes.insert(key, values.clone());
@@ -6436,7 +6370,6 @@ fn latest_parabolic_sar(
     let previous_sar = output_at(outputs, "value", previous_index).unwrap_or_else(|| {
         parabolic_sar(&bars[..bars.len() - 1], step, max_step, &mut HashMap::new())[0].values
             [previous_index]
-            .unwrap_or(0.0)
     });
     let previous_ep = output_at(outputs, "ep", previous_index).unwrap_or(previous_sar);
     let previous_af = output_at(outputs, "af", previous_index).unwrap_or(step);
@@ -6512,10 +6445,10 @@ fn parabolic_sar_store(
         ];
     }
 
-    let mut values = vec![None; store.len()];
-    let mut ep_values = vec![None; store.len()];
-    let mut af_values = vec![None; store.len()];
-    let mut trend_values = vec![None; store.len()];
+    let mut values = vec![f64::NAN; store.len()];
+    let mut ep_values = vec![f64::NAN; store.len()];
+    let mut af_values = vec![f64::NAN; store.len()];
+    let mut trend_values = vec![f64::NAN; store.len()];
     if store.len() < 2 {
         return vec![
             IndicatorOutput {
@@ -6554,10 +6487,10 @@ fn parabolic_sar_store(
     };
     let mut af = step;
 
-    values[1] = Some(sar);
-    ep_values[1] = Some(ep);
-    af_values[1] = Some(af);
-    trend_values[1] = Some(trend);
+    values[1] = sar;
+    ep_values[1] = ep;
+    af_values[1] = af;
+    trend_values[1] = trend;
 
     for index in 2..store.len() {
         let mut next_sar = sar + af * (ep - sar);
@@ -6587,10 +6520,10 @@ fn parabolic_sar_store(
             }
         }
         sar = next_sar;
-        values[index] = Some(sar);
-        ep_values[index] = Some(ep);
-        af_values[index] = Some(af);
-        trend_values[index] = Some(trend);
+        values[index] = sar;
+        ep_values[index] = ep;
+        af_values[index] = af;
+        trend_values[index] = trend;
     }
 
     nodes.insert(key, values.clone());
@@ -6656,7 +6589,6 @@ fn latest_parabolic_sar_store(
             &mut HashMap::new(),
         )[0]
         .values[previous_index]
-            .unwrap_or(0.0)
     });
     let previous_ep = output_at(outputs, "ep", previous_index).unwrap_or(previous_sar);
     let previous_af = output_at(outputs, "af", previous_index).unwrap_or(step);
@@ -6755,24 +6687,24 @@ fn ichimoku(
         ];
     }
 
-    let mut tenkan = vec![None; bars.len()];
-    let mut kijun = vec![None; bars.len()];
-    let mut senkou_a = vec![None; bars.len()];
-    let mut senkou_b = vec![None; bars.len()];
-    let chikou: Vec<_> = bars.iter().map(|bar| Some(bar.close)).collect();
+    let mut tenkan = vec![f64::NAN; bars.len()];
+    let mut kijun = vec![f64::NAN; bars.len()];
+    let mut senkou_a = vec![f64::NAN; bars.len()];
+    let mut senkou_b = vec![f64::NAN; bars.len()];
+    let chikou: Vec<_> = bars.iter().map(|bar| bar.close).collect();
 
     for index in 0..bars.len() {
         if index + 1 >= tenkan_period {
-            tenkan[index] = Some(midpoint(&bars[index + 1 - tenkan_period..=index]));
+            tenkan[index] = midpoint(&bars[index + 1 - tenkan_period..=index]);
         }
         if index + 1 >= kijun_period {
-            kijun[index] = Some(midpoint(&bars[index + 1 - kijun_period..=index]));
+            kijun[index] = midpoint(&bars[index + 1 - kijun_period..=index]);
         }
-        if let (Some(tenkan_value), Some(kijun_value)) = (tenkan[index], kijun[index]) {
-            senkou_a[index] = Some((tenkan_value + kijun_value) / 2.0);
+        let tenkan_value = tenkan[index]; let kijun_value = kijun[index]; if !tenkan_value.is_nan() && !kijun_value.is_nan() {
+            senkou_a[index] = (tenkan_value + kijun_value) / 2.0;
         }
         if index + 1 >= senkou_b_period {
-            senkou_b[index] = Some(midpoint(&bars[index + 1 - senkou_b_period..=index]));
+            senkou_b[index] = midpoint(&bars[index + 1 - senkou_b_period..=index]);
         }
     }
 
@@ -6841,24 +6773,24 @@ fn ichimoku_store(
         ];
     }
 
-    let mut tenkan = vec![None; store.len()];
-    let mut kijun = vec![None; store.len()];
-    let mut senkou_a = vec![None; store.len()];
-    let mut senkou_b = vec![None; store.len()];
-    let chikou: Vec<_> = store.close.iter().copied().map(Some).collect();
+    let mut tenkan = vec![f64::NAN; store.len()];
+    let mut kijun = vec![f64::NAN; store.len()];
+    let mut senkou_a = vec![f64::NAN; store.len()];
+    let mut senkou_b = vec![f64::NAN; store.len()];
+    let chikou: Vec<_> = store.close.iter().copied().collect();
 
     for index in 0..store.len() {
         if index + 1 >= tenkan_period {
-            tenkan[index] = Some(midpoint_store(store, index + 1 - tenkan_period, index));
+            tenkan[index] = midpoint_store(store, index + 1 - tenkan_period, index);
         }
         if index + 1 >= kijun_period {
-            kijun[index] = Some(midpoint_store(store, index + 1 - kijun_period, index));
+            kijun[index] = midpoint_store(store, index + 1 - kijun_period, index);
         }
-        if let (Some(tenkan_value), Some(kijun_value)) = (tenkan[index], kijun[index]) {
-            senkou_a[index] = Some((tenkan_value + kijun_value) / 2.0);
+        let tenkan_value = tenkan[index]; let kijun_value = kijun[index]; if !tenkan_value.is_nan() && !kijun_value.is_nan() {
+            senkou_a[index] = (tenkan_value + kijun_value) / 2.0;
         }
         if index + 1 >= senkou_b_period {
-            senkou_b[index] = Some(midpoint_store(store, index + 1 - senkou_b_period, index));
+            senkou_b[index] = midpoint_store(store, index + 1 - senkou_b_period, index);
         }
     }
 
@@ -6950,20 +6882,20 @@ fn latest_ichimoku_store(
 }
 
 fn pivot_points(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let mut pp = vec![None; bars.len()];
-    let mut r1 = vec![None; bars.len()];
-    let mut s1 = vec![None; bars.len()];
-    let mut r2 = vec![None; bars.len()];
-    let mut s2 = vec![None; bars.len()];
+    let mut pp = vec![f64::NAN; bars.len()];
+    let mut r1 = vec![f64::NAN; bars.len()];
+    let mut s1 = vec![f64::NAN; bars.len()];
+    let mut r2 = vec![f64::NAN; bars.len()];
+    let mut s2 = vec![f64::NAN; bars.len()];
     for index in 1..bars.len() {
         let previous = &bars[index - 1];
         let pivot = (previous.high + previous.low + previous.close) / 3.0;
         let range = previous.high - previous.low;
-        pp[index] = Some(pivot);
-        r1[index] = Some(2.0 * pivot - previous.low);
-        s1[index] = Some(2.0 * pivot - previous.high);
-        r2[index] = Some(pivot + range);
-        s2[index] = Some(pivot - range);
+        pp[index] = pivot;
+        r1[index] = 2.0 * pivot - previous.low;
+        s1[index] = 2.0 * pivot - previous.high;
+        r2[index] = pivot + range;
+        s2[index] = pivot - range;
     }
     nodes.insert("pivot:pp".to_string(), pp.clone());
     nodes.insert("pivot:r1".to_string(), r1.clone());
@@ -6995,19 +6927,19 @@ fn pivot_points(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
 }
 
 fn pivot_points_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let mut pp = vec![None; store.len()];
-    let mut r1 = vec![None; store.len()];
-    let mut s1 = vec![None; store.len()];
-    let mut r2 = vec![None; store.len()];
-    let mut s2 = vec![None; store.len()];
+    let mut pp = vec![f64::NAN; store.len()];
+    let mut r1 = vec![f64::NAN; store.len()];
+    let mut s1 = vec![f64::NAN; store.len()];
+    let mut r2 = vec![f64::NAN; store.len()];
+    let mut s2 = vec![f64::NAN; store.len()];
     for index in 1..store.len() {
         let pivot = (store.high[index - 1] + store.low[index - 1] + store.close[index - 1]) / 3.0;
         let range = store.high[index - 1] - store.low[index - 1];
-        pp[index] = Some(pivot);
-        r1[index] = Some(2.0 * pivot - store.low[index - 1]);
-        s1[index] = Some(2.0 * pivot - store.high[index - 1]);
-        r2[index] = Some(pivot + range);
-        s2[index] = Some(pivot - range);
+        pp[index] = pivot;
+        r1[index] = 2.0 * pivot - store.low[index - 1];
+        s1[index] = 2.0 * pivot - store.high[index - 1];
+        r2[index] = pivot + range;
+        s2[index] = pivot - range;
     }
     nodes.insert("pivot:pp".to_string(), pp.clone());
     nodes.insert("pivot:r1".to_string(), r1.clone());
@@ -7094,15 +7026,15 @@ fn keltner(
 ) -> Vec<IndicatorOutput> {
     let middle = ema_close(bars, period, nodes);
     let atr = atr_node(bars, period, nodes);
-    let mut upper = vec![None; bars.len()];
-    let mut lower = vec![None; bars.len()];
+    let mut upper = vec![f64::NAN; bars.len()];
+    let mut lower = vec![f64::NAN; bars.len()];
 
     for index in 0..bars.len() {
-        let (Some(mid), Some(atr_value)) = (middle[index], atr[index]) else {
+        let mid = middle[index]; let atr_value = atr[index]; if mid.is_nan() || atr_value.is_nan() {
             continue;
         };
-        upper[index] = Some(mid + multiplier * atr_value);
-        lower[index] = Some(mid - multiplier * atr_value);
+        upper[index] = mid + multiplier * atr_value;
+        lower[index] = mid - multiplier * atr_value;
     }
 
     let outputs = vec![
@@ -7160,15 +7092,15 @@ fn starc(
 ) -> Vec<IndicatorOutput> {
     let middle = sma_close(bars, period, nodes);
     let atr = atr_node(bars, period, nodes);
-    let mut upper = vec![None; bars.len()];
-    let mut lower = vec![None; bars.len()];
+    let mut upper = vec![f64::NAN; bars.len()];
+    let mut lower = vec![f64::NAN; bars.len()];
 
     for index in 0..bars.len() {
-        let (Some(mid), Some(atr_value)) = (middle[index], atr[index]) else {
+        let mid = middle[index]; let atr_value = atr[index]; if mid.is_nan() || atr_value.is_nan() {
             continue;
         };
-        upper[index] = Some(mid + multiplier * atr_value);
-        lower[index] = Some(mid - multiplier * atr_value);
+        upper[index] = mid + multiplier * atr_value;
+        lower[index] = mid - multiplier * atr_value;
     }
 
     let outputs = bollinger_outputs(upper, middle, lower);
@@ -7207,14 +7139,14 @@ fn keltner_store(
 ) -> Vec<IndicatorOutput> {
     let middle = ema_close_store(store, period, nodes);
     let atr = atr_store(store, period, nodes);
-    let mut upper = vec![None; store.len()];
-    let mut lower = vec![None; store.len()];
+    let mut upper = vec![f64::NAN; store.len()];
+    let mut lower = vec![f64::NAN; store.len()];
     for index in 0..store.len() {
-        let (Some(mid), Some(atr_value)) = (middle[index], atr[index]) else {
+        let mid = middle[index]; let atr_value = atr[index]; if mid.is_nan() || atr_value.is_nan() {
             continue;
         };
-        upper[index] = Some(mid + multiplier * atr_value);
-        lower[index] = Some(mid - multiplier * atr_value);
+        upper[index] = mid + multiplier * atr_value;
+        lower[index] = mid - multiplier * atr_value;
     }
     let outputs = vec![
         IndicatorOutput {
@@ -7269,14 +7201,14 @@ fn starc_store(
 ) -> Vec<IndicatorOutput> {
     let middle = sma_close_store(store, period, nodes);
     let atr = atr_store(store, period, nodes);
-    let mut upper = vec![None; store.len()];
-    let mut lower = vec![None; store.len()];
+    let mut upper = vec![f64::NAN; store.len()];
+    let mut lower = vec![f64::NAN; store.len()];
     for index in 0..store.len() {
-        let (Some(mid), Some(atr_value)) = (middle[index], atr[index]) else {
+        let mid = middle[index]; let atr_value = atr[index]; if mid.is_nan() || atr_value.is_nan() {
             continue;
         };
-        upper[index] = Some(mid + multiplier * atr_value);
-        lower[index] = Some(mid - multiplier * atr_value);
+        upper[index] = mid + multiplier * atr_value;
+        lower[index] = mid - multiplier * atr_value;
     }
     let outputs = bollinger_outputs(upper, middle, lower);
     for output in &outputs {
@@ -7306,9 +7238,9 @@ fn latest_starc_store(
 }
 
 fn donchian(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let mut upper = vec![None; bars.len()];
-    let mut middle = vec![None; bars.len()];
-    let mut lower = vec![None; bars.len()];
+    let mut upper = vec![f64::NAN; bars.len()];
+    let mut middle = vec![f64::NAN; bars.len()];
+    let mut lower = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
         return bollinger_outputs(upper, middle, lower);
     }
@@ -7323,9 +7255,9 @@ fn donchian(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<Indicator
             .iter()
             .map(|bar| bar.low)
             .fold(f64::INFINITY, f64::min);
-        upper[index] = Some(high);
-        middle[index] = Some((high + low) / 2.0);
-        lower[index] = Some(low);
+        upper[index] = high;
+        middle[index] = (high + low) / 2.0;
+        lower[index] = low;
     }
 
     let outputs = bollinger_outputs(upper, middle, lower);
@@ -7359,9 +7291,9 @@ fn donchian_store(
     period: usize,
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
-    let mut upper = vec![None; store.len()];
-    let mut middle = vec![None; store.len()];
-    let mut lower = vec![None; store.len()];
+    let mut upper = vec![f64::NAN; store.len()];
+    let mut middle = vec![f64::NAN; store.len()];
+    let mut lower = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         return bollinger_outputs(upper, middle, lower);
     }
@@ -7375,9 +7307,9 @@ fn donchian_store(
             .iter()
             .copied()
             .fold(f64::INFINITY, f64::min);
-        upper[index] = Some(high);
-        middle[index] = Some((high + low) / 2.0);
-        lower[index] = Some(low);
+        upper[index] = high;
+        middle[index] = (high + low) / 2.0;
+        lower[index] = low;
     }
 
     let outputs = bollinger_outputs(upper, middle, lower);
@@ -7428,9 +7360,9 @@ fn price_channel_store(
     period: usize,
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
-    let mut upper = vec![None; store.len()];
-    let mut middle = vec![None; store.len()];
-    let mut lower = vec![None; store.len()];
+    let mut upper = vec![f64::NAN; store.len()];
+    let mut middle = vec![f64::NAN; store.len()];
+    let mut lower = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         return bollinger_outputs(upper, middle, lower);
     }
@@ -7443,9 +7375,9 @@ fn price_channel_store(
             .iter()
             .copied()
             .fold(f64::INFINITY, f64::min);
-        upper[index] = Some(high);
-        middle[index] = Some((high + low) / 2.0);
-        lower[index] = Some(low);
+        upper[index] = high;
+        middle[index] = (high + low) / 2.0;
+        lower[index] = low;
     }
     let outputs = bollinger_outputs(upper, middle, lower);
     for output in &outputs {
@@ -7545,13 +7477,13 @@ fn adx(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutpu
         );
     }
 
-    let mut values = vec![None; bars.len()];
-    let mut plus_di_values = vec![None; bars.len()];
-    let mut minus_di_values = vec![None; bars.len()];
-    let mut tr_avg_values = vec![None; bars.len()];
-    let mut plus_dm_avg_values = vec![None; bars.len()];
-    let mut minus_dm_avg_values = vec![None; bars.len()];
-    let mut dx_values = vec![None; bars.len()];
+    let mut values = vec![f64::NAN; bars.len()];
+    let mut plus_di_values = vec![f64::NAN; bars.len()];
+    let mut minus_di_values = vec![f64::NAN; bars.len()];
+    let mut tr_avg_values = vec![f64::NAN; bars.len()];
+    let mut plus_dm_avg_values = vec![f64::NAN; bars.len()];
+    let mut minus_dm_avg_values = vec![f64::NAN; bars.len()];
+    let mut dx_values = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() <= period {
         return adx_outputs(
             values,
@@ -7576,36 +7508,36 @@ fn adx(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutpu
         .map(|index| directional_movement(bars, index).1)
         .sum::<f64>()
         / period as f64;
-    plus_di_values[period] = Some(di_value(tr_avg, plus_dm_avg));
-    minus_di_values[period] = Some(di_value(tr_avg, minus_dm_avg));
-    tr_avg_values[period] = Some(tr_avg);
-    plus_dm_avg_values[period] = Some(plus_dm_avg);
-    minus_dm_avg_values[period] = Some(minus_dm_avg);
-    dx_values[period] = Some(dx_value(tr_avg, plus_dm_avg, minus_dm_avg));
+    plus_di_values[period] = di_value(tr_avg, plus_dm_avg);
+    minus_di_values[period] = di_value(tr_avg, minus_dm_avg);
+    tr_avg_values[period] = tr_avg;
+    plus_dm_avg_values[period] = plus_dm_avg;
+    minus_dm_avg_values[period] = minus_dm_avg;
+    dx_values[period] = dx_value(tr_avg, plus_dm_avg, minus_dm_avg);
 
     for index in period + 1..bars.len() {
         let (plus_dm, minus_dm) = directional_movement(bars, index);
         tr_avg = (tr_avg * (period - 1) as f64 + true_range(bars, index)) / period as f64;
         plus_dm_avg = (plus_dm_avg * (period - 1) as f64 + plus_dm) / period as f64;
         minus_dm_avg = (minus_dm_avg * (period - 1) as f64 + minus_dm) / period as f64;
-        plus_di_values[index] = Some(di_value(tr_avg, plus_dm_avg));
-        minus_di_values[index] = Some(di_value(tr_avg, minus_dm_avg));
-        tr_avg_values[index] = Some(tr_avg);
-        plus_dm_avg_values[index] = Some(plus_dm_avg);
-        minus_dm_avg_values[index] = Some(minus_dm_avg);
-        dx_values[index] = Some(dx_value(tr_avg, plus_dm_avg, minus_dm_avg));
+        plus_di_values[index] = di_value(tr_avg, plus_dm_avg);
+        minus_di_values[index] = di_value(tr_avg, minus_dm_avg);
+        tr_avg_values[index] = tr_avg;
+        plus_dm_avg_values[index] = plus_dm_avg;
+        minus_dm_avg_values[index] = minus_dm_avg;
+        dx_values[index] = dx_value(tr_avg, plus_dm_avg, minus_dm_avg);
     }
 
     if bars.len() > period * 2 {
         let mut adx = dx_values[period + 1..=period * 2]
             .iter()
-            .map(|value| value.unwrap_or(0.0))
+            .copied()
             .sum::<f64>()
             / period as f64;
-        values[period * 2] = Some(adx);
+        values[period * 2] = adx;
         for index in period * 2 + 1..bars.len() {
-            adx = (adx * (period - 1) as f64 + dx_values[index].unwrap_or(0.0)) / period as f64;
-            values[index] = Some(adx);
+            adx = (adx * (period - 1) as f64 + { let __v = dx_values[index]; if __v.is_nan() { 0.0 } else { __v } }) / period as f64;
+            values[index] = adx;
         }
     }
 
@@ -7665,13 +7597,13 @@ fn adx_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<I
         );
     }
 
-    let mut values = vec![None; store.len()];
-    let mut plus_di_values = vec![None; store.len()];
-    let mut minus_di_values = vec![None; store.len()];
-    let mut tr_avg_values = vec![None; store.len()];
-    let mut plus_dm_avg_values = vec![None; store.len()];
-    let mut minus_dm_avg_values = vec![None; store.len()];
-    let mut dx_values = vec![None; store.len()];
+    let mut values = vec![f64::NAN; store.len()];
+    let mut plus_di_values = vec![f64::NAN; store.len()];
+    let mut minus_di_values = vec![f64::NAN; store.len()];
+    let mut tr_avg_values = vec![f64::NAN; store.len()];
+    let mut plus_dm_avg_values = vec![f64::NAN; store.len()];
+    let mut minus_dm_avg_values = vec![f64::NAN; store.len()];
+    let mut dx_values = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
         return adx_outputs(
             values,
@@ -7696,36 +7628,36 @@ fn adx_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<I
         .map(|index| directional_movement_store(store, index).1)
         .sum::<f64>()
         / period as f64;
-    plus_di_values[period] = Some(di_value(tr_avg, plus_dm_avg));
-    minus_di_values[period] = Some(di_value(tr_avg, minus_dm_avg));
-    tr_avg_values[period] = Some(tr_avg);
-    plus_dm_avg_values[period] = Some(plus_dm_avg);
-    minus_dm_avg_values[period] = Some(minus_dm_avg);
-    dx_values[period] = Some(dx_value(tr_avg, plus_dm_avg, minus_dm_avg));
+    plus_di_values[period] = di_value(tr_avg, plus_dm_avg);
+    minus_di_values[period] = di_value(tr_avg, minus_dm_avg);
+    tr_avg_values[period] = tr_avg;
+    plus_dm_avg_values[period] = plus_dm_avg;
+    minus_dm_avg_values[period] = minus_dm_avg;
+    dx_values[period] = dx_value(tr_avg, plus_dm_avg, minus_dm_avg);
 
     for index in period + 1..store.len() {
         let (plus_dm, minus_dm) = directional_movement_store(store, index);
         tr_avg = (tr_avg * (period - 1) as f64 + true_range_store(store, index)) / period as f64;
         plus_dm_avg = (plus_dm_avg * (period - 1) as f64 + plus_dm) / period as f64;
         minus_dm_avg = (minus_dm_avg * (period - 1) as f64 + minus_dm) / period as f64;
-        plus_di_values[index] = Some(di_value(tr_avg, plus_dm_avg));
-        minus_di_values[index] = Some(di_value(tr_avg, minus_dm_avg));
-        tr_avg_values[index] = Some(tr_avg);
-        plus_dm_avg_values[index] = Some(plus_dm_avg);
-        minus_dm_avg_values[index] = Some(minus_dm_avg);
-        dx_values[index] = Some(dx_value(tr_avg, plus_dm_avg, minus_dm_avg));
+        plus_di_values[index] = di_value(tr_avg, plus_dm_avg);
+        minus_di_values[index] = di_value(tr_avg, minus_dm_avg);
+        tr_avg_values[index] = tr_avg;
+        plus_dm_avg_values[index] = plus_dm_avg;
+        minus_dm_avg_values[index] = minus_dm_avg;
+        dx_values[index] = dx_value(tr_avg, plus_dm_avg, minus_dm_avg);
     }
 
     if store.len() > period * 2 {
         let mut adx = dx_values[period + 1..=period * 2]
             .iter()
-            .map(|value| value.unwrap_or(0.0))
+            .copied()
             .sum::<f64>()
             / period as f64;
-        values[period * 2] = Some(adx);
+        values[period * 2] = adx;
         for index in period * 2 + 1..store.len() {
-            adx = (adx * (period - 1) as f64 + dx_values[index].unwrap_or(0.0)) / period as f64;
-            values[index] = Some(adx);
+            adx = (adx * (period - 1) as f64 + { let __v = dx_values[index]; if __v.is_nan() { 0.0 } else { __v } }) / period as f64;
+            values[index] = adx;
         }
     }
 
@@ -7985,8 +7917,8 @@ fn bollinger(
     multiplier: f64,
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
-    let mut upper = vec![None; bars.len()];
-    let mut lower = vec![None; bars.len()];
+    let mut upper = vec![f64::NAN; bars.len()];
+    let mut lower = vec![f64::NAN; bars.len()];
     let middle = sma_close(bars, period, nodes);
     if period == 0 {
         return bollinger_outputs(upper, middle, lower);
@@ -7994,7 +7926,7 @@ fn bollinger(
 
     for i in period - 1..bars.len() {
         let window = &bars[i + 1 - period..=i];
-        let Some(mean) = middle[i] else {
+        let mean = middle[i]; if mean.is_nan() {
             continue;
         };
         let variance = window
@@ -8006,8 +7938,8 @@ fn bollinger(
             .sum::<f64>()
             / period as f64;
         let band = variance.sqrt() * multiplier;
-        upper[i] = Some(mean + band);
-        lower[i] = Some(mean - band);
+        upper[i] = mean + band;
+        lower[i] = mean - band;
     }
 
     let outputs = bollinger_outputs(upper, middle, lower);
@@ -8026,15 +7958,15 @@ fn bollinger_store(
     multiplier: f64,
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
-    let mut upper = vec![None; store.len()];
-    let mut lower = vec![None; store.len()];
+    let mut upper = vec![f64::NAN; store.len()];
+    let mut lower = vec![f64::NAN; store.len()];
     let middle = sma_close_store(store, period, nodes);
     if period == 0 {
         return bollinger_outputs(upper, middle, lower);
     }
 
     for index in period - 1..store.len() {
-        let Some(mean) = middle[index] else {
+        let mean = middle[index]; if mean.is_nan() {
             continue;
         };
         let variance = store.close[index + 1 - period..=index]
@@ -8046,8 +7978,8 @@ fn bollinger_store(
             .sum::<f64>()
             / period as f64;
         let band = variance.sqrt() * multiplier;
-        upper[index] = Some(mean + band);
-        lower[index] = Some(mean - band);
+        upper[index] = mean + band;
+        lower[index] = mean - band;
     }
 
     let outputs = bollinger_outputs(upper, middle, lower);
@@ -8127,16 +8059,16 @@ fn macd(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Vec<Indicato
     let macd_line: Vec<_> = fast
         .iter()
         .zip(slow.iter())
-        .map(|(fast, slow)| Some(fast.unwrap_or(0.0) - slow.unwrap_or(0.0)))
+        .map(|(fast, slow)| *fast - *slow)
         .collect();
     let signal = ema_values(
-        macd_line.iter().map(|value| value.unwrap_or(0.0)),
+        macd_line.iter().copied(),
         params.signal,
     );
     let histogram: Vec<_> = macd_line
         .iter()
         .zip(signal.iter())
-        .map(|(macd, signal)| Some(macd.unwrap_or(0.0) - signal.unwrap_or(0.0)))
+        .map(|(macd, signal)| *macd - *signal)
         .collect();
 
     vec![
@@ -8170,9 +8102,9 @@ fn ppo(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Vec<Indicator
         .iter()
         .zip(slow.iter())
         .map(|(fast, slow)| match (fast, slow) {
-            (Some(fast), Some(slow)) if *slow != 0.0 => Some(100.0 * (fast - slow) / slow),
-            (Some(_), Some(_)) => Some(0.0),
-            _ => None,
+            (fast, slow) if !fast.is_nan() && !slow.is_nan() && *slow != 0.0 => 100.0 * (*fast - *slow) / *slow,
+            (a, b) if !a.is_nan() && !b.is_nan() => 0.0,
+            _ => f64::NAN,
         })
         .collect();
     let signal = ema_series(&ppo_line, params.signal);
@@ -8180,8 +8112,8 @@ fn ppo(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Vec<Indicator
         .iter()
         .zip(signal.iter())
         .map(|(ppo, signal)| match (ppo, signal) {
-            (Some(ppo), Some(signal)) => Some(ppo - signal),
-            _ => None,
+            (ppo, signal) if !ppo.is_nan() && !signal.is_nan() => *ppo - *signal,
+            _ => f64::NAN,
         })
         .collect();
 
@@ -8216,8 +8148,8 @@ fn chaikin_oscillator(bars: &[Bar], params: MacdParams) -> Series {
     fast.iter()
         .zip(slow.iter())
         .map(|(fast, slow)| match (fast, slow) {
-            (Some(fast), Some(slow)) => Some(fast - slow),
-            _ => None,
+            (fast, slow) if !fast.is_nan() && !slow.is_nan() => *fast - *slow,
+            _ => f64::NAN,
         })
         .collect()
 }
@@ -8234,8 +8166,8 @@ fn chaikin_oscillator_node(bars: &[Bar], params: MacdParams, nodes: &mut NodeCac
         .iter()
         .zip(slow.iter())
         .map(|(fast, slow)| match (fast, slow) {
-            (Some(fast), Some(slow)) => Some(fast - slow),
-            _ => None,
+            (fast, slow) if !fast.is_nan() && !slow.is_nan() => *fast - *slow,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(key, values.clone());
@@ -8243,18 +8175,18 @@ fn chaikin_oscillator_node(bars: &[Bar], params: MacdParams, nodes: &mut NodeCac
 }
 
 fn chaikin_volatility(bars: &[Bar], period: usize) -> Series {
-    let ranges: Vec<_> = bars.iter().map(|bar| Some(bar.high - bar.low)).collect();
+    let ranges: Vec<_> = bars.iter().map(|bar| bar.high - bar.low).collect();
     let ema = ema_series(&ranges, period);
-    let mut out = vec![None; bars.len()];
+    let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() <= period {
         return out;
     }
     for index in period..bars.len() {
         match (ema[index], ema[index - period]) {
-            (Some(current), Some(previous)) if previous != 0.0 => {
-                out[index] = Some(100.0 * (current - previous) / previous);
+            (current, previous) if !current.is_nan() && !previous.is_nan() && previous != 0.0 => {
+                out[index] = 100.0 * (current - previous) / previous;
             }
-            (Some(_), Some(_)) => out[index] = Some(0.0),
+            (current2, previous2) if !current2.is_nan() && !previous2.is_nan() => out[index] = 0.0,
             _ => {}
         }
     }
@@ -8267,17 +8199,17 @@ fn chaikin_volatility_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -
         return values.clone();
     }
     let ema_key = format!("cvol:ema:{period}");
-    let ranges: Vec<_> = bars.iter().map(|bar| Some(bar.high - bar.low)).collect();
+    let ranges: Vec<_> = bars.iter().map(|bar| bar.high - bar.low).collect();
     let ema = ema_series(&ranges, period);
     nodes.insert(ema_key, ema.clone());
-    let mut values = vec![None; bars.len()];
+    let mut values = vec![f64::NAN; bars.len()];
     if period != 0 && bars.len() > period {
         for index in period..bars.len() {
             match (ema[index], ema[index - period]) {
-                (Some(current), Some(previous)) if previous != 0.0 => {
-                    values[index] = Some(100.0 * (current - previous) / previous);
+                (current, previous) if !current.is_nan() && !previous.is_nan() && previous != 0.0 => {
+                    values[index] = 100.0 * (current - previous) / previous;
                 }
-                (Some(_), Some(_)) => values[index] = Some(0.0),
+                (current2, previous2) if !current2.is_nan() && !previous2.is_nan() => values[index] = 0.0,
                 _ => {}
             }
         }
@@ -8287,7 +8219,7 @@ fn chaikin_volatility_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -
 }
 
 fn latest_chaikin_volatility(bars: &[Bar], period: usize) -> Option<f64> {
-    chaikin_volatility(bars, period).last().copied().flatten()
+    chaikin_volatility(bars, period).last().copied().and_then(nan_to_none)
 }
 
 fn chaikin_volatility_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
@@ -8297,18 +8229,18 @@ fn chaikin_volatility_store(store: &CandleStore, period: usize, nodes: &mut Node
     }
     let ema_key = format!("cvol:ema:{period}");
     let ranges: Vec<_> = (0..store.len())
-        .map(|index| Some(store.high[index] - store.low[index]))
+        .map(|index| store.high[index] - store.low[index])
         .collect();
     let ema = ema_series(&ranges, period);
     nodes.insert(ema_key, ema.clone());
-    let mut values = vec![None; store.len()];
+    let mut values = vec![f64::NAN; store.len()];
     if period != 0 && store.len() > period {
         for index in period..store.len() {
             match (ema[index], ema[index - period]) {
-                (Some(current), Some(previous)) if previous != 0.0 => {
-                    values[index] = Some(100.0 * (current - previous) / previous);
+                (current, previous) if !current.is_nan() && !previous.is_nan() && previous != 0.0 => {
+                    values[index] = 100.0 * (current - previous) / previous;
                 }
-                (Some(_), Some(_)) => values[index] = Some(0.0),
+                (current2, previous2) if !current2.is_nan() && !previous2.is_nan() => values[index] = 0.0,
                 _ => {}
             }
         }
@@ -8320,8 +8252,7 @@ fn chaikin_volatility_store(store: &CandleStore, period: usize, nodes: &mut Node
 fn latest_chaikin_volatility_store(store: &CandleStore, period: usize) -> Option<f64> {
     chaikin_volatility_store(store, period, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn latest_macd(
@@ -8424,8 +8355,8 @@ fn macd_store(
         .iter()
         .zip(slow_ema.iter())
         .map(|(fast, slow)| match (fast, slow) {
-            (Some(fast), Some(slow)) => Some(fast - slow),
-            _ => None,
+            (fast, slow) if !fast.is_nan() && !slow.is_nan() => *fast - *slow,
+            _ => f64::NAN,
         })
         .collect();
     let signal = ema_series(&macd, params.signal);
@@ -8433,8 +8364,8 @@ fn macd_store(
         .iter()
         .zip(signal.iter())
         .map(|(macd, signal)| match (macd, signal) {
-            (Some(macd), Some(signal)) => Some(macd - signal),
-            _ => None,
+            (macd, signal) if !macd.is_nan() && !signal.is_nan() => *macd - *signal,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(macd_key, macd.clone());
@@ -8513,7 +8444,7 @@ fn latest_ppo(bars: &[Bar], params: MacdParams) -> (Option<f64>, Option<f64>, Op
 }
 
 fn latest_chaikin_oscillator(bars: &[Bar], params: MacdParams) -> Option<f64> {
-    chaikin_oscillator(bars, params).last().copied().flatten()
+    chaikin_oscillator(bars, params).last().copied().and_then(nan_to_none)
 }
 
 fn chaikin_oscillator_store(
@@ -8532,8 +8463,8 @@ fn chaikin_oscillator_store(
         .iter()
         .zip(slow.iter())
         .map(|(fast, slow)| match (fast, slow) {
-            (Some(fast), Some(slow)) => Some(fast - slow),
-            _ => None,
+            (fast, slow) if !fast.is_nan() && !slow.is_nan() => *fast - *slow,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(key, values.clone());
@@ -8543,8 +8474,7 @@ fn chaikin_oscillator_store(
 fn latest_chaikin_oscillator_store(store: &CandleStore, params: MacdParams) -> Option<f64> {
     chaikin_oscillator_store(store, params, &mut HashMap::new())
         .last()
-        .copied()
-        .flatten()
+        .copied().and_then(nan_to_none)
 }
 
 fn ppo_store(
@@ -8590,19 +8520,19 @@ fn ppo_store(
         .iter()
         .find(|output| output.name == "macd")
         .map(|output| output.values.clone())
-        .unwrap_or_else(|| vec![None; store.len()]);
+        .unwrap_or_else(|| vec![f64::NAN; store.len()]);
     let slow_ema = macd_outputs
         .iter()
         .find(|output| output.name == "slow_ema")
         .map(|output| output.values.clone())
-        .unwrap_or_else(|| vec![None; store.len()]);
+        .unwrap_or_else(|| vec![f64::NAN; store.len()]);
     let ppo: Series = macd_line
         .iter()
         .zip(slow_ema.iter())
         .map(|(macd, slow)| match (macd, slow) {
-            (Some(macd), Some(slow)) if *slow != 0.0 => Some(100.0 * macd / slow),
-            (Some(_), Some(_)) => Some(0.0),
-            _ => None,
+            (macd, slow) if !macd.is_nan() && !slow.is_nan() && *slow != 0.0 => 100.0 * *macd / *slow,
+            (a, b) if !a.is_nan() && !b.is_nan() => 0.0,
+            _ => f64::NAN,
         })
         .collect();
     let signal = ema_series(&ppo, params.signal);
@@ -8610,8 +8540,8 @@ fn ppo_store(
         .iter()
         .zip(signal.iter())
         .map(|(ppo, signal)| match (ppo, signal) {
-            (Some(ppo), Some(signal)) => Some(ppo - signal),
-            _ => None,
+            (ppo, signal) if !ppo.is_nan() && !signal.is_nan() => *ppo - *signal,
+            _ => f64::NAN,
         })
         .collect();
     nodes.insert(ppo_key, ppo.clone());
@@ -8662,6 +8592,26 @@ fn ema_next(value: f64, previous: f64, period: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_series_eq(left: &[f64], right: &[f64]) {
+        assert_eq!(left.len(), right.len(), "series lengths differ: {} vs {}", left.len(), right.len());
+        for (i, (l, r)) in left.iter().zip(right.iter()).enumerate() {
+            if l.is_nan() && r.is_nan() { continue; }
+            assert!((l - r).abs() < 1e-10, "series differ at index {}: left={}, right={}", i, l, r);
+        }
+    }
+
+    macro_rules! assert_vec_eq {
+        ($left:expr, $right:expr) => { assert_series_eq(&$left, &$right); };
+    }
+
+    fn assert_outputs_eq(left: &[IndicatorOutput], right: &[IndicatorOutput], names: &[&str]) {
+        for name in names {
+            let l = left.iter().find(|o| o.name == *name).expect(&format!("left missing {}", name));
+            let r = right.iter().find(|o| o.name == *name).expect(&format!("right missing {}", name));
+            assert_series_eq(&l.values, &r.values);
+        }
+    }
 
     fn bars(closes: &[f64]) -> Vec<Bar> {
         closes
@@ -8759,9 +8709,9 @@ mod tests {
 
     #[test]
     fn sma_waits_for_period_then_rolls() {
-        assert_eq!(
+        assert_vec_eq!(
             sma(&bars(&[1.0, 2.0, 3.0, 4.0]), 3),
-            vec![None, None, Some(2.0), Some(3.0)]
+            vec![f64::NAN, f64::NAN, 2.0, 3.0]
         );
     }
 
@@ -8769,7 +8719,7 @@ mod tests {
     fn ema_updates_from_first_close() {
         assert_eq!(
             ema(&bars(&[10.0, 12.0, 14.0]), 3),
-            vec![Some(10.0), Some(11.0), Some(12.5)]
+            vec![10.0, 11.0, 12.5]
         );
     }
 
@@ -8778,7 +8728,7 @@ mod tests {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0]);
         assert_eq!(
             latest_sma(&bars, 3),
-            sma(&bars, 3).last().copied().flatten()
+            sma(&bars, 3).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -8807,7 +8757,7 @@ mod tests {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0, 5.0]);
         let store = store_from_bars(bars.clone());
 
-        assert_eq!(
+        assert_vec_eq!(
             sma(&bars, 3),
             sma_close_store(&store, 3, &mut HashMap::new())
         );
@@ -8836,11 +8786,11 @@ mod tests {
     #[test]
     fn rsi_waits_for_period_then_uses_wilder_smoothing() {
         let values = rsi(&bars(&[1.0, 2.0, 1.0, 3.0, 2.0]), 3);
-        assert_eq!(values[0], None);
-        assert_eq!(values[1], None);
-        assert_eq!(values[2], None);
-        assert_eq!(values[3], Some(75.0));
-        assert!((values[4].unwrap() - 54.54545454545455).abs() < 0.000001);
+        assert!(values[0].is_nan());
+        assert!(values[1].is_nan());
+        assert!(values[2].is_nan());
+        assert_eq!(values[3], 75.0);
+        assert!((values[4] - 54.54545454545455).abs() < 0.000001);
     }
 
     #[test]
@@ -9642,7 +9592,7 @@ mod tests {
 
         assert_eq!(
             obv(&bars),
-            vec![Some(0.0), Some(2.0), Some(-1.0), Some(-1.0), Some(4.0)]
+            vec![0.0, 2.0, -1.0, -1.0, 4.0]
         );
     }
 
@@ -9675,23 +9625,12 @@ mod tests {
         bars[2].volume = 3.0;
         let store = store_from_bars(bars.clone());
 
-        assert_eq!(obv(&bars), obv_store(&store, &mut HashMap::new()));
-        assert_eq!(adl(&bars), adl_store(&store, &mut HashMap::new()));
-        assert_eq!(vwma(&bars, 2), vwma_store(&store, 2, &mut HashMap::new()));
+        assert_vec_eq!(obv(&bars), &obv_store(&store, &mut HashMap::new()));
+        assert_vec_eq!(adl(&bars), &adl_store(&store, &mut HashMap::new()));
+        assert_vec_eq!(vwma(&bars, 2), &vwma_store(&store, 2, &mut HashMap::new()));
         let row_vwap = vwap(&bars, &mut HashMap::new());
         let store_vwap = vwap_store(&store, &mut HashMap::new());
-        for name in ["value", "cumulative_pv", "cumulative_volume"] {
-            assert_eq!(
-                row_vwap
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values),
-                store_vwap
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values)
-            );
-        }
+        assert_outputs_eq(&row_vwap, &store_vwap, &["value", "cumulative_pv", "cumulative_volume"]);
     }
 
     #[test]
@@ -9708,22 +9647,11 @@ mod tests {
         }
         let store = store_from_bars(bars.clone());
 
-        assert_eq!(roc(&bars, 2), roc_store(&store, 2, &mut HashMap::new()));
-        assert_eq!(cmf(&bars, 3), cmf_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(roc(&bars, 2), &roc_store(&store, 2, &mut HashMap::new()));
+        assert_vec_eq!(cmf(&bars, 3), &cmf_store(&store, 3, &mut HashMap::new()));
         let row_bb = bollinger(&bars, 3, 2.0, &mut HashMap::new());
         let store_bb = bollinger_store(&store, 3, 2.0, &mut HashMap::new());
-        for name in ["upper", "middle", "lower"] {
-            assert_eq!(
-                row_bb
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values),
-                store_bb
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values)
-            );
-        }
+        assert_outputs_eq(&row_bb, &store_bb, &["upper", "middle", "lower"]);
     }
 
     #[test]
@@ -9741,26 +9669,15 @@ mod tests {
         }
         let store = store_from_bars(bars.clone());
 
-        assert_eq!(cci(&bars, 3), cci_store(&store, 3, &mut HashMap::new()));
-        assert_eq!(
+        assert_vec_eq!(cci(&bars, 3), &cci_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(
             williams_r(&bars, 3),
             williams_r_store(&store, 3, &mut HashMap::new())
         );
-        assert_eq!(mfi(&bars, 3), mfi_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(mfi(&bars, 3), &mfi_store(&store, 3, &mut HashMap::new()));
         let row_stoch = stochastic(&bars, 3, 2, &mut HashMap::new());
         let store_stoch = stochastic_store(&store, 3, 2, &mut HashMap::new());
-        for name in ["k", "d"] {
-            assert_eq!(
-                row_stoch
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values),
-                store_stoch
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values)
-            );
-        }
+        assert_outputs_eq(&row_stoch, &store_stoch, &["k", "d"]);
     }
 
     #[test]
@@ -9778,10 +9695,10 @@ mod tests {
         ]);
         let store = store_from_bars(bars.clone());
 
-        assert_eq!(atr(&bars, 3), atr_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(atr(&bars, 3), &atr_store(&store, 3, &mut HashMap::new()));
         let row_adx = adx(&bars, 3, &mut HashMap::new());
         let store_adx = adx_store(&store, 3, &mut HashMap::new());
-        for name in [
+        assert_outputs_eq(&row_adx, &store_adx, &[
             "value",
             "plus_di",
             "minus_di",
@@ -9789,18 +9706,7 @@ mod tests {
             "plus_dm_avg",
             "minus_dm_avg",
             "dx",
-        ] {
-            assert_eq!(
-                row_adx
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values),
-                store_adx
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values)
-            );
-        }
+        ]);
         for (row, store_output) in [
             (
                 keltner(&bars, 3, 2.0, &mut HashMap::new()),
@@ -9816,13 +9722,8 @@ mod tests {
             ),
         ] {
             for row_output in &row {
-                assert_eq!(
-                    Some(&row_output.values),
-                    store_output
-                        .iter()
-                        .find(|output| output.name == row_output.name)
-                        .map(|output| &output.values)
-                );
+                let store_vals = store_output.iter().find(|o| o.name == row_output.name).map(|o| &o.values).unwrap();
+                assert_series_eq(&row_output.values, store_vals);
             }
         }
     }
@@ -9842,26 +9743,15 @@ mod tests {
         }
         let store = store_from_bars(bars.clone());
 
-        assert_eq!(wma(&bars, 3), wma_store(&store, 3, &mut HashMap::new()));
-        assert_eq!(dpo(&bars, 4), dpo_store(&store, 4, &mut HashMap::new()));
-        assert_eq!(
+        assert_vec_eq!(wma(&bars, 3), &wma_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(dpo(&bars, 4), &dpo_store(&store, 4, &mut HashMap::new()));
+        assert_vec_eq!(
             force_index(&bars, 2),
             force_index_store(&store, 2, &mut HashMap::new())
         );
         let row_channel = price_channel(&bars, 3, &mut HashMap::new());
         let store_channel = price_channel_store(&store, 3, &mut HashMap::new());
-        for name in ["upper", "middle", "lower"] {
-            assert_eq!(
-                row_channel
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values),
-                store_channel
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values)
-            );
-        }
+        assert_outputs_eq(&row_channel, &store_channel, &["upper", "middle", "lower"]);
     }
 
     #[test]
@@ -9869,27 +9759,18 @@ mod tests {
         let bars = bars(&[10.0, 12.0, 11.0, 13.0, 15.0, 14.0, 16.0, 18.0]);
         let store = store_from_bars(bars.clone());
 
-        assert_eq!(
+        assert_vec_eq!(
             hma(&bars, 5, &mut HashMap::new()),
             hma_store(&store, 5, &mut HashMap::new())
         );
-        assert_eq!(
-            linear_regression(&bars, 4),
-            linear_regression_store(&store, 4, &mut HashMap::new())
-        );
-        assert_eq!(
+        assert_vec_eq!(linear_regression(&bars, 4), linear_regression_store(&store, 4, &mut HashMap::new()));
+        assert_vec_eq!(
             stddev(&bars, 4),
             stddev_store(&store, 4, &mut HashMap::new())
         );
-        assert_eq!(trix(&bars, 3), trix_store(&store, 3, &mut HashMap::new()));
-        assert_eq!(
-            tsi(&bars, 4, 2),
-            tsi_store(&store, 4, 2, &mut HashMap::new())
-        );
-        assert_eq!(
-            momentum(&bars, 3),
-            momentum_store(&store, 3, &mut HashMap::new())
-        );
+        assert_vec_eq!(trix(&bars, 3), &trix_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(tsi(&bars, 4, 2), tsi_store(&store, 4, 2, &mut HashMap::new()));
+        assert_vec_eq!(momentum(&bars, 3), momentum_store(&store, 3, &mut HashMap::new()));
     }
 
     #[test]
@@ -9936,24 +9817,13 @@ mod tests {
             ),
         ] {
             for row_output in &row {
-                assert_eq!(
-                    Some(&row_output.values),
-                    store_output
-                        .iter()
-                        .find(|output| output.name == row_output.name)
-                        .map(|output| &output.values)
-                );
+                let store_vals = store_output.iter().find(|o| o.name == row_output.name).map(|o| &o.values).unwrap();
+                assert_series_eq(&row_output.values, store_vals);
             }
         }
 
-        assert_eq!(
-            ultimate_oscillator(&bars, 2, 3, 4),
-            ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new())
-        );
-        assert_eq!(
-            chaikin_volatility(&bars, 3),
-            chaikin_volatility_store(&store, 3, &mut HashMap::new())
-        );
+        assert_vec_eq!(ultimate_oscillator(&bars, 2, 3, 4), ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new()));
+        assert_vec_eq!(chaikin_volatility(&bars, 3), chaikin_volatility_store(&store, 3, &mut HashMap::new()));
     }
 
     #[test]
@@ -9996,11 +9866,11 @@ mod tests {
         }
         let store = store_from_bars(bars.clone());
 
-        assert_eq!(dema(&bars, 5), dema_store(&store, 5, &mut HashMap::new()));
-        assert_eq!(tema(&bars, 5), tema_store(&store, 5, &mut HashMap::new()));
-        assert_eq!(trima(&bars, 5), trima_store(&store, 5, &mut HashMap::new()));
-        assert_eq!(kst(&bars), kst_store(&store, &mut HashMap::new()));
-        assert_eq!(bop(&bars), bop_store(&store, &mut HashMap::new()));
+        assert_vec_eq!(dema(&bars, 5), &dema_store(&store, 5, &mut HashMap::new()));
+        assert_vec_eq!(tema(&bars, 5), &tema_store(&store, 5, &mut HashMap::new()));
+        assert_vec_eq!(trima(&bars, 5), &trima_store(&store, 5, &mut HashMap::new()));
+        assert_vec_eq!(kst(&bars), &kst_store(&store, &mut HashMap::new()));
+        assert_vec_eq!(bop(&bars), &bop_store(&store, &mut HashMap::new()));
         assert_eq!(
             chaikin_oscillator(
                 &bars,
@@ -10022,18 +9892,7 @@ mod tests {
         );
         let row_envelope = envelope(&bars, 5, 2.0, &mut HashMap::new());
         let store_envelope = envelope_store(&store, 5, 2.0, &mut HashMap::new());
-        for name in ["upper", "middle", "lower"] {
-            assert_eq!(
-                row_envelope
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values),
-                store_envelope
-                    .iter()
-                    .find(|output| output.name == name)
-                    .map(|output| &output.values)
-            );
-        }
+        assert_outputs_eq(&row_envelope, &store_envelope, &["upper", "middle", "lower"]);
     }
 
     #[test]
@@ -10044,7 +9903,7 @@ mod tests {
         let outputs = vwap(&bars, &mut HashMap::new());
 
         assert_eq!(outputs[0].name, "value");
-        assert_eq!(outputs[0].values, vec![Some(1.0), Some(10.0 / 6.0)]);
+        assert_series_eq(&outputs[0].values, &[1.0, 10.0 / 6.0]);
     }
 
     #[test]
@@ -10058,7 +9917,7 @@ mod tests {
         let full_outputs = vwap(&all_bars, &mut HashMap::new());
         let latest = latest_vwap(&all_bars, &previous_outputs);
 
-        assert_eq!(latest.0, full_outputs[0].values.last().copied().flatten());
+        assert_eq!(latest.0, full_outputs[0].values.last().copied().and_then(nan_to_none));
         assert_eq!(
             latest.1,
             output_at(&full_outputs, "cumulative_pv", all_bars.len() - 1)
@@ -10080,9 +9939,9 @@ mod tests {
         let values = cci(&bars, 3);
 
         assert_eq!(values.len(), bars.len());
-        assert_eq!(values[0], None);
-        assert_eq!(values[1], None);
-        assert!(values[3].is_some());
+        assert!(values[0].is_nan());
+        assert!(values[1].is_nan());
+        assert!(!values[3].is_nan());
     }
 
     #[test]
@@ -10096,7 +9955,7 @@ mod tests {
 
         assert_eq!(
             latest_cci(&bars, 3),
-            cci(&bars, 3).last().copied().flatten()
+            cci(&bars, 3).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10120,15 +9979,15 @@ mod tests {
             outputs: vec![
                 IndicatorOutput {
                     name: "value".to_string(),
-                    values: vec![Some(1.25)],
+                    values: vec![1.25],
                 },
                 IndicatorOutput {
                     name: "avg_gain".to_string(),
-                    values: vec![None],
+                    values: vec![f64::NAN],
                 },
                 IndicatorOutput {
                     name: "avg_loss".to_string(),
-                    values: vec![Some(-0.5)],
+                    values: vec![-0.5],
                 },
             ],
         });
@@ -10160,19 +10019,19 @@ mod tests {
             outputs: vec![
                 IndicatorOutput {
                     name: "macd".to_string(),
-                    values: vec![Some(1.0), None],
+                    values: vec![1.0, f64::NAN],
                 },
                 IndicatorOutput {
                     name: "signal".to_string(),
-                    values: vec![Some(2.0), Some(3.0)],
+                    values: vec![2.0, 3.0],
                 },
                 IndicatorOutput {
                     name: "histogram".to_string(),
-                    values: vec![Some(-1.0), Some(0.5)],
+                    values: vec![-1.0, 0.5],
                 },
                 IndicatorOutput {
                     name: "fast_ema".to_string(),
-                    values: vec![Some(99.0), Some(100.0)],
+                    values: vec![99.0, 100.0],
                 },
             ],
         });
@@ -10201,10 +10060,10 @@ mod tests {
         let values = mfi(&bars, 3);
 
         assert_eq!(values.len(), bars.len());
-        assert_eq!(values[0], None);
-        assert_eq!(values[1], None);
-        assert_eq!(values[2], None);
-        assert!(values[3].is_some());
+        assert!(values[0].is_nan());
+        assert!(values[1].is_nan());
+        assert!(values[2].is_nan());
+        assert!(!values[3].is_nan());
     }
 
     #[test]
@@ -10222,7 +10081,7 @@ mod tests {
 
         assert_eq!(
             latest_mfi(&bars, 3),
-            mfi(&bars, 3).last().copied().flatten()
+            mfi(&bars, 3).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10237,9 +10096,9 @@ mod tests {
         let values = williams_r(&bars, 3);
 
         assert_eq!(values.len(), bars.len());
-        assert_eq!(values[0], None);
-        assert_eq!(values[1], None);
-        assert!(values[3].is_some());
+        assert!(values[0].is_nan());
+        assert!(values[1].is_nan());
+        assert!(!values[3].is_nan());
     }
 
     #[test]
@@ -10253,7 +10112,7 @@ mod tests {
 
         assert_eq!(
             latest_williams_r(&bars, 3),
-            williams_r(&bars, 3).last().copied().flatten()
+            williams_r(&bars, 3).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10338,11 +10197,11 @@ mod tests {
             3,
         );
 
-        assert_eq!(values[0], None);
-        assert_eq!(values[1], None);
-        assert_eq!(values[2], None);
-        assert!((values[3].unwrap() - 2.6666666666666665).abs() < 0.000001);
-        assert!((values[4].unwrap() - 2.7777777777777777).abs() < 0.000001);
+        assert!(values[0].is_nan());
+        assert!(values[1].is_nan());
+        assert!(values[2].is_nan());
+        assert!((values[3] - 2.6666666666666665).abs() < 0.000001);
+        assert!((values[4] - 2.7777777777777777).abs() < 0.000001);
     }
 
     #[test]
@@ -10367,7 +10226,7 @@ mod tests {
 
         assert_eq!(
             latest_atr(&all_bars, 3, Some(&output)),
-            atr(&all_bars, 3).last().copied().flatten()
+            atr(&all_bars, 3).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10535,8 +10394,8 @@ mod tests {
         assert_eq!(outputs[2].name, "histogram");
         assert_eq!(outputs[0].values.len(), bars.len());
         assert_eq!(
-            outputs[2].values[29].unwrap(),
-            outputs[0].values[29].unwrap() - outputs[1].values[29].unwrap()
+            outputs[2].values[29],
+            outputs[0].values[29] - outputs[1].values[29]
         );
     }
 
@@ -10553,9 +10412,9 @@ mod tests {
         let full_outputs = macd(&all_bars, params, &mut HashMap::new());
         let latest = latest_macd(&all_bars, params, &previous_outputs);
 
-        assert_eq!(latest.0, full_outputs[0].values.last().copied().flatten());
-        assert_eq!(latest.1, full_outputs[1].values.last().copied().flatten());
-        assert_eq!(latest.2, full_outputs[2].values.last().copied().flatten());
+        assert_eq!(latest.0, full_outputs[0].values.last().copied().and_then(nan_to_none));
+        assert_eq!(latest.1, full_outputs[1].values.last().copied().and_then(nan_to_none));
+        assert_eq!(latest.2, full_outputs[2].values.last().copied().and_then(nan_to_none));
         assert_eq!(
             latest.3,
             output_at(&full_outputs, "fast_ema", all_bars.len() - 1)
@@ -10598,10 +10457,10 @@ mod tests {
         );
 
         assert_eq!(nodes.len(), 2);
-        assert_eq!(nodes["ema:close:12"], ema12);
+        assert_vec_eq!(nodes["ema:close:12"], ema12);
         assert_eq!(
-            macd[0].values[29].unwrap(),
-            nodes["ema:close:12"][29].unwrap() - nodes["ema:close:26"][29].unwrap()
+            macd[0].values[29],
+            nodes["ema:close:12"][29] - nodes["ema:close:26"][29]
         );
     }
 
@@ -10613,8 +10472,8 @@ mod tests {
         let rsi = rsi_close(&bars, 3, &mut nodes);
         let stoch_rsi_outputs = stoch_rsi(&bars, 3, 3, 2, 2, &mut nodes);
 
-        assert_eq!(nodes["rsi:close:3"], rsi);
-        assert_eq!(nodes["stoch:rsi:3:3:2:2"], stoch_rsi_outputs[0].values);
+        assert_vec_eq!(nodes["rsi:close:3"], rsi);
+        assert_vec_eq!(nodes["stoch:rsi:3:3:2:2"], stoch_rsi_outputs[0].values);
     }
 
     #[test]
@@ -10625,9 +10484,9 @@ mod tests {
         assert_eq!(outputs[0].name, "upper");
         assert_eq!(outputs[1].name, "middle");
         assert_eq!(outputs[2].name, "lower");
-        assert_eq!(outputs[1].values, vec![None, None, Some(2.0)]);
-        assert!((outputs[0].values[2].unwrap() - 3.632993161855452).abs() < 0.000001);
-        assert!((outputs[2].values[2].unwrap() - 0.367006838144548).abs() < 0.000001);
+        assert_series_eq(&outputs[1].values, &[f64::NAN, f64::NAN, 2.0]);
+        assert!((outputs[0].values[2] - 3.632993161855452).abs() < 0.000001);
+        assert!((outputs[2].values[2] - 0.367006838144548).abs() < 0.000001);
     }
 
     #[test]
@@ -10636,9 +10495,9 @@ mod tests {
         let outputs = bollinger(&bars, 3, 2.0, &mut HashMap::new());
         let (upper, middle, lower) = latest_bollinger(&bars, 3, 2.0);
 
-        assert_eq!(upper, outputs[0].values.last().copied().flatten());
-        assert_eq!(middle, outputs[1].values.last().copied().flatten());
-        assert_eq!(lower, outputs[2].values.last().copied().flatten());
+        assert_eq!(upper, outputs[0].values.last().copied().and_then(nan_to_none));
+        assert_eq!(middle, outputs[1].values.last().copied().and_then(nan_to_none));
+        assert_eq!(lower, outputs[2].values.last().copied().and_then(nan_to_none));
     }
 
     #[test]
@@ -10657,9 +10516,9 @@ mod tests {
         assert_eq!(outputs[1].name, "middle");
         assert_eq!(outputs[2].name, "lower");
         assert_eq!(outputs[0].values.len(), bars.len());
-        assert!(outputs[0].values[4].is_some());
-        assert!(outputs[1].values[4].is_some());
-        assert!(outputs[2].values[4].is_some());
+        assert!(!outputs[0].values[4].is_nan());
+        assert!(!outputs[1].values[4].is_nan());
+        assert!(!outputs[2].values[4].is_nan());
     }
 
     #[test]
@@ -10709,9 +10568,9 @@ mod tests {
         assert_eq!(outputs[0].name, "upper");
         assert_eq!(outputs[1].name, "middle");
         assert_eq!(outputs[2].name, "lower");
-        assert_eq!(outputs[0].values[3], Some(13.0));
-        assert_eq!(outputs[1].values[3], Some(9.0));
-        assert_eq!(outputs[2].values[3], Some(5.0));
+        assert_eq!(outputs[0].values[3], 13.0);
+        assert_eq!(outputs[1].values[3], 9.0);
+        assert_eq!(outputs[2].values[3], 5.0);
     }
 
     #[test]
@@ -10725,9 +10584,9 @@ mod tests {
         let outputs = donchian(&bars, 3, &mut HashMap::new());
         let latest = latest_donchian(&bars, 3);
 
-        assert_eq!(latest.0, outputs[0].values.last().copied().flatten());
-        assert_eq!(latest.1, outputs[1].values.last().copied().flatten());
-        assert_eq!(latest.2, outputs[2].values.last().copied().flatten());
+        assert_eq!(latest.0, outputs[0].values.last().copied().and_then(nan_to_none));
+        assert_eq!(latest.1, outputs[1].values.last().copied().and_then(nan_to_none));
+        assert_eq!(latest.2, outputs[2].values.last().copied().and_then(nan_to_none));
     }
 
     #[test]
@@ -10799,7 +10658,7 @@ mod tests {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0, 5.0]);
         assert_eq!(
             latest_roc(&bars, 3),
-            roc(&bars, 3).last().copied().flatten()
+            roc(&bars, 3).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10832,7 +10691,7 @@ mod tests {
         }
         assert_eq!(
             latest_cmf(&bars, 3),
-            cmf(&bars, 3).last().copied().flatten()
+            cmf(&bars, 3).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10852,7 +10711,7 @@ mod tests {
 
         assert_eq!(
             latest_adl(&all_bars, Some(&output)),
-            adl(&all_bars).last().copied().flatten()
+            adl(&all_bars).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10864,7 +10723,7 @@ mod tests {
         }
         assert_eq!(
             latest_vwma(&bars, 5),
-            vwma(&bars, 5).last().copied().flatten()
+            vwma(&bars, 5).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10879,7 +10738,7 @@ mod tests {
 
         assert_eq!(
             latest_williams_ad(&all_bars, Some(&output)),
-            williams_ad(&all_bars).last().copied().flatten()
+            williams_ad(&all_bars).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10895,7 +10754,7 @@ mod tests {
         );
         assert_eq!(
             latest_chaikin_volatility(&bars, 10),
-            chaikin_volatility(&bars, 10).last().copied().flatten()
+            chaikin_volatility(&bars, 10).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10910,9 +10769,9 @@ mod tests {
         let outputs = price_channel(&bars, 3, &mut HashMap::new());
         let latest = latest_price_channel(&bars, 3);
 
-        assert_eq!(latest.0, outputs[0].values.last().copied().flatten());
-        assert_eq!(latest.1, outputs[1].values.last().copied().flatten());
-        assert_eq!(latest.2, outputs[2].values.last().copied().flatten());
+        assert_eq!(latest.0, outputs[0].values.last().copied().and_then(nan_to_none));
+        assert_eq!(latest.1, outputs[1].values.last().copied().and_then(nan_to_none));
+        assert_eq!(latest.2, outputs[2].values.last().copied().and_then(nan_to_none));
     }
 
     #[test]
@@ -10937,7 +10796,7 @@ mod tests {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0]);
         assert_eq!(
             latest_wma(&bars, 3),
-            wma(&bars, 3).last().copied().flatten()
+            wma(&bars, 3).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10945,7 +10804,7 @@ mod tests {
     fn hma_matches_latest_value() {
         let bars = bars(&(1..=10).map(|value| value as f64).collect::<Vec<_>>());
         let outputs = hma(&bars, 4, &mut HashMap::new());
-        assert_eq!(latest_hma(&bars, 4), outputs.last().copied().flatten());
+        assert_eq!(latest_hma(&bars, 4), outputs.last().copied().and_then(nan_to_none));
     }
 
     #[test]
@@ -10953,7 +10812,7 @@ mod tests {
         let bars = bars(&(1..=10).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(
             latest_linear_regression(&bars, 5),
-            linear_regression(&bars, 5).last().copied().flatten()
+            linear_regression(&bars, 5).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10962,7 +10821,7 @@ mod tests {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(
             latest_dema(&bars, 5),
-            dema(&bars, 5).last().copied().flatten()
+            dema(&bars, 5).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10971,7 +10830,7 @@ mod tests {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(
             latest_tema(&bars, 5),
-            tema(&bars, 5).last().copied().flatten()
+            tema(&bars, 5).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10980,7 +10839,7 @@ mod tests {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(
             latest_trima(&bars, 5),
-            trima(&bars, 5).last().copied().flatten()
+            trima(&bars, 5).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -10989,7 +10848,7 @@ mod tests {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(
             latest_stddev(&bars, 5),
-            stddev(&bars, 5).last().copied().flatten()
+            stddev(&bars, 5).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -11009,7 +10868,7 @@ mod tests {
         let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(
             latest_trix(&bars, 5),
-            trix(&bars, 5).last().copied().flatten()
+            trix(&bars, 5).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -11018,20 +10877,20 @@ mod tests {
         let bars = bars(&(1..=40).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(
             latest_tsi(&bars, 25, 13),
-            tsi(&bars, 25, 13).last().copied().flatten()
+            tsi(&bars, 25, 13).last().copied().and_then(nan_to_none)
         );
     }
 
     #[test]
     fn kst_matches_latest_value() {
         let bars = bars(&(1..=60).map(|value| value as f64).collect::<Vec<_>>());
-        assert_eq!(latest_kst(&bars), kst(&bars).last().copied().flatten());
+        assert_eq!(latest_kst(&bars), kst(&bars).last().copied().and_then(nan_to_none));
     }
 
     #[test]
     fn bop_matches_latest_value() {
         let bars = ohlc(&[(10.0, 8.0, 9.0), (11.0, 9.0, 10.0), (12.0, 10.0, 11.0)]);
-        assert_eq!(latest_bop(&bars), bop(&bars).last().copied().flatten());
+        assert_eq!(latest_bop(&bars), bop(&bars).last().copied().and_then(nan_to_none));
     }
 
     #[test]
@@ -11039,7 +10898,7 @@ mod tests {
         let bars = bars(&(1..=40).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(
             latest_dpo(&bars, 20),
-            dpo(&bars, 20).last().copied().flatten()
+            dpo(&bars, 20).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -11048,7 +10907,7 @@ mod tests {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
         assert_eq!(
             latest_momentum(&bars, 10),
-            momentum(&bars, 10).last().copied().flatten()
+            momentum(&bars, 10).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -11066,8 +10925,7 @@ mod tests {
             latest_ultimate_oscillator(&bars, 7, 14, 28),
             ultimate_oscillator(&bars, 7, 14, 28)
                 .last()
-                .copied()
-                .flatten()
+                .copied().and_then(nan_to_none)
         );
     }
 
@@ -11091,7 +10949,7 @@ mod tests {
         };
         assert_eq!(
             latest_chaikin_oscillator(&bars, params),
-            chaikin_oscillator(&bars, params).last().copied().flatten()
+            chaikin_oscillator(&bars, params).last().copied().and_then(nan_to_none)
         );
     }
 
@@ -11103,7 +10961,7 @@ mod tests {
         }
         assert_eq!(
             latest_force_index(&bars, 13),
-            force_index(&bars, 13).last().copied().flatten()
+            force_index(&bars, 13).last().copied().and_then(nan_to_none)
         );
     }
 

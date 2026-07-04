@@ -1928,8 +1928,8 @@ fn compute_indicator_store(
     bars_snapshot: &mut Option<Vec<Bar>>,
 ) -> Vec<IndicatorOutput> {
     match kind {
-        "SMA" => one_output(sma_close_store(store, period, nodes)),
-        "EMA" => one_output(ema_close_store(store, period, nodes)),
+        "SMA" => one_output(rc_into_owned(sma_close_store(store, period, nodes))),
+        "EMA" => one_output(rc_into_owned(ema_close_store(store, period, nodes))),
         "RSI" => rsi_outputs_store(store, period, nodes),
         "ROC" => one_output(roc_store(store, period, nodes)),
         "CCI" => one_output(cci_store(store, period, nodes)),
@@ -1941,7 +1941,7 @@ fn compute_indicator_store(
         "VWAP" => vwap_store(store, nodes),
         "VWMA" => one_output(vwma_store(store, period, nodes)),
         "WILLIAMS_AD" => one_output(williams_ad_store(store, nodes)),
-        "ATR" => one_output(atr_store(store, period, nodes)),
+        "ATR" => one_output(rc_into_owned(atr_store(store, period, nodes))),
         "ADX" => adx_store(store, period, nodes),
         "SUPERTREND" => supertrend_store(store, period, multiplier, nodes),
         "KELTNER" => keltner_store(store, period, multiplier, nodes),
@@ -2925,14 +2925,14 @@ fn sma_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     values
 }
 
-fn sma_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn sma_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("sma:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
-    let values = sma_close_values(&store.close, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(sma_close_values(&store.close, period));
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn ema(bars: &[Bar], period: usize) -> Series {
@@ -2949,14 +2949,14 @@ fn ema_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     values
 }
 
-fn ema_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn ema_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("ema:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
-    let values = ema_values(store.close.iter().copied(), period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(ema_values(store.close.iter().copied(), period));
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn ema_values(values: impl IntoIterator<Item = f64>, period: usize) -> Series {
@@ -3277,7 +3277,7 @@ fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
     if let Some(values) = nodes.get(&key) {
         return (**values).clone();
     }
-    let ema1 = ema_close_store(store, period, nodes);
+    let ema1 = rc_into_owned(ema_close_store(store, period, nodes));
     let ema2_key = format!("dema:ema2:{period}");
     let ema2 = nodes
         .get(&ema2_key)
@@ -3356,7 +3356,7 @@ fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
     if let Some(values) = nodes.get(&key) {
         return (**values).clone();
     }
-    let ema1 = ema_close_store(store, period, nodes);
+    let ema1 = rc_into_owned(ema_close_store(store, period, nodes));
     let ema2_key = format!("tema:ema2:{period}");
     let ema3_key = format!("tema:ema3:{period}");
     let ema2 = nodes
@@ -3569,7 +3569,7 @@ fn envelope_store(
     multiplier: f64,
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
-    let middle = sma_close_store(store, period, nodes);
+    let middle = rc_into_owned(sma_close_store(store, period, nodes));
     let key_base = format!("envelope:{period}:{multiplier}");
     let upper_key = format!("envelope:upper:{period}:{multiplier}");
     let middle_key = format!("envelope:middle:{period}:{multiplier}");
@@ -3677,7 +3677,7 @@ fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Seri
     if let Some(values) = nodes.get(&key) {
         return (**values).clone();
     }
-    let ema1 = ema_close_store(store, period, nodes);
+    let ema1 = rc_into_owned(ema_close_store(store, period, nodes));
     let ema2_key = format!("trix:ema2:{period}");
     let ema2 = nodes
         .get(&ema2_key)
@@ -3862,7 +3862,7 @@ fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
     if let Some(values) = nodes.get(&key) {
         return (**values).clone();
     }
-    let sma_values = sma_close_store(store, period, nodes);
+    let sma_values = rc_into_owned(sma_close_store(store, period, nodes));
     let shift = period / 2 + 1;
     let mut out = vec![f64::NAN; store.len()];
     for index in 0..store.len() {
@@ -5935,15 +5935,16 @@ fn atr_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     values
 }
 
-fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("atr:ohlc:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out);
+        nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
 
     let mut current = (1..=period)
@@ -5956,8 +5957,9 @@ fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
         current = (current * (period - 1) as f64 + true_range_store(store, index)) / period as f64;
         out[index] = current;
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out);
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_atr(bars: &[Bar], period: usize, output: Option<&[f64]>) -> Option<f64> {
@@ -6092,7 +6094,7 @@ fn supertrend_store(
     multiplier: f64,
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
-    let atr = atr_store(store, period, nodes);
+    let atr = rc_into_owned(atr_store(store, period, nodes));
     let mut values = vec![f64::NAN; store.len()];
     let mut upper_band = vec![f64::NAN; store.len()];
     let mut lower_band = vec![f64::NAN; store.len()];
@@ -7235,8 +7237,8 @@ fn keltner_store(
     multiplier: f64,
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
-    let middle = ema_close_store(store, period, nodes);
-    let atr = atr_store(store, period, nodes);
+    let middle = rc_into_owned(ema_close_store(store, period, nodes));
+    let atr = rc_into_owned(atr_store(store, period, nodes));
     let mut upper = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
     for index in 0..store.len() {
@@ -7297,8 +7299,8 @@ fn starc_store(
     multiplier: f64,
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
-    let middle = sma_close_store(store, period, nodes);
-    let atr = atr_store(store, period, nodes);
+    let middle = rc_into_owned(sma_close_store(store, period, nodes));
+    let atr = rc_into_owned(atr_store(store, period, nodes));
     let mut upper = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
     for index in 0..store.len() {
@@ -8058,7 +8060,7 @@ fn bollinger_store(
 ) -> Vec<IndicatorOutput> {
     let mut upper = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
-    let middle = sma_close_store(store, period, nodes);
+    let middle = rc_into_owned(sma_close_store(store, period, nodes));
     if period == 0 {
         return bollinger_outputs(upper, middle, lower);
     }
@@ -8447,8 +8449,8 @@ fn macd_store(
         ];
     }
 
-    let fast_ema = ema_close_store(store, params.fast, nodes);
-    let slow_ema = ema_close_store(store, params.slow, nodes);
+    let fast_ema = rc_into_owned(ema_close_store(store, params.fast, nodes));
+    let slow_ema = rc_into_owned(ema_close_store(store, params.slow, nodes));
     let macd: Series = fast_ema
         .iter()
         .zip(slow_ema.iter())
@@ -8873,7 +8875,7 @@ mod tests {
 
         assert_eq!(
             ema(&bars, 3),
-            ema_close_store(&store, 3, &mut HashMap::new())
+            *ema_close_store(&store, 3, &mut HashMap::new())
         );
         assert_eq!(
             latest_ema(&bars, 3, Some(&previous_output.values[..])),

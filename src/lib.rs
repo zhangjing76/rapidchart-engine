@@ -140,7 +140,7 @@ struct Indicator {
     multiplier: f64,
     psar_step: f64,
     psar_max_step: f64,
-    outputs: Vec<IndicatorOutput>,
+    outputs: IndicatorArena,
 }
 
 #[derive(Clone, Copy)]
@@ -207,6 +207,120 @@ struct OutputDescriptor {
 struct IndicatorOutput {
     name: String,
     values: Vec<f64>,
+}
+
+/// Packed contiguous storage for all outputs of a single indicator.
+/// All output slots share the same length (= bars count). The backing
+/// Vec stores them sequentially: [slot_0: len values][slot_1: len values]...
+struct IndicatorArena {
+    data: Vec<f64>,
+    /// Metadata per slot: (name, slot_index) — slot_index is used to compute offset as slot_index * slot_len.
+    slots: Vec<String>,
+    /// Number of f64 values per slot (= bars count for this indicator).
+    slot_len: usize,
+}
+
+impl IndicatorArena {
+    /// Create from a Vec<IndicatorOutput>, packing all outputs into one allocation.
+    fn from_outputs(outputs: Vec<IndicatorOutput>) -> Self {
+        if outputs.is_empty() {
+            return Self { data: Vec::new(), slots: Vec::new(), slot_len: 0 };
+        }
+        let slot_len = outputs[0].values.len();
+        let num_slots = outputs.len();
+        let mut data = Vec::with_capacity(num_slots * (slot_len + 256));
+        let mut slots = Vec::with_capacity(num_slots);
+
+        for output in outputs {
+            debug_assert_eq!(output.values.len(), slot_len);
+            data.extend_from_slice(&output.values);
+            slots.push(output.name);
+        }
+
+        Self { data, slots, slot_len }
+    }
+
+    /// Get the slice for a named output.
+    fn get(&self, name: &str) -> Option<&[f64]> {
+        let idx = self.slots.iter().position(|s| s == name)?;
+        let start = idx * self.slot_len;
+        Some(&self.data[start..start + self.slot_len])
+    }
+
+    /// Get the mutable slice for a named output.
+    fn get_mut(&mut self, name: &str) -> Option<&mut [f64]> {
+        let idx = self.slots.iter().position(|s| s == name)?;
+        let start = idx * self.slot_len;
+        Some(&mut self.data[start..start + self.slot_len])
+    }
+
+    /// Get value at a specific index for a named output.
+    fn value_at(&self, name: &str, index: usize) -> Option<f64> {
+        let idx = self.slots.iter().position(|s| s == name)?;
+        let start = idx * self.slot_len;
+        self.data.get(start + index).copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+    }
+
+    /// Get the last value for a named output.
+    fn last_value(&self, name: &str) -> Option<f64> {
+        if self.slot_len == 0 { return None; }
+        self.value_at(name, self.slot_len - 1)
+    }
+
+    /// Resize all slots to a new length (for incremental append).
+    /// Fills new slots with NaN. If the slot doesn't exist, creates it.
+    fn resize_all(&mut self, new_len: usize) {
+        if new_len == self.slot_len {
+            return;
+        }
+        let old_len = self.slot_len;
+        let num_slots = self.slots.len();
+        let mut new_data = Vec::with_capacity(num_slots * (new_len + 256));
+
+        for i in 0..num_slots {
+            let old_start = i * old_len;
+            let copy_len = old_len.min(new_len);
+            new_data.extend_from_slice(&self.data[old_start..old_start + copy_len]);
+            if new_len > old_len {
+                new_data.resize(new_data.len() + (new_len - old_len), f64::NAN);
+            }
+        }
+
+        self.data = new_data;
+        self.slot_len = new_len;
+    }
+
+    /// Set the last value for a named output. If the slot doesn't exist, create it.
+    fn upsert_last(&mut self, name: &str, target_len: usize, value: f64) {
+        if target_len != self.slot_len {
+            self.resize_all(target_len);
+        }
+        if let Some(idx) = self.slots.iter().position(|s| s == name) {
+            let offset = idx * self.slot_len + self.slot_len - 1;
+            self.data[offset] = value;
+        } else {
+            // New slot — append NaN-filled slice, set last value
+            self.slots.push(name.to_string());
+            let start = self.data.len();
+            self.data.resize(start + self.slot_len, f64::NAN);
+            if self.slot_len > 0 {
+                self.data[start + self.slot_len - 1] = value;
+            }
+        }
+    }
+
+    /// Number of output slots.
+    fn num_slots(&self) -> usize {
+        self.slots.len()
+    }
+
+    /// Iterate over (name, slice) for all slots.
+    fn iter_slots(&self) -> impl Iterator<Item = (&str, &[f64])> {
+        self.slots.iter().enumerate().map(move |(i, name)| {
+            let start = i * self.slot_len;
+            (name.as_str(), &self.data[start..start + self.slot_len])
+        })
+    }
 }
 
 #[derive(Serialize)]
@@ -509,7 +623,7 @@ impl ChartEngine {
             multiplier,
             psar_step,
             psar_max_step,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
         self.indicators.push(indicator);
         Ok(id)
@@ -547,11 +661,9 @@ impl ChartEngine {
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let outputs: Vec<_> = indicator
-            .outputs
-            .iter()
-            .filter(|output| is_visible_output(&output.name))
-            .cloned()
+        let outputs: Vec<_> = indicator.outputs.iter_slots()
+            .filter(|(name, _)| is_visible_output(name))
+            .map(|(name, values)| IndicatorOutput { name: name.to_string(), values: values.to_vec() })
             .collect();
         serde_wasm_bindgen::to_value(&outputs).map_err(|err| JsValue::from_str(&err.to_string()))
     }
@@ -563,17 +675,15 @@ impl ChartEngine {
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
         let outputs = Array::new();
-        for output in indicator
-            .outputs
-            .iter()
-            .filter(|output| is_visible_output(&output.name))
+        for (name, values) in indicator.outputs.iter_slots()
+            .filter(|(name, _)| is_visible_output(name))
         {
             let item = Object::new();
-            js_set(&item, "name", JsValue::from_str(&output.name))?;
+            js_set(&item, "name", JsValue::from_str(name))?;
             js_set(
                 &item,
                 "values",
-                unsafe { Float64Array::view(&output.values) },
+                unsafe { Float64Array::view(values) },
             )?;
             outputs.push(&item);
         }
@@ -586,13 +696,11 @@ impl ChartEngine {
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let points: Vec<_> = indicator
-            .outputs
-            .iter()
-            .filter(|output| is_visible_output(&output.name))
-            .map(|output| IndicatorLatestValue {
-                output: output.name.clone(),
-                value: output.values.last().copied().and_then(nan_to_none),
+        let points: Vec<_> = indicator.outputs.iter_slots()
+            .filter(|(name, _)| is_visible_output(name))
+            .map(|(name, values)| IndicatorLatestValue {
+                output: name.to_string(),
+                value: values.last().copied().and_then(nan_to_none),
             })
             .collect();
         serde_wasm_bindgen::to_value(&points).map_err(|err| JsValue::from_str(&err.to_string()))
@@ -622,7 +730,7 @@ impl ChartEngine {
             edges: Vec::new(),
         };
         for indicator in &mut self.indicators {
-            indicator.outputs = compute_indicator_store(
+            indicator.outputs = IndicatorArena::from_outputs(compute_indicator_store(
                 &self.bars,
                 &indicator.kind,
                 indicator.period,
@@ -638,10 +746,7 @@ impl ChartEngine {
                 indicator.psar_max_step,
                 &mut nodes,
                 &mut bars_snapshot,
-            );
-            for output in &mut indicator.outputs {
-                output.values.reserve(256);
-            }
+            ));
             let indicator_node = indicator_node(indicator);
             dag.nodes.push(indicator_node.clone());
             for node in indicator_nodes(indicator) {
@@ -674,7 +779,7 @@ impl ChartEngine {
                 ),
                 "EMA" => {
                     let value =
-                        latest_ema_store(&self.bars, indicator.period, indicator.outputs.first());
+                        latest_ema_store(&self.bars, indicator.period, indicator.outputs.get("value"));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "RSI" => {
@@ -716,12 +821,12 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "d", target_len, d);
                 }
                 "OBV" => {
-                    let value = latest_obv_store(&self.bars, indicator.outputs.first());
+                    let value = latest_obv_store(&self.bars, indicator.outputs.get("value"));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "ATR" => {
                     let value =
-                        latest_atr_store(&self.bars, indicator.period, indicator.outputs.first());
+                        latest_atr_store(&self.bars, indicator.period, indicator.outputs.get("value"));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "ADX" => {
@@ -815,7 +920,7 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "oscillator", target_len, oscillator);
                 }
                 "ADL" => {
-                    let value = latest_adl_store(&self.bars, indicator.outputs.first());
+                    let value = latest_adl_store(&self.bars, indicator.outputs.get("value"));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "WMA" => {
@@ -905,7 +1010,7 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "WILLIAMS_AD" => {
-                    let value = latest_williams_ad_store(&self.bars, indicator.outputs.first());
+                    let value = latest_williams_ad_store(&self.bars, indicator.outputs.get("value"));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "CHAIKIN_VOLATILITY" => {
@@ -999,10 +1104,9 @@ impl ChartEngine {
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
         self.latest_values_scratch.clear();
-        self.latest_values_scratch.extend(indicator.outputs
-            .iter()
-            .filter(|output| is_visible_output(&output.name))
-            .map(|output| output.values.last().copied().and_then(nan_to_none).unwrap_or(f64::NAN))
+        self.latest_values_scratch.extend(indicator.outputs.iter_slots()
+            .filter(|(name, _)| is_visible_output(name))
+            .map(|(_, values)| values.last().copied().unwrap_or(f64::NAN))
         );
         Ok(self.latest_values_scratch.as_slice())
     }
@@ -1013,24 +1117,20 @@ impl ChartEngine {
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let visible_count = indicator
-            .outputs
-            .iter()
-            .filter(|output| is_visible_output(&output.name))
+        let visible_count = indicator.outputs.iter_slots()
+            .filter(|(name, _)| is_visible_output(name))
             .count();
         if self.indicator_values_scratch.len() < visible_count {
             self.indicator_values_scratch
                 .resize_with(visible_count, Vec::new);
         }
-        for (index, output) in indicator
-            .outputs
-            .iter()
-            .filter(|output| is_visible_output(&output.name))
+        for (index, (_, values)) in indicator.outputs.iter_slots()
+            .filter(|(name, _)| is_visible_output(name))
             .enumerate()
         {
             let scratch = &mut self.indicator_values_scratch[index];
             scratch.clear();
-            scratch.extend(output.values.iter().copied());
+            scratch.extend(values.iter().copied());
         }
         Ok(())
     }
@@ -2738,31 +2838,21 @@ fn upsert_candle_store(bars: &mut CandleStore, bar: Bar) -> bool {
 }
 
 fn upsert_output(
-    outputs: &mut Vec<IndicatorOutput>,
+    outputs: &mut IndicatorArena,
     name: &str,
     target_len: usize,
     value: Option<f64>,
 ) {
     let val = value.unwrap_or(f64::NAN);
-    let Some(output) = outputs.iter_mut().find(|output| output.name == name) else {
-        let mut values = vec![f64::NAN; target_len];
-        if let Some(last) = values.last_mut() {
-            *last = val;
-        }
-        outputs.push(IndicatorOutput {
-            name: name.to_string(),
-            values,
-        });
-        return;
-    };
-
-    output.values.resize(target_len, f64::NAN);
-    if let Some(last) = output.values.last_mut() {
-        *last = val;
-    }
+    outputs.upsert_last(name, target_len, val);
 }
 
-fn output_at(outputs: &[IndicatorOutput], name: &str, index: usize) -> Option<f64> {
+fn output_at(outputs: &IndicatorArena, name: &str, index: usize) -> Option<f64> {
+    outputs.value_at(name, index)
+}
+
+/// Same as output_at but for Vec<IndicatorOutput> used in internal compute functions.
+fn output_at_vec(outputs: &[IndicatorOutput], name: &str, index: usize) -> Option<f64> {
     outputs
         .iter()
         .find(|output| output.name == name)
@@ -2895,14 +2985,14 @@ fn ema_series(values: &[f64], period: usize) -> Series {
     out
 }
 
-fn latest_ema(bars: &[Bar], period: usize, output: Option<&IndicatorOutput>) -> Option<f64> {
+fn latest_ema(bars: &[Bar], period: usize, output: Option<&[f64]>) -> Option<f64> {
     let last = bars.last()?;
     if period == 0 || bars.len() == 1 {
         return Some(last.close);
     }
 
     let previous = output
-        .and_then(|output| output.values.get(bars.len() - 2))
+        .and_then(|values| values.get(bars.len() - 2))
         .copied().and_then(nan_to_none)
         .unwrap_or(bars[bars.len() - 2].close);
     let alpha = 2.0 / (period as f64 + 1.0);
@@ -2912,7 +3002,7 @@ fn latest_ema(bars: &[Bar], period: usize, output: Option<&IndicatorOutput>) -> 
 fn latest_ema_store(
     store: &CandleStore,
     period: usize,
-    output: Option<&IndicatorOutput>,
+    output: Option<&[f64]>,
 ) -> Option<f64> {
     let last = store.last_close()?;
     if period == 0 || store.len() == 1 {
@@ -2920,7 +3010,7 @@ fn latest_ema_store(
     }
 
     let previous = output
-        .and_then(|output| output.values.get(store.len() - 2))
+        .and_then(|values| values.get(store.len() - 2))
         .copied().and_then(nan_to_none)
         .unwrap_or(store.close[store.len() - 2]);
     Some(ema_next(last, previous, period))
@@ -4261,7 +4351,7 @@ fn rsi_value(avg_gain: f64, avg_loss: f64) -> f64 {
 fn latest_rsi(
     bars: &[Bar],
     period: usize,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
     if period == 0 || bars.len() <= period {
         return (None, None, None);
@@ -4271,9 +4361,9 @@ fn latest_rsi(
         let outputs = rsi_outputs(bars, period);
         let index = bars.len() - 1;
         return (
-            output_at(&outputs, "value", index),
-            output_at(&outputs, "avg_gain", index),
-            output_at(&outputs, "avg_loss", index),
+            output_at_vec(&outputs, "value", index),
+            output_at_vec(&outputs, "avg_gain", index),
+            output_at_vec(&outputs, "avg_loss", index),
         );
     }
 
@@ -4284,7 +4374,7 @@ fn latest_rsi(
     {
         outputs
     } else {
-        previous_outputs = rsi_outputs(&bars[..bars.len() - 1], period);
+        previous_outputs = IndicatorArena::from_outputs(rsi_outputs(&bars[..bars.len() - 1], period));
         &previous_outputs
     };
     let previous_gain = output_at(source_outputs, "avg_gain", previous_index).unwrap_or(0.0);
@@ -4304,7 +4394,7 @@ fn latest_rsi(
 fn latest_rsi_store(
     store: &CandleStore,
     period: usize,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
     if period == 0 || store.len() <= period {
         return (None, None, None);
@@ -4314,9 +4404,9 @@ fn latest_rsi_store(
         let outputs = rsi_outputs_store(store, period, &mut HashMap::new());
         let index = store.len() - 1;
         return (
-            output_at(&outputs, "value", index),
-            output_at(&outputs, "avg_gain", index),
-            output_at(&outputs, "avg_loss", index),
+            output_at_vec(&outputs, "value", index),
+            output_at_vec(&outputs, "avg_gain", index),
+            output_at_vec(&outputs, "avg_loss", index),
         );
     }
 
@@ -4335,7 +4425,7 @@ fn latest_rsi_store(
             close: store.close[..store.len() - 1].to_vec(),
             volume: store.volume[..store.len() - 1].to_vec(),
         };
-        previous_outputs = rsi_outputs_store(&previous, period, &mut HashMap::new());
+        previous_outputs = IndicatorArena::from_outputs(rsi_outputs_store(&previous, period, &mut HashMap::new()));
         &previous_outputs
     };
     let previous_gain = output_at(source_outputs, "avg_gain", previous_index).unwrap_or(0.0);
@@ -4389,14 +4479,14 @@ fn obv(bars: &[Bar]) -> Series {
     out
 }
 
-fn latest_obv(bars: &[Bar], output: Option<&IndicatorOutput>) -> Option<f64> {
+fn latest_obv(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {
     let last = bars.last()?;
     if bars.len() == 1 {
         return Some(0.0);
     }
 
     let previous = output
-        .and_then(|output| output.values.get(bars.len() - 2))
+        .and_then(|values| values.get(bars.len() - 2))
         .copied().and_then(nan_to_none)
         .unwrap_or(0.0);
     let previous_close = bars[bars.len() - 2].close;
@@ -4442,14 +4532,14 @@ fn obv_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
     out
 }
 
-fn latest_obv_store(store: &CandleStore, output: Option<&IndicatorOutput>) -> Option<f64> {
+fn latest_obv_store(store: &CandleStore, output: Option<&[f64]>) -> Option<f64> {
     let last = store.last_close()?;
     if store.len() == 1 {
         return Some(0.0);
     }
 
     let previous = output
-        .and_then(|output| output.values.get(store.len() - 2))
+        .and_then(|values| values.get(store.len() - 2))
         .copied().and_then(nan_to_none)
         .unwrap_or(0.0);
     let previous_close = store.close[store.len() - 2];
@@ -4512,27 +4602,27 @@ fn adl_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
     out
 }
 
-fn latest_adl(bars: &[Bar], output: Option<&IndicatorOutput>) -> Option<f64> {
+fn latest_adl(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {
     let last = bars.last()?;
     let previous = bars
         .len()
         .checked_sub(2)
         .and_then(|index| {
             output
-                .and_then(|output| output.values.get(index))
+                .and_then(|values| values.get(index))
                 .copied().and_then(nan_to_none)
         })
         .unwrap_or(0.0);
     Some(previous + money_flow_multiplier(last) * last.volume)
 }
 
-fn latest_adl_store(store: &CandleStore, output: Option<&IndicatorOutput>) -> Option<f64> {
+fn latest_adl_store(store: &CandleStore, output: Option<&[f64]>) -> Option<f64> {
     let index = store.len().checked_sub(1)?;
     let previous = index
         .checked_sub(1)
         .and_then(|previous_index| {
             output
-                .and_then(|output| output.values.get(previous_index))
+                .and_then(|values| values.get(previous_index))
                 .copied().and_then(nan_to_none)
         })
         .unwrap_or(0.0);
@@ -4601,7 +4691,7 @@ fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
     out
 }
 
-fn latest_williams_ad(bars: &[Bar], output: Option<&IndicatorOutput>) -> Option<f64> {
+fn latest_williams_ad(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {
     let last = bars.last()?;
     if bars.len() == 1 {
         return Some(0.0);
@@ -4611,20 +4701,20 @@ fn latest_williams_ad(bars: &[Bar], output: Option<&IndicatorOutput>) -> Option<
         .checked_sub(2)
         .and_then(|index| {
             output
-                .and_then(|output| output.values.get(index))
+                .and_then(|values| values.get(index))
                 .copied().and_then(nan_to_none)
         })
         .unwrap_or(0.0);
     Some(previous + williams_ad_step(bars[bars.len() - 2].close, last))
 }
 
-fn latest_williams_ad_store(store: &CandleStore, output: Option<&IndicatorOutput>) -> Option<f64> {
+fn latest_williams_ad_store(store: &CandleStore, output: Option<&[f64]>) -> Option<f64> {
     let index = store.len().checked_sub(1)?;
     if index == 0 {
         return Some(0.0);
     }
     let previous = output
-        .and_then(|output| output.values.get(index - 1))
+        .and_then(|values| values.get(index - 1))
         .copied().and_then(nan_to_none)
         .unwrap_or(0.0);
     Some(
@@ -4745,7 +4835,7 @@ fn vwap_outputs(
 
 fn latest_vwap(
     bars: &[Bar],
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
     let Some(last) = bars.last() else {
         return (None, None, None);
@@ -4768,7 +4858,7 @@ fn latest_vwap(
 
 fn latest_vwap_store(
     store: &CandleStore,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
     let Some(index) = store.len().checked_sub(1) else {
         return (None, None, None);
@@ -5381,9 +5471,9 @@ fn latest_aroon(bars: &[Bar], period: usize) -> (Option<f64>, Option<f64>, Optio
     let outputs = aroon(bars, period, &mut HashMap::new());
     let index = bars.len().saturating_sub(1);
     (
-        output_at(&outputs, "up", index),
-        output_at(&outputs, "down", index),
-        output_at(&outputs, "oscillator", index),
+        output_at_vec(&outputs, "up", index),
+        output_at_vec(&outputs, "down", index),
+        output_at_vec(&outputs, "oscillator", index),
     )
 }
 
@@ -5483,9 +5573,9 @@ fn latest_aroon_store(
     let outputs = aroon_store(store, period, &mut HashMap::new());
     let index = store.len().saturating_sub(1);
     (
-        output_at(&outputs, "up", index),
-        output_at(&outputs, "down", index),
-        output_at(&outputs, "oscillator", index),
+        output_at_vec(&outputs, "up", index),
+        output_at_vec(&outputs, "down", index),
+        output_at_vec(&outputs, "oscillator", index),
     )
 }
 
@@ -5675,7 +5765,7 @@ fn latest_stochastic(
     bars: &[Bar],
     period: usize,
     smooth: usize,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>) {
     let Some(last) = bars.last() else {
         return (None, None);
@@ -5713,7 +5803,7 @@ fn latest_stochastic_store(
     store: &CandleStore,
     period: usize,
     smooth: usize,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>) {
     if period == 0 || store.len() < period {
         return (None, None);
@@ -5761,8 +5851,8 @@ fn latest_stoch_rsi(
     );
     let index = bars.len().saturating_sub(1);
     (
-        output_at(&outputs, "k", index),
-        output_at(&outputs, "d", index),
+        output_at_vec(&outputs, "k", index),
+        output_at_vec(&outputs, "d", index),
     )
 }
 
@@ -5783,8 +5873,8 @@ fn latest_stoch_rsi_store(
     );
     let index = store.len().saturating_sub(1);
     (
-        output_at(&outputs, "k", index),
-        output_at(&outputs, "d", index),
+        output_at_vec(&outputs, "k", index),
+        output_at_vec(&outputs, "d", index),
     )
 }
 
@@ -5862,7 +5952,7 @@ fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Serie
     out
 }
 
-fn latest_atr(bars: &[Bar], period: usize, output: Option<&IndicatorOutput>) -> Option<f64> {
+fn latest_atr(bars: &[Bar], period: usize, output: Option<&[f64]>) -> Option<f64> {
     if period == 0 || bars.len() <= period {
         return None;
     }
@@ -5872,7 +5962,7 @@ fn latest_atr(bars: &[Bar], period: usize, output: Option<&IndicatorOutput>) -> 
 
     let previous_index = bars.len() - 2;
     let previous = output
-        .and_then(|output| output.values.get(previous_index))
+        .and_then(|values| values.get(previous_index))
         .copied().and_then(nan_to_none)
         .unwrap_or_else(|| atr(&bars[..bars.len() - 1], period)[previous_index]);
     Some((previous * (period - 1) as f64 + true_range(bars, bars.len() - 1)) / period as f64)
@@ -5881,7 +5971,7 @@ fn latest_atr(bars: &[Bar], period: usize, output: Option<&IndicatorOutput>) -> 
 fn latest_atr_store(
     store: &CandleStore,
     period: usize,
-    output: Option<&IndicatorOutput>,
+    output: Option<&[f64]>,
 ) -> Option<f64> {
     if period == 0 || store.len() <= period {
         return None;
@@ -5894,7 +5984,7 @@ fn latest_atr_store(
 
     let previous_index = store.len() - 2;
     let previous = output
-        .and_then(|output| output.values.get(previous_index))
+        .and_then(|values| values.get(previous_index))
         .copied().and_then(nan_to_none)
         .unwrap_or_else(|| {
             let previous = CandleStore {
@@ -6094,7 +6184,7 @@ fn latest_supertrend(
     bars: &[Bar],
     period: usize,
     multiplier: f64,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
     if period == 0 || bars.len() <= period {
         return (None, None, None, None);
@@ -6103,10 +6193,10 @@ fn latest_supertrend(
         let outputs = supertrend(bars, period, multiplier, &mut HashMap::new());
         let index = bars.len() - 1;
         return (
-            output_at(&outputs, "value", index),
-            output_at(&outputs, "upper_band", index),
-            output_at(&outputs, "lower_band", index),
-            output_at(&outputs, "trend", index),
+            output_at_vec(&outputs, "value", index),
+            output_at_vec(&outputs, "upper_band", index),
+            output_at_vec(&outputs, "lower_band", index),
+            output_at_vec(&outputs, "trend", index),
         );
     }
 
@@ -6151,7 +6241,7 @@ fn latest_supertrend_store(
     store: &CandleStore,
     period: usize,
     multiplier: f64,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
     if period == 0 || store.len() <= period {
         return (None, None, None, None);
@@ -6160,10 +6250,10 @@ fn latest_supertrend_store(
         let outputs = supertrend_store(store, period, multiplier, &mut HashMap::new());
         let index = store.len() - 1;
         return (
-            output_at(&outputs, "value", index),
-            output_at(&outputs, "upper_band", index),
-            output_at(&outputs, "lower_band", index),
-            output_at(&outputs, "trend", index),
+            output_at_vec(&outputs, "value", index),
+            output_at_vec(&outputs, "upper_band", index),
+            output_at_vec(&outputs, "lower_band", index),
+            output_at_vec(&outputs, "trend", index),
         );
     }
 
@@ -6350,7 +6440,7 @@ fn latest_parabolic_sar(
     bars: &[Bar],
     step: f64,
     max_step: f64,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
     if bars.len() < 2 {
         return (None, None, None, None);
@@ -6359,10 +6449,10 @@ fn latest_parabolic_sar(
         let outputs = parabolic_sar(bars, step, max_step, &mut HashMap::new());
         let index = bars.len() - 1;
         return (
-            output_at(&outputs, "value", index),
-            output_at(&outputs, "ep", index),
-            output_at(&outputs, "af", index),
-            output_at(&outputs, "trend", index),
+            output_at_vec(&outputs, "value", index),
+            output_at_vec(&outputs, "ep", index),
+            output_at_vec(&outputs, "af", index),
+            output_at_vec(&outputs, "trend", index),
         );
     }
 
@@ -6557,7 +6647,7 @@ fn latest_parabolic_sar_store(
     store: &CandleStore,
     step: f64,
     max_step: f64,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
     if store.len() < 2 {
         return (None, None, None, None);
@@ -6566,10 +6656,10 @@ fn latest_parabolic_sar_store(
         let outputs = parabolic_sar_store(store, step, max_step, &mut HashMap::new());
         let index = store.len() - 1;
         return (
-            output_at(&outputs, "value", index),
-            output_at(&outputs, "ep", index),
-            output_at(&outputs, "af", index),
-            output_at(&outputs, "trend", index),
+            output_at_vec(&outputs, "value", index),
+            output_at_vec(&outputs, "ep", index),
+            output_at_vec(&outputs, "af", index),
+            output_at_vec(&outputs, "trend", index),
         );
     }
 
@@ -6844,11 +6934,11 @@ fn latest_ichimoku(
     );
     let index = bars.len().saturating_sub(1);
     (
-        output_at(&outputs, "tenkan", index),
-        output_at(&outputs, "kijun", index),
-        output_at(&outputs, "senkou_a", index),
-        output_at(&outputs, "senkou_b", index),
-        output_at(&outputs, "chikou", index),
+        output_at_vec(&outputs, "tenkan", index),
+        output_at_vec(&outputs, "kijun", index),
+        output_at_vec(&outputs, "senkou_a", index),
+        output_at_vec(&outputs, "senkou_b", index),
+        output_at_vec(&outputs, "chikou", index),
     )
 }
 
@@ -6873,11 +6963,11 @@ fn latest_ichimoku_store(
     );
     let index = store.len().saturating_sub(1);
     (
-        output_at(&outputs, "tenkan", index),
-        output_at(&outputs, "kijun", index),
-        output_at(&outputs, "senkou_a", index),
-        output_at(&outputs, "senkou_b", index),
-        output_at(&outputs, "chikou", index),
+        output_at_vec(&outputs, "tenkan", index),
+        output_at_vec(&outputs, "kijun", index),
+        output_at_vec(&outputs, "senkou_a", index),
+        output_at_vec(&outputs, "senkou_b", index),
+        output_at_vec(&outputs, "chikou", index),
     )
 }
 
@@ -7065,12 +7155,12 @@ fn latest_keltner(
     bars: &[Bar],
     period: usize,
     multiplier: f64,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
     let middle = latest_ema(
         bars,
         period,
-        outputs.iter().find(|output| output.name == "middle"),
+        outputs.get("middle"),
     );
     let atr = latest_atr(bars, period, None);
 
@@ -7175,12 +7265,12 @@ fn latest_keltner_store(
     store: &CandleStore,
     period: usize,
     multiplier: f64,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
     let middle = latest_ema_store(
         store,
         period,
-        outputs.iter().find(|output| output.name == "middle"),
+        outputs.get("middle"),
     );
     let atr = latest_atr_store(store, period, None);
     match (middle, atr) {
@@ -7748,7 +7838,7 @@ fn adx_outputs(
 fn latest_adx(
     bars: &[Bar],
     period: usize,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (
     Option<f64>,
     Option<f64>,
@@ -7765,13 +7855,13 @@ fn latest_adx(
         let outputs = adx(bars, period, &mut HashMap::new());
         let index = bars.len() - 1;
         return (
-            output_at(&outputs, "value", index),
-            output_at(&outputs, "plus_di", index),
-            output_at(&outputs, "minus_di", index),
-            output_at(&outputs, "tr_avg", index),
-            output_at(&outputs, "plus_dm_avg", index),
-            output_at(&outputs, "minus_dm_avg", index),
-            output_at(&outputs, "dx", index),
+            output_at_vec(&outputs, "value", index),
+            output_at_vec(&outputs, "plus_di", index),
+            output_at_vec(&outputs, "minus_di", index),
+            output_at_vec(&outputs, "tr_avg", index),
+            output_at_vec(&outputs, "plus_dm_avg", index),
+            output_at_vec(&outputs, "minus_dm_avg", index),
+            output_at_vec(&outputs, "dx", index),
         );
     }
 
@@ -7784,7 +7874,7 @@ fn latest_adx(
     {
         outputs
     } else {
-        previous_outputs = adx(&bars[..bars.len() - 1], period, &mut HashMap::new());
+        previous_outputs = IndicatorArena::from_outputs(adx(&bars[..bars.len() - 1], period, &mut HashMap::new()));
         &previous_outputs
     };
 
@@ -7827,7 +7917,7 @@ fn latest_adx(
 fn latest_adx_store(
     store: &CandleStore,
     period: usize,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (
     Option<f64>,
     Option<f64>,
@@ -7844,13 +7934,13 @@ fn latest_adx_store(
         let outputs = adx_store(store, period, &mut HashMap::new());
         let index = store.len() - 1;
         return (
-            output_at(&outputs, "value", index),
-            output_at(&outputs, "plus_di", index),
-            output_at(&outputs, "minus_di", index),
-            output_at(&outputs, "tr_avg", index),
-            output_at(&outputs, "plus_dm_avg", index),
-            output_at(&outputs, "minus_dm_avg", index),
-            output_at(&outputs, "dx", index),
+            output_at_vec(&outputs, "value", index),
+            output_at_vec(&outputs, "plus_di", index),
+            output_at_vec(&outputs, "minus_di", index),
+            output_at_vec(&outputs, "tr_avg", index),
+            output_at_vec(&outputs, "plus_dm_avg", index),
+            output_at_vec(&outputs, "minus_dm_avg", index),
+            output_at_vec(&outputs, "dx", index),
         );
     }
 
@@ -7871,7 +7961,7 @@ fn latest_adx_store(
             close: store.close[..store.len() - 1].to_vec(),
             volume: store.volume[..store.len() - 1].to_vec(),
         };
-        previous_outputs = adx_store(&previous, period, &mut HashMap::new());
+        previous_outputs = IndicatorArena::from_outputs(adx_store(&previous, period, &mut HashMap::new()));
         &previous_outputs
     };
 
@@ -8258,7 +8348,7 @@ fn latest_chaikin_volatility_store(store: &CandleStore, period: usize) -> Option
 fn latest_macd(
     bars: &[Bar],
     params: MacdParams,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (
     Option<f64>,
     Option<f64>,
@@ -8398,7 +8488,7 @@ fn macd_store(
 fn latest_macd_store(
     store: &CandleStore,
     params: MacdParams,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (
     Option<f64>,
     Option<f64>,
@@ -8437,9 +8527,9 @@ fn latest_ppo(bars: &[Bar], params: MacdParams) -> (Option<f64>, Option<f64>, Op
     let outputs = ppo(bars, params, &mut HashMap::new());
     let index = bars.len().saturating_sub(1);
     (
-        output_at(&outputs, "ppo", index),
-        output_at(&outputs, "signal", index),
-        output_at(&outputs, "histogram", index),
+        output_at_vec(&outputs, "ppo", index),
+        output_at_vec(&outputs, "signal", index),
+        output_at_vec(&outputs, "histogram", index),
     )
 }
 
@@ -8566,7 +8656,7 @@ fn ppo_store(
 fn latest_ppo_store(
     store: &CandleStore,
     params: MacdParams,
-    outputs: &[IndicatorOutput],
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
     let (macd_line, _, _, _, slow_ema) = latest_macd_store(store, params, outputs);
     let ppo = match (macd_line, slow_ema) {
@@ -8703,7 +8793,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         }
     }
 
@@ -8749,7 +8839,7 @@ mod tests {
             values: ema(&previous_bars, 3),
         };
 
-        assert_eq!(latest_ema(&next_bars, 3, Some(&output)), Some(12.5));
+        assert_eq!(latest_ema(&next_bars, 3, Some(&output.values[..])), Some(12.5));
     }
 
     #[test]
@@ -8778,8 +8868,8 @@ mod tests {
             ema_close_store(&store, 3, &mut HashMap::new())
         );
         assert_eq!(
-            latest_ema(&bars, 3, Some(&previous_output)),
-            latest_ema_store(&store, 3, Some(&previous_output))
+            latest_ema(&bars, 3, Some(&previous_output.values[..])),
+            latest_ema_store(&store, 3, Some(&previous_output.values[..]))
         );
     }
 
@@ -8799,19 +8889,19 @@ mod tests {
         let all_bars = bars(&[1.0, 2.0, 1.0, 3.0, 2.0]);
         let previous_outputs = rsi_outputs(&previous_bars, 3);
         let full_outputs = rsi_outputs(&all_bars, 3);
-        let latest = latest_rsi(&all_bars, 3, &previous_outputs);
+        let latest = latest_rsi(&all_bars, 3, &IndicatorArena::from_outputs(previous_outputs.clone()));
 
         assert_eq!(
             latest.0,
-            output_at(&full_outputs, "value", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "value", all_bars.len() - 1)
         );
         assert_eq!(
             latest.1,
-            output_at(&full_outputs, "avg_gain", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "avg_gain", all_bars.len() - 1)
         );
         assert_eq!(
             latest.2,
-            output_at(&full_outputs, "avg_loss", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "avg_loss", all_bars.len() - 1)
         );
     }
 
@@ -8857,7 +8947,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["rsi:close:14"]);
@@ -8879,7 +8969,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["cci:hlc:20"]);
@@ -8901,7 +8991,7 @@ mod tests {
             multiplier: 3.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(
@@ -8926,7 +9016,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(
@@ -8957,7 +9047,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["psar:ohlc:0.02:0.2"]);
@@ -8979,7 +9069,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(
@@ -9010,7 +9100,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(
@@ -9035,7 +9125,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["roc:close:14"]);
@@ -9057,7 +9147,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["aroon:hl:14"]);
@@ -9079,7 +9169,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["cmf:hlcv:20"]);
@@ -9101,7 +9191,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["adl:hlcv"]);
@@ -9123,7 +9213,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["vwma:close:volume:20"]);
@@ -9188,7 +9278,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["wma:close:20"]);
@@ -9210,7 +9300,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(
@@ -9235,7 +9325,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["linreg:close:20"]);
@@ -9413,7 +9503,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(
@@ -9442,7 +9532,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["mfi:hlcv:14"]);
@@ -9464,7 +9554,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["willr:hlc:14"]);
@@ -9486,7 +9576,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(
@@ -9511,7 +9601,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["atr:ohlc:14"]);
@@ -9533,7 +9623,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["adx:ohlc:14"]);
@@ -9555,7 +9645,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["vwap:hlcv"]);
@@ -9577,7 +9667,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
-            outputs: Vec::new(),
+            outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["stoch:hlc:14:3"]);
@@ -9614,7 +9704,7 @@ mod tests {
             values: obv(&previous_bars),
         };
 
-        assert_eq!(latest_obv(&next_bars, Some(&output)), Some(-1.0));
+        assert_eq!(latest_obv(&next_bars, Some(&output.values[..])), Some(-1.0));
     }
 
     #[test]
@@ -9915,16 +10005,16 @@ mod tests {
         all_bars[1].volume = 4.0;
         let previous_outputs = vwap(&previous_bars, &mut HashMap::new());
         let full_outputs = vwap(&all_bars, &mut HashMap::new());
-        let latest = latest_vwap(&all_bars, &previous_outputs);
+        let latest = latest_vwap(&all_bars, &IndicatorArena::from_outputs(previous_outputs.clone()));
 
         assert_eq!(latest.0, full_outputs[0].values.last().copied().and_then(nan_to_none));
         assert_eq!(
             latest.1,
-            output_at(&full_outputs, "cumulative_pv", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "cumulative_pv", all_bars.len() - 1)
         );
         assert_eq!(
             latest.2,
-            output_at(&full_outputs, "cumulative_volume", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "cumulative_volume", all_bars.len() - 1)
         );
     }
 
@@ -9976,7 +10066,7 @@ mod tests {
             multiplier: 0.0,
             psar_step: 0.0,
             psar_max_step: 0.0,
-            outputs: vec![
+            outputs: IndicatorArena::from_outputs(vec![
                 IndicatorOutput {
                     name: "value".to_string(),
                     values: vec![1.25],
@@ -9989,7 +10079,7 @@ mod tests {
                     name: "avg_loss".to_string(),
                     values: vec![-0.5],
                 },
-            ],
+            ]),
         });
 
         let values = engine.latest_indicator_values_slice(7).unwrap();
@@ -10016,7 +10106,7 @@ mod tests {
             multiplier: 0.0,
             psar_step: 0.0,
             psar_max_step: 0.0,
-            outputs: vec![
+            outputs: IndicatorArena::from_outputs(vec![
                 IndicatorOutput {
                     name: "macd".to_string(),
                     values: vec![1.0, f64::NAN],
@@ -10033,7 +10123,7 @@ mod tests {
                     name: "fast_ema".to_string(),
                     values: vec![99.0, 100.0],
                 },
-            ],
+            ]),
         });
 
         engine.populate_indicator_output_values_scratch(9).unwrap();
@@ -10150,10 +10240,10 @@ mod tests {
         ]);
         let previous_outputs = stochastic(&previous_bars, 3, 2, &mut HashMap::new());
         let full_outputs = stochastic(&all_bars, 3, 2, &mut HashMap::new());
-        let latest = latest_stochastic(&all_bars, 3, 2, &previous_outputs);
+        let latest = latest_stochastic(&all_bars, 3, 2, &IndicatorArena::from_outputs(previous_outputs.clone()));
 
-        assert_eq!(latest.0, output_at(&full_outputs, "k", all_bars.len() - 1));
-        assert_eq!(latest.1, output_at(&full_outputs, "d", all_bars.len() - 1));
+        assert_eq!(latest.0, output_at_vec(&full_outputs, "k", all_bars.len() - 1));
+        assert_eq!(latest.1, output_at_vec(&full_outputs, "d", all_bars.len() - 1));
     }
 
     #[test]
@@ -10174,8 +10264,8 @@ mod tests {
         let full_outputs = stoch_rsi(&all_bars, 3, 3, 2, 2, &mut HashMap::new());
         let latest = latest_stoch_rsi(&all_bars, 3, 3, 2, 2);
 
-        assert_eq!(latest.0, output_at(&full_outputs, "k", all_bars.len() - 1));
-        assert_eq!(latest.1, output_at(&full_outputs, "d", all_bars.len() - 1));
+        assert_eq!(latest.0, output_at_vec(&full_outputs, "k", all_bars.len() - 1));
+        assert_eq!(latest.1, output_at_vec(&full_outputs, "d", all_bars.len() - 1));
         assert!(
             stoch_rsi(&previous_bars, 3, 3, 2, 2, &mut HashMap::new())[0]
                 .values
@@ -10225,7 +10315,7 @@ mod tests {
         };
 
         assert_eq!(
-            latest_atr(&all_bars, 3, Some(&output)),
+            latest_atr(&all_bars, 3, Some(&output.values[..])),
             atr(&all_bars, 3).last().copied().and_then(nan_to_none)
         );
     }
@@ -10268,23 +10358,23 @@ mod tests {
         ]);
         let previous_outputs = supertrend(&previous_bars, 3, 2.0, &mut HashMap::new());
         let full_outputs = supertrend(&all_bars, 3, 2.0, &mut HashMap::new());
-        let latest = latest_supertrend(&all_bars, 3, 2.0, &previous_outputs);
+        let latest = latest_supertrend(&all_bars, 3, 2.0, &IndicatorArena::from_outputs(previous_outputs.clone()));
 
         assert_eq!(
             latest.0,
-            output_at(&full_outputs, "value", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "value", all_bars.len() - 1)
         );
         assert_eq!(
             latest.1,
-            output_at(&full_outputs, "upper_band", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "upper_band", all_bars.len() - 1)
         );
         assert_eq!(
             latest.2,
-            output_at(&full_outputs, "lower_band", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "lower_band", all_bars.len() - 1)
         );
         assert_eq!(
             latest.3,
-            output_at(&full_outputs, "trend", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "trend", all_bars.len() - 1)
         );
     }
 
@@ -10340,33 +10430,33 @@ mod tests {
         ]);
         let previous_outputs = adx(&previous_bars, 3, &mut HashMap::new());
         let full_outputs = adx(&all_bars, 3, &mut HashMap::new());
-        let latest = latest_adx(&all_bars, 3, &previous_outputs);
+        let latest = latest_adx(&all_bars, 3, &IndicatorArena::from_outputs(previous_outputs.clone()));
 
         assert_eq!(
             latest.0,
-            output_at(&full_outputs, "value", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "value", all_bars.len() - 1)
         );
         assert_eq!(
             latest.1,
-            output_at(&full_outputs, "plus_di", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "plus_di", all_bars.len() - 1)
         );
         assert_eq!(
             latest.2,
-            output_at(&full_outputs, "minus_di", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "minus_di", all_bars.len() - 1)
         );
         assert_eq!(
             latest.3,
-            output_at(&full_outputs, "tr_avg", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "tr_avg", all_bars.len() - 1)
         );
         assert_eq!(
             latest.4,
-            output_at(&full_outputs, "plus_dm_avg", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "plus_dm_avg", all_bars.len() - 1)
         );
         assert_eq!(
             latest.5,
-            output_at(&full_outputs, "minus_dm_avg", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "minus_dm_avg", all_bars.len() - 1)
         );
-        assert_eq!(latest.6, output_at(&full_outputs, "dx", all_bars.len() - 1));
+        assert_eq!(latest.6, output_at_vec(&full_outputs, "dx", all_bars.len() - 1));
     }
 
     #[test]
@@ -10410,18 +10500,18 @@ mod tests {
         };
         let previous_outputs = macd(&previous_bars, params, &mut HashMap::new());
         let full_outputs = macd(&all_bars, params, &mut HashMap::new());
-        let latest = latest_macd(&all_bars, params, &previous_outputs);
+        let latest = latest_macd(&all_bars, params, &IndicatorArena::from_outputs(previous_outputs.clone()));
 
         assert_eq!(latest.0, full_outputs[0].values.last().copied().and_then(nan_to_none));
         assert_eq!(latest.1, full_outputs[1].values.last().copied().and_then(nan_to_none));
         assert_eq!(latest.2, full_outputs[2].values.last().copied().and_then(nan_to_none));
         assert_eq!(
             latest.3,
-            output_at(&full_outputs, "fast_ema", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "fast_ema", all_bars.len() - 1)
         );
         assert_eq!(
             latest.4,
-            output_at(&full_outputs, "slow_ema", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "slow_ema", all_bars.len() - 1)
         );
     }
 
@@ -10538,19 +10628,19 @@ mod tests {
         ]);
         let previous_outputs = keltner(&previous_bars, 3, 2.0, &mut HashMap::new());
         let full_outputs = keltner(&all_bars, 3, 2.0, &mut HashMap::new());
-        let latest = latest_keltner(&all_bars, 3, 2.0, &previous_outputs);
+        let latest = latest_keltner(&all_bars, 3, 2.0, &IndicatorArena::from_outputs(previous_outputs.clone()));
 
         assert_eq!(
             latest.0,
-            output_at(&full_outputs, "upper", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "upper", all_bars.len() - 1)
         );
         assert_eq!(
             latest.1,
-            output_at(&full_outputs, "middle", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "middle", all_bars.len() - 1)
         );
         assert_eq!(
             latest.2,
-            output_at(&full_outputs, "lower", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "lower", all_bars.len() - 1)
         );
     }
 
@@ -10606,17 +10696,17 @@ mod tests {
         ]);
         let previous_outputs = parabolic_sar(&previous_bars, 0.02, 0.2, &mut HashMap::new());
         let full_outputs = parabolic_sar(&all_bars, 0.02, 0.2, &mut HashMap::new());
-        let latest = latest_parabolic_sar(&all_bars, 0.02, 0.2, &previous_outputs);
+        let latest = latest_parabolic_sar(&all_bars, 0.02, 0.2, &IndicatorArena::from_outputs(previous_outputs.clone()));
 
         assert_eq!(
             latest.0,
-            output_at(&full_outputs, "value", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "value", all_bars.len() - 1)
         );
-        assert_eq!(latest.1, output_at(&full_outputs, "ep", all_bars.len() - 1));
-        assert_eq!(latest.2, output_at(&full_outputs, "af", all_bars.len() - 1));
+        assert_eq!(latest.1, output_at_vec(&full_outputs, "ep", all_bars.len() - 1));
+        assert_eq!(latest.2, output_at_vec(&full_outputs, "af", all_bars.len() - 1));
         assert_eq!(
             latest.3,
-            output_at(&full_outputs, "trend", all_bars.len() - 1)
+            output_at_vec(&full_outputs, "trend", all_bars.len() - 1)
         );
     }
 
@@ -10633,11 +10723,11 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["tenkan", "kijun", "senkou_a", "senkou_b", "chikou"]
         );
-        assert_eq!(latest.0, output_at(&outputs, "tenkan", bars.len() - 1));
-        assert_eq!(latest.1, output_at(&outputs, "kijun", bars.len() - 1));
-        assert_eq!(latest.2, output_at(&outputs, "senkou_a", bars.len() - 1));
-        assert_eq!(latest.3, output_at(&outputs, "senkou_b", bars.len() - 1));
-        assert_eq!(latest.4, output_at(&outputs, "chikou", bars.len() - 1));
+        assert_eq!(latest.0, output_at_vec(&outputs, "tenkan", bars.len() - 1));
+        assert_eq!(latest.1, output_at_vec(&outputs, "kijun", bars.len() - 1));
+        assert_eq!(latest.2, output_at_vec(&outputs, "senkou_a", bars.len() - 1));
+        assert_eq!(latest.3, output_at_vec(&outputs, "senkou_b", bars.len() - 1));
+        assert_eq!(latest.4, output_at_vec(&outputs, "chikou", bars.len() - 1));
     }
 
     #[test]
@@ -10646,11 +10736,11 @@ mod tests {
         let outputs = pivot_points(&bars, &mut HashMap::new());
         let latest = latest_pivot_points(&bars);
 
-        assert_eq!(latest.0, output_at(&outputs, "pp", bars.len() - 1));
-        assert_eq!(latest.1, output_at(&outputs, "r1", bars.len() - 1));
-        assert_eq!(latest.2, output_at(&outputs, "s1", bars.len() - 1));
-        assert_eq!(latest.3, output_at(&outputs, "r2", bars.len() - 1));
-        assert_eq!(latest.4, output_at(&outputs, "s2", bars.len() - 1));
+        assert_eq!(latest.0, output_at_vec(&outputs, "pp", bars.len() - 1));
+        assert_eq!(latest.1, output_at_vec(&outputs, "r1", bars.len() - 1));
+        assert_eq!(latest.2, output_at_vec(&outputs, "s1", bars.len() - 1));
+        assert_eq!(latest.3, output_at_vec(&outputs, "r2", bars.len() - 1));
+        assert_eq!(latest.4, output_at_vec(&outputs, "s2", bars.len() - 1));
     }
 
     #[test]
@@ -10673,9 +10763,9 @@ mod tests {
         let outputs = aroon(&bars, 3, &mut HashMap::new());
         let latest = latest_aroon(&bars, 3);
 
-        assert_eq!(latest.0, output_at(&outputs, "up", bars.len() - 1));
-        assert_eq!(latest.1, output_at(&outputs, "down", bars.len() - 1));
-        assert_eq!(latest.2, output_at(&outputs, "oscillator", bars.len() - 1));
+        assert_eq!(latest.0, output_at_vec(&outputs, "up", bars.len() - 1));
+        assert_eq!(latest.1, output_at_vec(&outputs, "down", bars.len() - 1));
+        assert_eq!(latest.2, output_at_vec(&outputs, "oscillator", bars.len() - 1));
     }
 
     #[test]
@@ -10710,7 +10800,7 @@ mod tests {
         };
 
         assert_eq!(
-            latest_adl(&all_bars, Some(&output)),
+            latest_adl(&all_bars, Some(&output.values[..])),
             adl(&all_bars).last().copied().and_then(nan_to_none)
         );
     }
@@ -10737,7 +10827,7 @@ mod tests {
         };
 
         assert_eq!(
-            latest_williams_ad(&all_bars, Some(&output)),
+            latest_williams_ad(&all_bars, Some(&output.values[..])),
             williams_ad(&all_bars).last().copied().and_then(nan_to_none)
         );
     }
@@ -10786,9 +10876,9 @@ mod tests {
         let outputs = starc(&bars, 3, 2.0, &mut HashMap::new());
         let latest = latest_starc(&bars, 3, 2.0);
 
-        assert_eq!(latest.0, output_at(&outputs, "upper", bars.len() - 1));
-        assert_eq!(latest.1, output_at(&outputs, "middle", bars.len() - 1));
-        assert_eq!(latest.2, output_at(&outputs, "lower", bars.len() - 1));
+        assert_eq!(latest.0, output_at_vec(&outputs, "upper", bars.len() - 1));
+        assert_eq!(latest.1, output_at_vec(&outputs, "middle", bars.len() - 1));
+        assert_eq!(latest.2, output_at_vec(&outputs, "lower", bars.len() - 1));
     }
 
     #[test]
@@ -10858,9 +10948,9 @@ mod tests {
         let outputs = envelope(&bars, 5, 2.0, &mut HashMap::new());
         let latest = latest_envelope(&bars, 5, 2.0);
 
-        assert_eq!(latest.0, output_at(&outputs, "upper", bars.len() - 1));
-        assert_eq!(latest.1, output_at(&outputs, "middle", bars.len() - 1));
-        assert_eq!(latest.2, output_at(&outputs, "lower", bars.len() - 1));
+        assert_eq!(latest.0, output_at_vec(&outputs, "upper", bars.len() - 1));
+        assert_eq!(latest.1, output_at_vec(&outputs, "middle", bars.len() - 1));
+        assert_eq!(latest.2, output_at_vec(&outputs, "lower", bars.len() - 1));
     }
 
     #[test]
@@ -10976,9 +11066,9 @@ mod tests {
         let outputs = ppo(&bars, params, &mut HashMap::new());
         let latest = latest_ppo(&bars, params);
         let index = bars.len() - 1;
-        assert_eq!(latest.0, output_at(&outputs, "ppo", index));
-        assert_eq!(latest.1, output_at(&outputs, "signal", index));
-        assert_eq!(latest.2, output_at(&outputs, "histogram", index));
+        assert_eq!(latest.0, output_at_vec(&outputs, "ppo", index));
+        assert_eq!(latest.1, output_at_vec(&outputs, "signal", index));
+        assert_eq!(latest.2, output_at_vec(&outputs, "histogram", index));
     }
 
     #[test]

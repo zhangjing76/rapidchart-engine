@@ -1936,8 +1936,8 @@ fn compute_indicator_store(
         "MFI" => one_output(mfi_store(store, period, nodes)),
         "CMF" => one_output(cmf_store(store, period, nodes)),
         "WILLIAMS_R" => one_output(williams_r_store(store, period, nodes)),
-        "OBV" => one_output(obv_store(store, nodes)),
-        "ADL" => one_output(adl_store(store, nodes)),
+        "OBV" => one_output(rc_into_owned(obv_store(store, nodes))),
+        "ADL" => one_output(rc_into_owned(adl_store(store, nodes))),
         "VWAP" => vwap_store(store, nodes),
         "VWMA" => one_output(vwma_store(store, period, nodes)),
         "WILLIAMS_AD" => one_output(williams_ad_store(store, nodes)),
@@ -1946,13 +1946,13 @@ fn compute_indicator_store(
         "SUPERTREND" => supertrend_store(store, period, multiplier, nodes),
         "KELTNER" => keltner_store(store, period, multiplier, nodes),
         "STARC" => starc_store(store, period, multiplier, nodes),
-        "WMA" => one_output(wma_store(store, period, nodes)),
+        "WMA" => one_output(rc_into_owned(wma_store(store, period, nodes))),
         "HMA" => one_output(hma_store(store, period, nodes)),
         "LINEAR_REGRESSION" => one_output(linear_regression_store(store, period, nodes)),
         "DEMA" => one_output(dema_store(store, period, nodes)),
         "TEMA" => one_output(tema_store(store, period, nodes)),
         "TRIMA" => one_output(trima_store(store, period, nodes)),
-        "STDDEV" => one_output(stddev_store(store, period, nodes)),
+        "STDDEV" => one_output(rc_into_owned(stddev_store(store, period, nodes))),
         "ENVELOPE" => envelope_store(store, period, multiplier, nodes),
         "TRIX" => one_output(trix_store(store, period, nodes)),
         "TSI" => one_output(tsi_store(store, period, stoch_period, nodes)),
@@ -3064,15 +3064,15 @@ fn latest_wma(bars: &[Bar], period: usize) -> Option<f64> {
     wma(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn wma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn wma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("wma:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let values: Vec<_> = store.close.iter().copied().collect();
-    let out = wma_from_values(&values, period);
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(wma_from_values(&values, period));
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_wma_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -3457,15 +3457,15 @@ fn latest_stddev(bars: &[Bar], period: usize) -> Option<f64> {
     stddev(bars, period).last().copied().and_then(nan_to_none)
 }
 
-fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("stddev:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
     for index in period - 1..store.len() {
         let window = &store.close[index + 1 - period..=index];
@@ -3480,8 +3480,8 @@ fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Se
             / period as f64;
         out[index] = variance.sqrt();
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_stddev_store(store: &CandleStore, period: usize) -> Option<f64> {
@@ -4460,14 +4460,14 @@ fn rsi_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     values
 }
 
-fn rsi_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Series {
+fn rsi_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("rsi:close:{period}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
-    let values = rsi_outputs_store(store, period, nodes).remove(0).values;
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(rsi_outputs_store(store, period, nodes).remove(0).values);
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn obv(bars: &[Bar]) -> Series {
@@ -4517,10 +4517,10 @@ fn obv_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     values
 }
 
-fn obv_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
+fn obv_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "obv:close:volume".to_string();
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = Vec::with_capacity(store.len());
     let mut current = 0.0;
@@ -4536,8 +4536,8 @@ fn obv_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
         }
         out.push(current);
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_obv_store(store: &CandleStore, output: Option<&[f64]>) -> Option<f64> {
@@ -4593,10 +4593,10 @@ fn adl_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     values
 }
 
-fn adl_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
+fn adl_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "adl:hlcv".to_string();
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = Vec::with_capacity(store.len());
     let mut current = 0.0;
@@ -4606,8 +4606,8 @@ fn adl_store(store: &CandleStore, nodes: &mut NodeCache) -> Series {
                 * store.volume[index];
         out.push(current);
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
 fn latest_adl(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {

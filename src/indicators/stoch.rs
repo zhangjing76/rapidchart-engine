@@ -1,11 +1,11 @@
+use crate::output_at;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore, Series};
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn stochastic(
     bars: &[Bar],
     period: usize,
@@ -75,7 +75,7 @@ pub fn smooth_series(values: &[f64], smooth: usize) -> Series {
     if smooth == 0 {
         return out;
     }
-    for index in 0..values.len() {
+    for (index, out_val) in out.iter_mut().enumerate() {
         if index + 1 < smooth {
             continue;
         }
@@ -83,7 +83,7 @@ pub fn smooth_series(values: &[f64], smooth: usize) -> Series {
         if window.iter().any(|value| value.is_nan()) {
             continue;
         }
-        out[index] = window.iter().sum::<f64>() / smooth as f64;
+        *out_val = window.iter().sum::<f64>() / smooth as f64;
     }
     out
 }
@@ -92,7 +92,7 @@ pub fn stochastic_k_store(store: &CandleStore, period: usize) -> Series {
     if period == 0 || store.len() < period {
         return out;
     }
-    for index in period - 1..store.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period - 1) {
         let window = index + 1 - period..=index;
         let highest_high = window
             .clone()
@@ -100,7 +100,7 @@ pub fn stochastic_k_store(store: &CandleStore, period: usize) -> Series {
             .fold(f64::MIN, f64::max);
         let lowest_low = window.map(|i| store.low[i]).fold(f64::MAX, f64::min);
         let range = highest_high - lowest_low;
-        out[index] = if range == 0.0 {
+        *item = if range == 0.0 {
             0.0
         } else {
             100.0 * (store.close[index] - lowest_low) / range
@@ -132,6 +132,7 @@ pub fn stochastic_store(
     );
     outputs
 }
+#[allow(dead_code)]
 pub fn latest_stochastic(
     bars: &[Bar],
     period: usize,

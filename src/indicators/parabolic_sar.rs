@@ -1,9 +1,8 @@
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -295,6 +294,7 @@ pub fn parabolic_sar_store(
         },
     ]
 }
+#[allow(dead_code)]
 pub fn latest_parabolic_sar(
     bars: &[Bar],
     step: f64,

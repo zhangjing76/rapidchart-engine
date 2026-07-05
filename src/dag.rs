@@ -765,6 +765,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn validate_indicator(
     kind: &str,
     period: usize,
@@ -825,11 +826,7 @@ pub(crate) fn validate_indicator(
         return Err(wasm_bindgen::JsValue::from_str(
             "period must be greater than zero",
         ));
-    } else if kind == "STOCH_RSI" && stoch_period == 0 {
-        return Err(wasm_bindgen::JsValue::from_str(
-            "stoch_period must be greater than zero",
-        ));
-    } else if kind == "TSI" && stoch_period == 0 {
+    } else if (kind == "STOCH_RSI" || kind == "TSI") && stoch_period == 0 {
         return Err(wasm_bindgen::JsValue::from_str(
             "stoch_period must be greater than zero",
         ));

@@ -1,6 +1,6 @@
 use crate::indicators::adl::{money_flow_multiplier, money_flow_multiplier_parts};
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
@@ -35,7 +35,7 @@ pub fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    for index in period - 1..store.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period - 1) {
         let start = index + 1 - period;
         let mut mfv_sum = 0.0;
         let mut volume_sum = 0.0;
@@ -47,7 +47,7 @@ pub fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
             ) * store.volume[window_index];
             volume_sum += store.volume[window_index];
         }
-        out[index] = if volume_sum != 0.0 {
+        *item = if volume_sum != 0.0 {
             mfv_sum / volume_sum
         } else {
             f64::NAN
@@ -66,6 +66,7 @@ pub fn cmf_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     nodes.insert(key, Rc::new(values.clone()));
     values
 }
+#[allow(dead_code)]
 pub fn latest_cmf(bars: &[Bar], period: usize) -> Option<f64> {
     cmf(bars, period).last().copied().and_then(nan_to_none)
 }

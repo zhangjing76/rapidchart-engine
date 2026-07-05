@@ -1,10 +1,11 @@
-use crate::indicators::wma::{latest_wma_store, wma, wma_close, wma_from_values, wma_store};
+use crate::indicators::wma::{wma_close, wma_from_values, wma_store};
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn hma(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("hma:close:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -53,6 +54,7 @@ pub fn hma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_hma(bars: &[Bar], period: usize) -> Option<f64> {
     hma(bars, period, &mut HashMap::new())
         .last()

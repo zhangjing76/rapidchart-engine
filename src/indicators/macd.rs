@@ -1,15 +1,24 @@
-use crate::indicators::adl::{adl_store, latest_adl_store};
 use crate::indicators::ema::{ema_close, ema_close_store, ema_next, ema_series, ema_values};
+use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::MacdParams;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[allow(dead_code)]
+type MacdResult = (
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+);
+
+#[allow(dead_code)]
 pub fn macd(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let fast = ema_close(bars, params.fast, nodes);
     let slow = ema_close(bars, params.slow, nodes);
@@ -93,17 +102,8 @@ pub fn ppo(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Vec<Indic
         },
     ]
 }
-pub fn latest_macd(
-    bars: &[Bar],
-    params: MacdParams,
-    outputs: &IndicatorArena,
-) -> (
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-) {
+#[allow(dead_code)]
+pub fn latest_macd(bars: &[Bar], params: MacdParams, outputs: &IndicatorArena) -> MacdResult {
     let last = match bars.last() {
         Some(last) => last,
         None => return (None, None, None, None, None),
@@ -233,13 +233,7 @@ pub fn latest_macd_store(
     store: &CandleStore,
     params: MacdParams,
     outputs: &IndicatorArena,
-) -> (
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-) {
+) -> MacdResult {
     let last = match store.last_close() {
         Some(last) => last,
         None => return (None, None, None, None, None),
@@ -265,6 +259,7 @@ pub fn latest_macd_store(
         Some(slow),
     )
 }
+#[allow(dead_code)]
 pub fn latest_ppo(bars: &[Bar], params: MacdParams) -> (Option<f64>, Option<f64>, Option<f64>) {
     let outputs = ppo(bars, params, &mut HashMap::new());
     let index = bars.len().saturating_sub(1);

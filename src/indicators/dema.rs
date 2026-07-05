@@ -1,10 +1,11 @@
-use crate::indicators::ema::{ema_close, ema_close_store, ema_next, ema_series, ema_values};
+use crate::indicators::ema::{ema_close, ema_close_store, ema_series};
 use crate::NodeCache;
 use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn dema(bars: &[Bar], period: usize) -> Series {
     let ema1 = ema_close(bars, period, &mut HashMap::new());
     let ema2 = ema_series(&ema1, period);
@@ -16,6 +17,7 @@ pub fn dema(bars: &[Bar], period: usize) -> Series {
         })
         .collect()
 }
+#[allow(dead_code)]
 pub fn dema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("dema:value:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -63,6 +65,7 @@ pub fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_dema(bars: &[Bar], period: usize) -> Option<f64> {
     dema(bars, period).last().copied().and_then(nan_to_none)
 }

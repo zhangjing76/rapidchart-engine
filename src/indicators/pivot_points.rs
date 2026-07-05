@@ -1,8 +1,16 @@
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore};
 use std::rc::Rc;
+
+#[allow(dead_code)]
+type PivotPointsResult = (
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+);
 
 pub fn pivot_points(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let mut pp = vec![f64::NAN; bars.len()];
@@ -91,15 +99,8 @@ pub fn pivot_points_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<Ind
         },
     ]
 }
-pub fn latest_pivot_points(
-    bars: &[Bar],
-) -> (
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-) {
+#[allow(dead_code)]
+pub fn latest_pivot_points(bars: &[Bar]) -> PivotPointsResult {
     let previous = match bars.iter().nth_back(1) {
         Some(previous) => previous,
         None => return (None, None, None, None, None),
@@ -114,15 +115,7 @@ pub fn latest_pivot_points(
         Some(pivot - range),
     )
 }
-pub fn latest_pivot_points_store(
-    store: &CandleStore,
-) -> (
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-) {
+pub fn latest_pivot_points_store(store: &CandleStore) -> PivotPointsResult {
     if store.len() < 2 {
         return (None, None, None, None, None);
     }

@@ -1,12 +1,12 @@
-use crate::indicators::atr::{atr_node, atr_store, latest_atr, latest_atr_store, true_range_store};
+use crate::indicators::atr::{atr_node, atr_store, latest_atr, latest_atr_store};
 use crate::indicators::bollinger::bollinger_outputs;
 use crate::indicators::ema::{ema_close, ema_close_store, latest_ema, latest_ema_store};
 use crate::indicators::sma::{latest_sma, latest_sma_store, sma_close, sma_close_store};
+use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore};
 use std::rc::Rc;
 
 pub fn keltner(
@@ -19,14 +19,16 @@ pub fn keltner(
     let atr = atr_node(bars, period, nodes);
     let mut upper = vec![f64::NAN; bars.len()];
     let mut lower = vec![f64::NAN; bars.len()];
-    for index in 0..bars.len() {
-        let mid = middle[index];
-        let atr_value = atr[index];
+    for ((upper_val, lower_val), (&mid, &atr_value)) in upper
+        .iter_mut()
+        .zip(lower.iter_mut())
+        .zip(middle.iter().zip(atr.iter()))
+    {
         if mid.is_nan() || atr_value.is_nan() {
             continue;
         };
-        upper[index] = mid + multiplier * atr_value;
-        lower[index] = mid - multiplier * atr_value;
+        *upper_val = mid + multiplier * atr_value;
+        *lower_val = mid - multiplier * atr_value;
     }
     let outputs = vec![
         IndicatorOutput {
@@ -60,14 +62,16 @@ pub fn keltner_store(
     let atr = rc_into_owned(atr_store(store, period, nodes));
     let mut upper = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
-    for index in 0..store.len() {
-        let mid = middle[index];
-        let atr_value = atr[index];
+    for ((upper_val, lower_val), (&mid, &atr_value)) in upper
+        .iter_mut()
+        .zip(lower.iter_mut())
+        .zip(middle.iter().zip(atr.iter()))
+    {
         if mid.is_nan() || atr_value.is_nan() {
             continue;
         };
-        upper[index] = mid + multiplier * atr_value;
-        lower[index] = mid - multiplier * atr_value;
+        *upper_val = mid + multiplier * atr_value;
+        *lower_val = mid - multiplier * atr_value;
     }
     let outputs = vec![
         IndicatorOutput {
@@ -91,6 +95,7 @@ pub fn keltner_store(
     }
     outputs
 }
+#[allow(dead_code)]
 pub fn latest_keltner(
     bars: &[Bar],
     period: usize,
@@ -135,14 +140,16 @@ pub fn starc(
     let atr = atr_node(bars, period, nodes);
     let mut upper = vec![f64::NAN; bars.len()];
     let mut lower = vec![f64::NAN; bars.len()];
-    for index in 0..bars.len() {
-        let mid = middle[index];
-        let atr_value = atr[index];
+    for ((upper_val, lower_val), (&mid, &atr_value)) in upper
+        .iter_mut()
+        .zip(lower.iter_mut())
+        .zip(middle.iter().zip(atr.iter()))
+    {
         if mid.is_nan() || atr_value.is_nan() {
             continue;
         };
-        upper[index] = mid + multiplier * atr_value;
-        lower[index] = mid - multiplier * atr_value;
+        *upper_val = mid + multiplier * atr_value;
+        *lower_val = mid - multiplier * atr_value;
     }
     let outputs = bollinger_outputs(upper, middle, lower);
     for output in &outputs {
@@ -163,14 +170,16 @@ pub fn starc_store(
     let atr = rc_into_owned(atr_store(store, period, nodes));
     let mut upper = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
-    for index in 0..store.len() {
-        let mid = middle[index];
-        let atr_value = atr[index];
+    for ((upper_val, lower_val), (&mid, &atr_value)) in upper
+        .iter_mut()
+        .zip(lower.iter_mut())
+        .zip(middle.iter().zip(atr.iter()))
+    {
         if mid.is_nan() || atr_value.is_nan() {
             continue;
         };
-        upper[index] = mid + multiplier * atr_value;
-        lower[index] = mid - multiplier * atr_value;
+        *upper_val = mid + multiplier * atr_value;
+        *lower_val = mid - multiplier * atr_value;
     }
     let outputs = bollinger_outputs(upper, middle, lower);
     for output in &outputs {
@@ -181,6 +190,7 @@ pub fn starc_store(
     }
     outputs
 }
+#[allow(dead_code)]
 pub fn latest_starc(
     bars: &[Bar],
     period: usize,

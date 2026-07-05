@@ -1,8 +1,9 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn ema(bars: &[Bar], period: usize) -> Series {
     ema_values(bars.iter().map(|bar| bar.close), period)
 }
@@ -56,6 +57,7 @@ pub fn ema_series(values: &[f64], period: usize) -> Series {
     }
     out
 }
+#[allow(dead_code)]
 pub fn latest_ema(bars: &[Bar], period: usize, output: Option<&[f64]>) -> Option<f64> {
     let last = bars.last()?;
     if period == 0 || bars.len() == 1 {

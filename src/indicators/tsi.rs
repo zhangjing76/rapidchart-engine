@@ -1,10 +1,11 @@
 use crate::indicators::ema::ema_series;
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn tsi(bars: &[Bar], long: usize, short: usize) -> Series {
     let mut momentum = vec![f64::NAN; bars.len()];
     let mut abs_momentum = vec![f64::NAN; bars.len()];
@@ -26,6 +27,7 @@ pub fn tsi(bars: &[Bar], long: usize, short: usize) -> Series {
         })
         .collect()
 }
+#[allow(dead_code)]
 pub fn tsi_node(bars: &[Bar], long: usize, short: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("tsi:{long}:{short}");
     if let Some(values) = nodes.get(&key) {
@@ -69,6 +71,7 @@ pub fn tsi_store(
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_tsi(bars: &[Bar], long: usize, short: usize) -> Option<f64> {
     tsi(bars, long, short).last().copied().and_then(nan_to_none)
 }

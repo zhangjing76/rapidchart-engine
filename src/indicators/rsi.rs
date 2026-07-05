@@ -1,12 +1,12 @@
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{output_at, output_at_vec};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn rsi(bars: &[Bar], period: usize) -> Series {
     rsi_outputs(bars, period).remove(0).values
 }
@@ -168,6 +168,7 @@ pub fn rsi_value(avg_gain: f64, avg_loss: f64) -> f64 {
         100.0 - 100.0 / (1.0 + avg_gain / avg_loss)
     }
 }
+#[allow(dead_code)]
 pub fn latest_rsi(
     bars: &[Bar],
     period: usize,

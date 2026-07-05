@@ -1,12 +1,12 @@
 use crate::indicators::cci::{typical_price, typical_price_parts};
+use crate::output_at;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore, Series};
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn vwap(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     if let Some(values) = nodes.get("vwap:hlcv") {
         return vwap_outputs(
@@ -67,11 +67,15 @@ pub fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOu
     let mut cumulative_volume_values = Vec::with_capacity(store.len());
     let mut cumulative_pv = 0.0;
     let mut cumulative_volume = 0.0;
-    for index in 0..store.len() {
-        cumulative_pv +=
-            typical_price_parts(store.high[index], store.low[index], store.close[index])
-                * store.volume[index];
-        cumulative_volume += store.volume[index];
+    for (((&high, &low), &close), &volume) in store
+        .high
+        .iter()
+        .zip(store.low.iter())
+        .zip(store.close.iter())
+        .zip(store.volume.iter())
+    {
+        cumulative_pv += typical_price_parts(high, low, close) * volume;
+        cumulative_volume += volume;
         values.push(if cumulative_volume > 0.0 {
             cumulative_pv / cumulative_volume
         } else {
@@ -111,6 +115,7 @@ pub fn vwap_outputs(
         },
     ]
 }
+#[allow(dead_code)]
 pub fn latest_vwap(
     bars: &[Bar],
     outputs: &IndicatorArena,

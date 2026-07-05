@@ -1,10 +1,11 @@
 use crate::indicators::roc::{roc, roc_node, roc_store};
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn kst(bars: &[Bar]) -> Series {
     let roc1 = roc(bars, 10);
     let roc2 = roc(bars, 15);
@@ -26,6 +27,7 @@ pub fn kst(bars: &[Bar]) -> Series {
         })
         .collect()
 }
+#[allow(dead_code)]
 pub fn kst_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     let key = "kst:value".to_string();
     if let Some(values) = nodes.get(&key) {
@@ -83,6 +85,7 @@ pub fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_kst(bars: &[Bar]) -> Option<f64> {
     kst(bars).last().copied().and_then(nan_to_none)
 }

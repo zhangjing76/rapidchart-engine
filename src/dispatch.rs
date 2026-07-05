@@ -36,7 +36,7 @@ use crate::indicators::pivot_points::{pivot_points, pivot_points_store};
 use crate::indicators::roc::{roc_node, roc_store};
 use crate::indicators::rsi::{rsi_outputs, rsi_outputs_store};
 use crate::indicators::sma::{sma_close, sma_close_store};
-use crate::indicators::stddev::{stddev_node, stddev_store};
+use crate::indicators::stddev::stddev_store;
 use crate::indicators::stoch::{stochastic, stochastic_store};
 use crate::indicators::stoch_rsi::{stoch_rsi, stoch_rsi_store};
 use crate::indicators::supertrend::{supertrend, supertrend_store};
@@ -51,6 +51,7 @@ use crate::indicators::williams_ad::{williams_ad_node, williams_ad_store};
 use crate::indicators::williams_r::{williams_r_node, williams_r_store};
 use crate::indicators::wma::{wma_close, wma_store};
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn compute_indicator(
     bars: &[Bar],
     kind: &str,
@@ -144,6 +145,7 @@ pub(crate) fn compute_indicator(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn compute_indicator_store(
     store: &CandleStore,
     kind: &str,

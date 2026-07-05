@@ -1,6 +1,6 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -89,6 +89,7 @@ pub fn ultimate_oscillator_store(
     nodes.insert(key, Rc::new(out.clone()));
     out
 }
+#[allow(dead_code)]
 pub fn latest_ultimate_oscillator(
     bars: &[Bar],
     short: usize,

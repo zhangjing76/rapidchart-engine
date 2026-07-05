@@ -1,5 +1,4 @@
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
@@ -41,7 +40,7 @@ pub fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCach
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    for index in period - 1..store.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period - 1) {
         let window = index + 1 - period..=index;
         let highest_high = window
             .clone()
@@ -49,7 +48,7 @@ pub fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCach
             .fold(f64::MIN, f64::max);
         let lowest_low = window.map(|i| store.low[i]).fold(f64::MAX, f64::min);
         let range = highest_high - lowest_low;
-        out[index] = if range == 0.0 {
+        *item = if range == 0.0 {
             0.0
         } else {
             -100.0 * (highest_high - store.close[index]) / range
@@ -59,6 +58,7 @@ pub fn williams_r_store(store: &CandleStore, period: usize, nodes: &mut NodeCach
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_williams_r(bars: &[Bar], period: usize) -> Option<f64> {
     if period == 0 || bars.len() < period {
         return None;

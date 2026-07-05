@@ -146,6 +146,7 @@ impl IndicatorArena {
     }
 
     /// Number of output slots.
+    #[allow(dead_code)]
     fn num_slots(&self) -> usize {
         self.slots.len()
     }

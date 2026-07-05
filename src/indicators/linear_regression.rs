@@ -1,5 +1,5 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -63,7 +63,7 @@ pub fn linear_regression_store(
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    for index in period - 1..store.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period - 1) {
         let window = &store.close[index + 1 - period..=index];
         let sum_y = window.iter().sum::<f64>();
         let sum_xy = window
@@ -73,12 +73,13 @@ pub fn linear_regression_store(
             .sum::<f64>();
         let slope = (n * sum_xy - sum_x * sum_y) / denominator;
         let intercept = (sum_y - slope * sum_x) / n;
-        out[index] = intercept + slope * (period - 1) as f64;
+        *item = intercept + slope * (period - 1) as f64;
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_linear_regression(bars: &[Bar], period: usize) -> Option<f64> {
     linear_regression(bars, period)
         .last()

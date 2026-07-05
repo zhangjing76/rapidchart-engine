@@ -5,6 +5,7 @@ use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn trix(bars: &[Bar], period: usize) -> Series {
     let ema1 = ema_close(bars, period, &mut HashMap::new());
     let ema2 = ema_series(&ema1, period);
@@ -86,6 +87,7 @@ pub fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_trix(bars: &[Bar], period: usize) -> Option<f64> {
     trix(bars, period).last().copied().and_then(nan_to_none)
 }

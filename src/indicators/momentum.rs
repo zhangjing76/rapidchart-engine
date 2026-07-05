@@ -1,5 +1,5 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -34,13 +34,14 @@ pub fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache)
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    for index in period..store.len() {
-        out[index] = store.close[index] - store.close[index - period];
+    for (index, item) in out.iter_mut().enumerate().skip(period) {
+        *item = store.close[index] - store.close[index - period];
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_momentum(bars: &[Bar], period: usize) -> Option<f64> {
     momentum(bars, period).last().copied().and_then(nan_to_none)
 }

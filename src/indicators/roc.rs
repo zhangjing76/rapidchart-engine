@@ -1,5 +1,5 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
@@ -38,9 +38,9 @@ pub fn roc_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    for index in period..store.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period) {
         let previous = store.close[index - period];
-        out[index] = if previous == 0.0 {
+        *item = if previous == 0.0 {
             0.0
         } else {
             100.0 * (store.close[index] / previous - 1.0)
@@ -50,6 +50,7 @@ pub fn roc_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_roc(bars: &[Bar], period: usize) -> Option<f64> {
     roc(bars, period).last().copied().and_then(nan_to_none)
 }

@@ -1,5 +1,5 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -44,6 +44,7 @@ pub fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_bop(bars: &[Bar]) -> Option<f64> {
     bop(bars).last().copied().and_then(nan_to_none)
 }

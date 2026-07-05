@@ -1,12 +1,13 @@
 use crate::indicators::adl::{adl, adl_node, adl_store};
 use crate::indicators::ema::ema_series;
+use crate::nan_to_none;
 use crate::MacdParams;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn chaikin_oscillator(bars: &[Bar], params: MacdParams) -> Series {
     let adl = adl(bars);
     let fast = ema_series(&adl, params.fast);
@@ -61,6 +62,7 @@ pub fn chaikin_oscillator_store(
     nodes.insert(key, Rc::new(values.clone()));
     values
 }
+#[allow(dead_code)]
 pub fn chaikin_volatility(bars: &[Bar], period: usize) -> Series {
     let ranges: Vec<_> = bars.iter().map(|bar| bar.high - bar.low).collect();
     let ema = ema_series(&ranges, period);
@@ -142,6 +144,7 @@ pub fn chaikin_volatility_store(
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_chaikin_volatility(bars: &[Bar], period: usize) -> Option<f64> {
     chaikin_volatility(bars, period)
         .last()
@@ -154,6 +157,7 @@ pub fn latest_chaikin_volatility_store(store: &CandleStore, period: usize) -> Op
         .copied()
         .and_then(nan_to_none)
 }
+#[allow(dead_code)]
 pub fn latest_chaikin_oscillator(bars: &[Bar], params: MacdParams) -> Option<f64> {
     chaikin_oscillator(bars, params)
         .last()

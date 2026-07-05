@@ -1,10 +1,18 @@
+use crate::output_at_vec;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore};
 use std::collections::HashMap;
 use std::rc::Rc;
+
+#[allow(dead_code)]
+type IchimokuResult = (
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+);
 
 pub fn ichimoku(
     bars: &[Bar],
@@ -58,20 +66,26 @@ pub fn ichimoku(
     let mut senkou_a = vec![f64::NAN; bars.len()];
     let mut senkou_b = vec![f64::NAN; bars.len()];
     let chikou: Vec<_> = bars.iter().map(|bar| bar.close).collect();
-    for index in 0..bars.len() {
+    for (index, (((tenkan_val, kijun_val), senkou_a_val), senkou_b_val)) in tenkan
+        .iter_mut()
+        .zip(kijun.iter_mut())
+        .zip(senkou_a.iter_mut())
+        .zip(senkou_b.iter_mut())
+        .enumerate()
+    {
         if index + 1 >= tenkan_period {
-            tenkan[index] = midpoint(&bars[index + 1 - tenkan_period..=index]);
+            *tenkan_val = midpoint(&bars[index + 1 - tenkan_period..=index]);
         }
         if index + 1 >= kijun_period {
-            kijun[index] = midpoint(&bars[index + 1 - kijun_period..=index]);
+            *kijun_val = midpoint(&bars[index + 1 - kijun_period..=index]);
         }
-        let tenkan_value = tenkan[index];
-        let kijun_value = kijun[index];
+        let tenkan_value = *tenkan_val;
+        let kijun_value = *kijun_val;
         if !tenkan_value.is_nan() && !kijun_value.is_nan() {
-            senkou_a[index] = (tenkan_value + kijun_value) / 2.0;
+            *senkou_a_val = (tenkan_value + kijun_value) / 2.0;
         }
         if index + 1 >= senkou_b_period {
-            senkou_b[index] = midpoint(&bars[index + 1 - senkou_b_period..=index]);
+            *senkou_b_val = midpoint(&bars[index + 1 - senkou_b_period..=index]);
         }
     }
     nodes.insert(tenkan_key, Rc::new(tenkan.clone()));
@@ -153,21 +167,27 @@ pub fn ichimoku_store(
     let mut kijun = vec![f64::NAN; store.len()];
     let mut senkou_a = vec![f64::NAN; store.len()];
     let mut senkou_b = vec![f64::NAN; store.len()];
-    let chikou: Vec<_> = store.close.iter().copied().collect();
-    for index in 0..store.len() {
+    let chikou = store.close.to_vec();
+    for (index, (((tenkan_val, kijun_val), senkou_a_val), senkou_b_val)) in tenkan
+        .iter_mut()
+        .zip(kijun.iter_mut())
+        .zip(senkou_a.iter_mut())
+        .zip(senkou_b.iter_mut())
+        .enumerate()
+    {
         if index + 1 >= tenkan_period {
-            tenkan[index] = midpoint_store(store, index + 1 - tenkan_period, index);
+            *tenkan_val = midpoint_store(store, index + 1 - tenkan_period, index);
         }
         if index + 1 >= kijun_period {
-            kijun[index] = midpoint_store(store, index + 1 - kijun_period, index);
+            *kijun_val = midpoint_store(store, index + 1 - kijun_period, index);
         }
-        let tenkan_value = tenkan[index];
-        let kijun_value = kijun[index];
+        let tenkan_value = *tenkan_val;
+        let kijun_value = *kijun_val;
         if !tenkan_value.is_nan() && !kijun_value.is_nan() {
-            senkou_a[index] = (tenkan_value + kijun_value) / 2.0;
+            *senkou_a_val = (tenkan_value + kijun_value) / 2.0;
         }
         if index + 1 >= senkou_b_period {
-            senkou_b[index] = midpoint_store(store, index + 1 - senkou_b_period, index);
+            *senkou_b_val = midpoint_store(store, index + 1 - senkou_b_period, index);
         }
     }
     nodes.insert(tenkan_key, Rc::new(tenkan.clone()));
@@ -198,18 +218,13 @@ pub fn ichimoku_store(
         },
     ]
 }
+#[allow(dead_code)]
 pub fn latest_ichimoku(
     bars: &[Bar],
     tenkan_period: usize,
     kijun_period: usize,
     senkou_b_period: usize,
-) -> (
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-) {
+) -> IchimokuResult {
     let outputs = ichimoku(
         bars,
         tenkan_period,
@@ -231,13 +246,7 @@ pub fn latest_ichimoku_store(
     tenkan_period: usize,
     kijun_period: usize,
     senkou_b_period: usize,
-) -> (
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-) {
+) -> IchimokuResult {
     let outputs = ichimoku_store(
         store,
         tenkan_period,

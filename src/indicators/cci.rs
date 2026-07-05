@@ -1,5 +1,4 @@
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
@@ -54,7 +53,7 @@ pub fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    for index in period - 1..store.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period - 1) {
         let window = index + 1 - period..=index;
         let typical_prices: Vec<_> = window.clone().map(|i| typical_price_at(store, i)).collect();
         let sma = typical_prices.iter().sum::<f64>() / period as f64;
@@ -63,7 +62,7 @@ pub fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
             .map(|value| (value - sma).abs())
             .sum::<f64>()
             / period as f64;
-        out[index] = if mean_deviation == 0.0 {
+        *item = if mean_deviation == 0.0 {
             0.0
         } else {
             (typical_price_at(store, index) - sma) / (0.015 * mean_deviation)
@@ -73,6 +72,7 @@ pub fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_cci(bars: &[Bar], period: usize) -> Option<f64> {
     if period == 0 || bars.len() < period {
         return None;

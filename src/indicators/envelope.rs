@@ -1,10 +1,11 @@
 use crate::indicators::sma::{latest_sma, latest_sma_store, sma_close, sma_close_store};
+use crate::rc_into_owned;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore};
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn envelope(
     bars: &[Bar],
     period: usize,
@@ -145,6 +146,7 @@ pub fn envelope_store(
         },
     ]
 }
+#[allow(dead_code)]
 pub fn latest_envelope(
     bars: &[Bar],
     period: usize,

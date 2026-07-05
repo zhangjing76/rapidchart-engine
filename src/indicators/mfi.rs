@@ -1,15 +1,15 @@
 use crate::indicators::cci::{typical_price, typical_price_at};
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn mfi(bars: &[Bar], period: usize) -> Series {
     let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() <= period {
         return out;
     }
-    for index in period..bars.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period) {
         let mut positive_flow = 0.0;
         let mut negative_flow = 0.0;
         for current in index + 1 - period..=index {
@@ -23,10 +23,11 @@ pub fn mfi(bars: &[Bar], period: usize) -> Series {
                 negative_flow += raw_flow;
             }
         }
-        out[index] = mfi_value(positive_flow, negative_flow);
+        *item = mfi_value(positive_flow, negative_flow);
     }
     out
 }
+#[allow(dead_code)]
 pub fn mfi_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("mfi:hlcv:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -44,6 +45,7 @@ pub fn mfi_value(positive_flow: f64, negative_flow: f64) -> f64 {
         100.0 - 100.0 / (1.0 + money_ratio)
     }
 }
+#[allow(dead_code)]
 pub fn latest_mfi(bars: &[Bar], period: usize) -> Option<f64> {
     if period == 0 || bars.len() <= period {
         return None;
@@ -74,7 +76,7 @@ pub fn mfi_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    for index in period..store.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period) {
         let mut positive_flow = 0.0;
         let mut negative_flow = 0.0;
         for current in index + 1 - period..=index {
@@ -88,7 +90,7 @@ pub fn mfi_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
                 negative_flow += raw_flow;
             }
         }
-        out[index] = mfi_value(positive_flow, negative_flow);
+        *item = mfi_value(positive_flow, negative_flow);
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));

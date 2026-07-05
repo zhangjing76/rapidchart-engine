@@ -1,5 +1,5 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
@@ -39,16 +39,21 @@ pub fn adl_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     }
     let mut out = Vec::with_capacity(store.len());
     let mut current = 0.0;
-    for index in 0..store.len() {
-        current +=
-            money_flow_multiplier_parts(store.high[index], store.low[index], store.close[index])
-                * store.volume[index];
+    for (((&high, &low), &close), &volume) in store
+        .high
+        .iter()
+        .zip(store.low.iter())
+        .zip(store.close.iter())
+        .zip(store.volume.iter())
+    {
+        current += money_flow_multiplier_parts(high, low, close) * volume;
         out.push(current);
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_adl(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {
     let last = bars.last()?;
     let previous = bars

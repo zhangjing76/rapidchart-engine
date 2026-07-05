@@ -1,8 +1,9 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn obv(bars: &[Bar]) -> Series {
     let mut out = Vec::with_capacity(bars.len());
     let mut current = 0.0;
@@ -19,6 +20,7 @@ pub fn obv(bars: &[Bar]) -> Series {
     }
     out
 }
+#[allow(dead_code)]
 pub fn obv_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
     let key = "obv:close:volume".to_string();
     if let Some(values) = nodes.get(&key) {
@@ -35,14 +37,13 @@ pub fn obv_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     }
     let mut out = Vec::with_capacity(store.len());
     let mut current = 0.0;
-    for index in 0..store.len() {
+    for (index, (&close, &volume)) in store.close.iter().zip(store.volume.iter()).enumerate() {
         if index > 0 {
             let previous = store.close[index - 1];
-            let close = store.close[index];
             if close > previous {
-                current += store.volume[index];
+                current += volume;
             } else if close < previous {
-                current -= store.volume[index];
+                current -= volume;
             }
         }
         out.push(current);
@@ -51,6 +52,7 @@ pub fn obv_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_obv(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {
     let last = bars.last()?;
     if bars.len() == 1 {

@@ -58,6 +58,7 @@ pub(crate) fn output_at_vec(
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+#[allow(dead_code)]
 pub(crate) fn upsert_bar(bars: &mut Vec<Bar>, bar: Bar) -> bool {
     match bars.last_mut() {
         Some(last) if last.time == bar.time => {
@@ -95,7 +96,6 @@ pub(crate) fn upsert_candle_store(bars: &mut CandleStore, bar: Bar) -> bool {
 }
 
 pub(crate) fn js_set(target: &Object, key: &str, value: impl Into<JsValue>) -> Result<(), JsValue> {
-    Reflect::set(target, &JsValue::from_str(key), &value.into())
-        .map(|_| ())
-        .map_err(|err| err)
+    Reflect::set(target, &JsValue::from_str(key), &value.into())?;
+    Ok(())
 }

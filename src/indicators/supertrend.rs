@@ -1,10 +1,10 @@
-use crate::indicators::atr::{atr_node, atr_store, latest_atr, latest_atr_store, true_range_store};
+use crate::indicators::atr::{atr_node, atr_store, latest_atr, latest_atr_store};
+use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -231,6 +231,7 @@ pub fn supertrend_outputs(
         },
     ]
 }
+#[allow(dead_code)]
 pub fn latest_supertrend(
     bars: &[Bar],
     period: usize,

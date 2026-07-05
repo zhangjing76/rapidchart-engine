@@ -1,8 +1,8 @@
-use crate::indicators::sma::{latest_sma_store, sma_close, sma_close_store};
+use crate::indicators::sma::{sma_close, sma_close_store};
+use crate::rc_into_owned;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore, Series};
 use std::rc::Rc;
 
 pub fn bollinger(
@@ -98,6 +98,7 @@ pub fn bollinger_outputs(upper: Series, middle: Series, lower: Series) -> Vec<In
         },
     ]
 }
+#[allow(dead_code)]
 pub fn latest_bollinger(
     bars: &[Bar],
     period: usize,

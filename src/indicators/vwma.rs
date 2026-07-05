@@ -1,8 +1,9 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn vwma(bars: &[Bar], period: usize) -> Series {
     let mut out = vec![f64::NAN; bars.len()];
     if period == 0 || bars.len() < period {
@@ -19,6 +20,7 @@ pub fn vwma(bars: &[Bar], period: usize) -> Series {
     }
     out
 }
+#[allow(dead_code)]
 pub fn vwma_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
     let key = format!("vwma:close:volume:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -39,7 +41,7 @@ pub fn vwma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    for index in period - 1..store.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period - 1) {
         let start = index + 1 - period;
         let volume_sum = store.volume[start..=index].iter().sum::<f64>();
         if volume_sum == 0.0 {
@@ -48,12 +50,13 @@ pub fn vwma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
         let weighted_sum = (start..=index)
             .map(|window_index| store.close[window_index] * store.volume[window_index])
             .sum::<f64>();
-        out[index] = weighted_sum / volume_sum;
+        *item = weighted_sum / volume_sum;
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_vwma(bars: &[Bar], period: usize) -> Option<f64> {
     vwma(bars, period).last().copied().and_then(nan_to_none)
 }

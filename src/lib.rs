@@ -31,14 +31,13 @@ pub struct ChartEngine {
     indicators: Vec<Indicator>,
     next_indicator_id: u32,
     dag: DagDebug,
+    #[allow(dead_code)]
     indicator_values_scratch: Vec<Vec<f64>>,
     latest_values_scratch: Vec<f64>,
 }
 
-#[wasm_bindgen]
-impl ChartEngine {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
+impl Default for ChartEngine {
+    fn default() -> Self {
         Self {
             bars: CandleStore::default(),
             indicators: Vec::new(),
@@ -47,6 +46,14 @@ impl ChartEngine {
             indicator_values_scratch: Vec::new(),
             latest_values_scratch: Vec::new(),
         }
+    }
+}
+
+#[wasm_bindgen]
+impl ChartEngine {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn ingest_bars(&mut self, bars: JsValue) -> Result<(), JsValue> {
@@ -845,6 +852,7 @@ impl ChartEngine {
         Ok(self.latest_values_scratch.as_slice())
     }
 
+    #[allow(dead_code)]
     fn populate_indicator_output_values_scratch(&mut self, id: u32) -> Result<(), JsValue> {
         let indicator = self
             .indicators

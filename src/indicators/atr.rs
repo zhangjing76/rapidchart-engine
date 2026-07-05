@@ -1,5 +1,5 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -14,9 +14,9 @@ pub fn atr(bars: &[Bar], period: usize) -> Series {
         .sum::<f64>()
         / period as f64;
     out[period] = current;
-    for index in period + 1..bars.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period + 1) {
         current = (current * (period - 1) as f64 + true_range(bars, index)) / period as f64;
-        out[index] = current;
+        *item = current;
     }
     out
 }
@@ -63,14 +63,15 @@ pub fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
         .sum::<f64>()
         / period as f64;
     out[period] = current;
-    for index in period + 1..store.len() {
+    for (index, item) in out.iter_mut().enumerate().skip(period + 1) {
         current = (current * (period - 1) as f64 + true_range_store(store, index)) / period as f64;
-        out[index] = current;
+        *item = current;
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_atr(bars: &[Bar], period: usize, output: Option<&[f64]>) -> Option<f64> {
     if period == 0 || bars.len() <= period {
         return None;

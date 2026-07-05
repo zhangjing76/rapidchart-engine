@@ -1,8 +1,7 @@
+use crate::output_at_vec;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -184,6 +183,7 @@ pub fn aroon_store(
         },
     ]
 }
+#[allow(dead_code)]
 pub fn latest_aroon(bars: &[Bar], period: usize) -> (Option<f64>, Option<f64>, Option<f64>) {
     let outputs = aroon(bars, period, &mut HashMap::new());
     let index = bars.len().saturating_sub(1);

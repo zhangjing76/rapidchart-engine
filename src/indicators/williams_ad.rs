@@ -1,5 +1,5 @@
+use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
@@ -42,14 +42,14 @@ pub fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries
     }
     let mut out = Vec::with_capacity(store.len());
     let mut current = 0.0;
-    for index in 0..store.len() {
+    for (index, (&high, (&low, &close))) in store
+        .high
+        .iter()
+        .zip(store.low.iter().zip(store.close.iter()))
+        .enumerate()
+    {
         if index > 0 {
-            current += williams_ad_step_parts(
-                store.close[index - 1],
-                store.high[index],
-                store.low[index],
-                store.close[index],
-            );
+            current += williams_ad_step_parts(store.close[index - 1], high, low, close);
         }
         out.push(current);
     }
@@ -57,6 +57,7 @@ pub fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+#[allow(dead_code)]
 pub fn latest_williams_ad(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {
     let last = bars.last()?;
     if bars.len() == 1 {

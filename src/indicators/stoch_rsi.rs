@@ -1,13 +1,13 @@
-use crate::indicators::rsi::{latest_rsi_store, rsi_close, rsi_close_store};
+use crate::indicators::rsi::{rsi_close, rsi_close_store};
 use crate::indicators::stoch::{smooth_series, stochastic_k_values};
+use crate::output_at_vec;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
-use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn stoch_rsi(
     bars: &[Bar],
     period: usize,
@@ -64,6 +64,7 @@ pub fn stoch_rsi_store(
     );
     outputs
 }
+#[allow(dead_code)]
 pub fn latest_stoch_rsi(
     bars: &[Bar],
     period: usize,

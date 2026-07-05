@@ -1,8 +1,8 @@
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
+#[allow(dead_code)]
 pub fn sma(bars: &[Bar], period: usize) -> Series {
     let mut out = Vec::with_capacity(bars.len());
     let mut sum = 0.0;
@@ -35,6 +35,7 @@ pub fn sma_close_values(values: &[f64], period: usize) -> Series {
     }
     out
 }
+#[allow(dead_code)]
 pub fn latest_sma(bars: &[Bar], period: usize) -> Option<f64> {
     if period == 0 || bars.len() < period {
         return None;

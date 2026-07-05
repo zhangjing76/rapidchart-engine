@@ -2,11 +2,20 @@ use crate::indicators::atr::{true_range, true_range_store};
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
 use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
+
+type AdxResult = (
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+);
 
 pub fn adx(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let key = format!("adx:ohlc:{period}");
@@ -365,19 +374,8 @@ pub fn adx_outputs(
         },
     ]
 }
-pub fn latest_adx(
-    bars: &[Bar],
-    period: usize,
-    outputs: &IndicatorArena,
-) -> (
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-) {
+#[allow(dead_code)]
+pub fn latest_adx(bars: &[Bar], period: usize, outputs: &IndicatorArena) -> AdxResult {
     if period == 0 || bars.len() <= period {
         return (None, None, None, None, None, None, None);
     }
@@ -442,19 +440,7 @@ pub fn latest_adx(
         Some(dx),
     )
 }
-pub fn latest_adx_store(
-    store: &CandleStore,
-    period: usize,
-    outputs: &IndicatorArena,
-) -> (
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-    Option<f64>,
-) {
+pub fn latest_adx_store(store: &CandleStore, period: usize, outputs: &IndicatorArena) -> AdxResult {
     if period == 0 || store.len() <= period {
         return (None, None, None, None, None, None, None);
     }

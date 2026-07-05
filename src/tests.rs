@@ -2,24 +2,44 @@
 mod tests {
     use crate::*;
 
-
-
     fn assert_series_eq(left: &[f64], right: &[f64]) {
-        assert_eq!(left.len(), right.len(), "series lengths differ: {} vs {}", left.len(), right.len());
+        assert_eq!(
+            left.len(),
+            right.len(),
+            "series lengths differ: {} vs {}",
+            left.len(),
+            right.len()
+        );
         for (i, (l, r)) in left.iter().zip(right.iter()).enumerate() {
-            if l.is_nan() && r.is_nan() { continue; }
-            assert!((l - r).abs() < 1e-10, "series differ at index {}: left={}, right={}", i, l, r);
+            if l.is_nan() && r.is_nan() {
+                continue;
+            }
+            assert!(
+                (l - r).abs() < 1e-10,
+                "series differ at index {}: left={}, right={}",
+                i,
+                l,
+                r
+            );
         }
     }
 
     macro_rules! assert_vec_eq {
-        ($left:expr, $right:expr) => { assert_series_eq(&$left, &$right); };
+        ($left:expr, $right:expr) => {
+            assert_series_eq(&$left, &$right);
+        };
     }
 
     fn assert_outputs_eq(left: &[IndicatorOutput], right: &[IndicatorOutput], names: &[&str]) {
         for name in names {
-            let l = left.iter().find(|o| o.name == *name).expect(&format!("left missing {}", name));
-            let r = right.iter().find(|o| o.name == *name).expect(&format!("right missing {}", name));
+            let l = left
+                .iter()
+                .find(|o| o.name == *name)
+                .expect(&format!("left missing {}", name));
+            let r = right
+                .iter()
+                .find(|o| o.name == *name)
+                .expect(&format!("right missing {}", name));
             assert_series_eq(&l.values, &r.values);
         }
     }
@@ -128,16 +148,11 @@ mod tests {
 
     #[test]
     fn ema_updates_from_first_close() {
-        assert_eq!(
-            ema(&bars(&[10.0, 12.0, 14.0]), 3),
-            vec![10.0, 11.0, 12.5]
-        );
+        assert_eq!(ema(&bars(&[10.0, 12.0, 14.0]), 3), vec![10.0, 11.0, 12.5]);
     }
 
     #[test]
-
     #[test]
-
     #[test]
     fn store_sma_matches_row_sma() {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0, 5.0]);
@@ -180,7 +195,6 @@ mod tests {
     }
 
     #[test]
-
     #[test]
     fn hidden_state_outputs_are_not_visible() {
         assert!(is_visible_output("value"));
@@ -230,35 +244,20 @@ mod tests {
     }
 
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
     fn wma_has_a_computed_dag_node() {
         let indicator = Indicator {
@@ -307,7 +306,6 @@ mod tests {
     }
 
     #[test]
-
     #[test]
     fn dema_has_computed_dag_nodes() {
         let mut indicator = indicator_stub("DEMA");
@@ -344,49 +342,27 @@ mod tests {
     }
 
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
     fn store_volume_indicators_match_row_versions() {
         let mut bars = ohlc(&[(3.0, 0.0, 0.0), (6.0, 0.0, 0.0), (8.0, 1.0, 5.0)]);
@@ -400,7 +376,11 @@ mod tests {
         assert_vec_eq!(vwma(&bars, 2), &vwma_store(&store, 2, &mut HashMap::new()));
         let row_vwap = vwap(&bars, &mut HashMap::new());
         let store_vwap = vwap_store(&store, &mut HashMap::new());
-        assert_outputs_eq(&row_vwap, &store_vwap, &["value", "cumulative_pv", "cumulative_volume"]);
+        assert_outputs_eq(
+            &row_vwap,
+            &store_vwap,
+            &["value", "cumulative_pv", "cumulative_volume"],
+        );
     }
 
     #[test]
@@ -468,15 +448,19 @@ mod tests {
         assert_vec_eq!(atr(&bars, 3), &atr_store(&store, 3, &mut HashMap::new()));
         let row_adx = adx(&bars, 3, &mut HashMap::new());
         let store_adx = adx_store(&store, 3, &mut HashMap::new());
-        assert_outputs_eq(&row_adx, &store_adx, &[
-            "value",
-            "plus_di",
-            "minus_di",
-            "tr_avg",
-            "plus_dm_avg",
-            "minus_dm_avg",
-            "dx",
-        ]);
+        assert_outputs_eq(
+            &row_adx,
+            &store_adx,
+            &[
+                "value",
+                "plus_di",
+                "minus_di",
+                "tr_avg",
+                "plus_dm_avg",
+                "minus_dm_avg",
+                "dx",
+            ],
+        );
         for (row, store_output) in [
             (
                 keltner(&bars, 3, 2.0, &mut HashMap::new()),
@@ -492,7 +476,11 @@ mod tests {
             ),
         ] {
             for row_output in &row {
-                let store_vals = store_output.iter().find(|o| o.name == row_output.name).map(|o| &o.values).unwrap();
+                let store_vals = store_output
+                    .iter()
+                    .find(|o| o.name == row_output.name)
+                    .map(|o| &o.values)
+                    .unwrap();
                 assert_series_eq(&row_output.values, store_vals);
             }
         }
@@ -533,14 +521,23 @@ mod tests {
             hma(&bars, 5, &mut HashMap::new()),
             hma_store(&store, 5, &mut HashMap::new())
         );
-        assert_vec_eq!(linear_regression(&bars, 4), linear_regression_store(&store, 4, &mut HashMap::new()));
+        assert_vec_eq!(
+            linear_regression(&bars, 4),
+            linear_regression_store(&store, 4, &mut HashMap::new())
+        );
         assert_vec_eq!(
             stddev(&bars, 4),
             stddev_store(&store, 4, &mut HashMap::new())
         );
         assert_vec_eq!(trix(&bars, 3), &trix_store(&store, 3, &mut HashMap::new()));
-        assert_vec_eq!(tsi(&bars, 4, 2), tsi_store(&store, 4, 2, &mut HashMap::new()));
-        assert_vec_eq!(momentum(&bars, 3), momentum_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(
+            tsi(&bars, 4, 2),
+            tsi_store(&store, 4, 2, &mut HashMap::new())
+        );
+        assert_vec_eq!(
+            momentum(&bars, 3),
+            momentum_store(&store, 3, &mut HashMap::new())
+        );
     }
 
     #[test]
@@ -587,13 +584,23 @@ mod tests {
             ),
         ] {
             for row_output in &row {
-                let store_vals = store_output.iter().find(|o| o.name == row_output.name).map(|o| &o.values).unwrap();
+                let store_vals = store_output
+                    .iter()
+                    .find(|o| o.name == row_output.name)
+                    .map(|o| &o.values)
+                    .unwrap();
                 assert_series_eq(&row_output.values, store_vals);
             }
         }
 
-        assert_vec_eq!(ultimate_oscillator(&bars, 2, 3, 4), ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new()));
-        assert_vec_eq!(chaikin_volatility(&bars, 3), chaikin_volatility_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(
+            ultimate_oscillator(&bars, 2, 3, 4),
+            ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new())
+        );
+        assert_vec_eq!(
+            chaikin_volatility(&bars, 3),
+            chaikin_volatility_store(&store, 3, &mut HashMap::new())
+        );
     }
 
     #[test]
@@ -638,7 +645,10 @@ mod tests {
 
         assert_vec_eq!(dema(&bars, 5), &dema_store(&store, 5, &mut HashMap::new()));
         assert_vec_eq!(tema(&bars, 5), &tema_store(&store, 5, &mut HashMap::new()));
-        assert_vec_eq!(trima(&bars, 5), &trima_store(&store, 5, &mut HashMap::new()));
+        assert_vec_eq!(
+            trima(&bars, 5),
+            &trima_store(&store, 5, &mut HashMap::new())
+        );
         assert_vec_eq!(kst(&bars), &kst_store(&store, &mut HashMap::new()));
         assert_vec_eq!(bop(&bars), &bop_store(&store, &mut HashMap::new()));
         assert_eq!(
@@ -662,17 +672,17 @@ mod tests {
         );
         let row_envelope = envelope(&bars, 5, 2.0, &mut HashMap::new());
         let store_envelope = envelope_store(&store, 5, 2.0, &mut HashMap::new());
-        assert_outputs_eq(&row_envelope, &store_envelope, &["upper", "middle", "lower"]);
+        assert_outputs_eq(
+            &row_envelope,
+            &store_envelope,
+            &["upper", "middle", "lower"],
+        );
     }
 
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
     fn latest_indicator_values_fast_reuses_visible_output_scratch() {
         let mut engine = ChartEngine::new();
@@ -760,37 +770,21 @@ mod tests {
     }
 
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
     fn ema_nodes_are_reused_by_macd() {
         let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());
@@ -843,41 +837,23 @@ mod tests {
     }
 
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
     fn wma_matches_latest_value() {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0]);
@@ -891,11 +867,13 @@ mod tests {
     fn hma_matches_latest_value() {
         let bars = bars(&(1..=10).map(|value| value as f64).collect::<Vec<_>>());
         let outputs = hma(&bars, 4, &mut HashMap::new());
-        assert_eq!(latest_hma(&bars, 4), outputs.last().copied().and_then(nan_to_none));
+        assert_eq!(
+            latest_hma(&bars, 4),
+            outputs.last().copied().and_then(nan_to_none)
+        );
     }
 
     #[test]
-
     #[test]
     fn dema_matches_latest_value() {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
@@ -924,29 +902,17 @@ mod tests {
     }
 
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
-
     #[test]
     fn remove_indicator_reports_if_it_removed_one() {
         let mut engine = ChartEngine::new();
@@ -972,7 +938,6 @@ mod tests {
     }
 
     #[test]
-
     #[test]
     fn upsert_bar_replaces_latest_or_appends_next() {
         let mut bars = bars(&[1.0, 2.0]);
@@ -1003,5 +968,4 @@ mod tests {
         assert_eq!(bars[1].close, 3.0);
         assert_eq!(bars[2].close, 4.0);
     }
-
 }

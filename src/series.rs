@@ -18,5 +18,9 @@ pub(crate) fn rc_into_owned(rc: RcSeries) -> Series {
 
 #[inline(always)]
 pub(crate) fn nan_to_none(v: f64) -> Option<f64> {
-    if v.is_nan() { None } else { Some(v) }
+    if v.is_nan() {
+        None
+    } else {
+        Some(v)
+    }
 }

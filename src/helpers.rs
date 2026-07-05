@@ -1,6 +1,6 @@
 use js_sys::Object;
-use wasm_bindgen::prelude::*;
 use js_sys::Reflect;
+use wasm_bindgen::prelude::*;
 
 use crate::bar::{Bar, CandleStore};
 use crate::series::RcSeries;
@@ -20,7 +20,10 @@ pub(crate) fn rc_one_output(rc: RcSeries) -> Vec<crate::types::IndicatorOutput> 
     }]
 }
 
-pub(crate) fn materialized_bars<'a>(store: &CandleStore, snapshot: &'a mut Option<Vec<Bar>>) -> &'a [Bar] {
+pub(crate) fn materialized_bars<'a>(
+    store: &CandleStore,
+    snapshot: &'a mut Option<Vec<Bar>>,
+) -> &'a [Bar] {
     if snapshot.is_none() {
         *snapshot = Some(store.to_bars());
     }
@@ -42,7 +45,11 @@ pub(crate) fn output_at(outputs: &IndicatorArena, name: &str, index: usize) -> O
 }
 
 /// Same as output_at but for Vec<IndicatorOutput> used in internal compute functions.
-pub(crate) fn output_at_vec(outputs: &[crate::types::IndicatorOutput], name: &str, index: usize) -> Option<f64> {
+pub(crate) fn output_at_vec(
+    outputs: &[crate::types::IndicatorOutput],
+    name: &str,
+    index: usize,
+) -> Option<f64> {
     outputs
         .iter()
         .find(|output| output.name == name)

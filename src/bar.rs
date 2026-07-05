@@ -70,7 +70,14 @@ impl CandleStore {
         low.reserve(256);
         close.reserve(256);
         volume.reserve(256);
-        Self { time, open, high, low, close, volume }
+        Self {
+            time,
+            open,
+            high,
+            low,
+            close,
+            volume,
+        }
     }
 
     pub(crate) fn len(&self) -> usize {

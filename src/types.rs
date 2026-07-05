@@ -62,7 +62,11 @@ impl IndicatorArena {
     /// Create from a Vec<IndicatorOutput>, packing all outputs into one allocation.
     pub(crate) fn from_outputs(outputs: Vec<IndicatorOutput>) -> Self {
         if outputs.is_empty() {
-            return Self { data: Vec::new(), slots: Vec::new(), slot_len: 0 };
+            return Self {
+                data: Vec::new(),
+                slots: Vec::new(),
+                slot_len: 0,
+            };
         }
         let slot_len = outputs[0].values.len();
         let num_slots = outputs.len();
@@ -75,7 +79,11 @@ impl IndicatorArena {
             slots.push(output.name);
         }
 
-        Self { data, slots, slot_len }
+        Self {
+            data,
+            slots,
+            slot_len,
+        }
     }
 
     /// Get the slice for a named output.
@@ -89,7 +97,10 @@ impl IndicatorArena {
     pub(crate) fn value_at(&self, name: &str, index: usize) -> Option<f64> {
         let idx = self.slots.iter().position(|s| s == name)?;
         let start = idx * self.slot_len;
-        self.data.get(start + index).copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        self.data
+            .get(start + index)
+            .copied()
+            .and_then(|v| if v.is_nan() { None } else { Some(v) })
     }
 
     /// Resize all slots to a new length (for incremental append).

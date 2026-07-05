@@ -4,25 +4,25 @@ use wasm_bindgen::prelude::*;
 
 // ── Module declarations ──────────────────────────────────────────────
 mod bar;
-mod series;
-mod types;
+mod dag;
 mod descriptors;
+mod dispatch;
 mod helpers;
 mod indicators;
-mod dispatch;
-mod dag;
+mod series;
+mod types;
 
 #[cfg(test)]
 mod tests;
 
 pub(crate) use bar::*;
+pub(crate) use dag::*;
+pub(crate) use descriptors::*;
+pub(crate) use dispatch::*;
+pub(crate) use helpers::*;
+pub(crate) use indicators::*;
 pub(crate) use series::*;
 pub(crate) use types::*;
-pub(crate) use descriptors::*;
-pub(crate) use helpers::*;
-pub(crate) use dag::*;
-pub(crate) use indicators::*;
-pub(crate) use dispatch::*;
 
 // ───────────────────────────────────────────
 #[wasm_bindgen]
@@ -121,15 +121,46 @@ impl ChartEngine {
         }
 
         let out = Object::new();
-        js_set(&out, "time_ptr", JsValue::from_f64(time.as_ptr() as u32 as f64))?;
-        js_set(&out, "open_ptr", JsValue::from_f64(open.as_ptr() as u32 as f64))?;
-        js_set(&out, "high_ptr", JsValue::from_f64(high.as_ptr() as u32 as f64))?;
-        js_set(&out, "low_ptr", JsValue::from_f64(low.as_ptr() as u32 as f64))?;
-        js_set(&out, "close_ptr", JsValue::from_f64(close.as_ptr() as u32 as f64))?;
-        js_set(&out, "volume_ptr", JsValue::from_f64(volume.as_ptr() as u32 as f64))?;
+        js_set(
+            &out,
+            "time_ptr",
+            JsValue::from_f64(time.as_ptr() as u32 as f64),
+        )?;
+        js_set(
+            &out,
+            "open_ptr",
+            JsValue::from_f64(open.as_ptr() as u32 as f64),
+        )?;
+        js_set(
+            &out,
+            "high_ptr",
+            JsValue::from_f64(high.as_ptr() as u32 as f64),
+        )?;
+        js_set(
+            &out,
+            "low_ptr",
+            JsValue::from_f64(low.as_ptr() as u32 as f64),
+        )?;
+        js_set(
+            &out,
+            "close_ptr",
+            JsValue::from_f64(close.as_ptr() as u32 as f64),
+        )?;
+        js_set(
+            &out,
+            "volume_ptr",
+            JsValue::from_f64(volume.as_ptr() as u32 as f64),
+        )?;
         js_set(&out, "len", JsValue::from_f64(len as f64))?;
 
-        self.bars = CandleStore { time, open, high, low, close, volume };
+        self.bars = CandleStore {
+            time,
+            open,
+            high,
+            low,
+            close,
+            volume,
+        };
         Ok(out.into())
     }
 
@@ -334,8 +365,12 @@ impl ChartEngine {
         js_set(&out, "open", unsafe { Float64Array::view(&self.bars.open) })?;
         js_set(&out, "high", unsafe { Float64Array::view(&self.bars.high) })?;
         js_set(&out, "low", unsafe { Float64Array::view(&self.bars.low) })?;
-        js_set(&out, "close", unsafe { Float64Array::view(&self.bars.close) })?;
-        js_set(&out, "volume", unsafe { Float64Array::view(&self.bars.volume) })?;
+        js_set(&out, "close", unsafe {
+            Float64Array::view(&self.bars.close)
+        })?;
+        js_set(&out, "volume", unsafe {
+            Float64Array::view(&self.bars.volume)
+        })?;
         Ok(out.into())
     }
 
@@ -345,9 +380,14 @@ impl ChartEngine {
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let outputs: Vec<_> = indicator.outputs.iter_slots()
+        let outputs: Vec<_> = indicator
+            .outputs
+            .iter_slots()
             .filter(|(name, _)| is_visible_output(name))
-            .map(|(name, values)| IndicatorOutput { name: name.to_string(), values: values.to_vec() })
+            .map(|(name, values)| IndicatorOutput {
+                name: name.to_string(),
+                values: values.to_vec(),
+            })
             .collect();
         serde_wasm_bindgen::to_value(&outputs).map_err(|err| JsValue::from_str(&err.to_string()))
     }
@@ -359,16 +399,14 @@ impl ChartEngine {
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
         let outputs = Array::new();
-        for (name, values) in indicator.outputs.iter_slots()
+        for (name, values) in indicator
+            .outputs
+            .iter_slots()
             .filter(|(name, _)| is_visible_output(name))
         {
             let item = Object::new();
             js_set(&item, "name", JsValue::from_str(name))?;
-            js_set(
-                &item,
-                "values",
-                unsafe { Float64Array::view(values) },
-            )?;
+            js_set(&item, "values", unsafe { Float64Array::view(values) })?;
             outputs.push(&item);
         }
         Ok(outputs.into())
@@ -380,7 +418,9 @@ impl ChartEngine {
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let points: Vec<_> = indicator.outputs.iter_slots()
+        let points: Vec<_> = indicator
+            .outputs
+            .iter_slots()
             .filter(|(name, _)| is_visible_output(name))
             .map(|(name, values)| IndicatorLatestValue {
                 output: name.to_string(),
@@ -462,8 +502,11 @@ impl ChartEngine {
                     latest_sma_store(&self.bars, indicator.period),
                 ),
                 "EMA" => {
-                    let value =
-                        latest_ema_store(&self.bars, indicator.period, indicator.outputs.get("value"));
+                    let value = latest_ema_store(
+                        &self.bars,
+                        indicator.period,
+                        indicator.outputs.get("value"),
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "RSI" => {
@@ -509,8 +552,11 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "ATR" => {
-                    let value =
-                        latest_atr_store(&self.bars, indicator.period, indicator.outputs.get("value"));
+                    let value = latest_atr_store(
+                        &self.bars,
+                        indicator.period,
+                        indicator.outputs.get("value"),
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "ADX" => {
@@ -694,7 +740,8 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "WILLIAMS_AD" => {
-                    let value = latest_williams_ad_store(&self.bars, indicator.outputs.get("value"));
+                    let value =
+                        latest_williams_ad_store(&self.bars, indicator.outputs.get("value"));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "CHAIKIN_VOLATILITY" => {
@@ -788,9 +835,12 @@ impl ChartEngine {
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
         self.latest_values_scratch.clear();
-        self.latest_values_scratch.extend(indicator.outputs.iter_slots()
-            .filter(|(name, _)| is_visible_output(name))
-            .map(|(_, values)| values.last().copied().unwrap_or(f64::NAN))
+        self.latest_values_scratch.extend(
+            indicator
+                .outputs
+                .iter_slots()
+                .filter(|(name, _)| is_visible_output(name))
+                .map(|(_, values)| values.last().copied().unwrap_or(f64::NAN)),
         );
         Ok(self.latest_values_scratch.as_slice())
     }
@@ -801,14 +851,18 @@ impl ChartEngine {
             .iter()
             .find(|indicator| indicator.id == id)
             .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let visible_count = indicator.outputs.iter_slots()
+        let visible_count = indicator
+            .outputs
+            .iter_slots()
             .filter(|(name, _)| is_visible_output(name))
             .count();
         if self.indicator_values_scratch.len() < visible_count {
             self.indicator_values_scratch
                 .resize_with(visible_count, Vec::new);
         }
-        for (index, (_, values)) in indicator.outputs.iter_slots()
+        for (index, (_, values)) in indicator
+            .outputs
+            .iter_slots()
             .filter(|(name, _)| is_visible_output(name))
             .enumerate()
         {
@@ -819,6 +873,3 @@ impl ChartEngine {
         Ok(())
     }
 }
-
-
-

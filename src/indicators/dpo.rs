@@ -1,11 +1,80 @@
-use crate::{Bar, CandleStore, Series, RcSeries};
-use crate::NodeCache;
-use crate::{rc_into_owned, nan_to_none};
-use std::rc::Rc;
 use crate::indicators::sma::{latest_sma, latest_sma_store, sma, sma_close, sma_close_store};
+use crate::NodeCache;
+use crate::{nan_to_none, rc_into_owned};
+use crate::{Bar, CandleStore, RcSeries, Series};
+use std::rc::Rc;
 
-pub fn dpo(bars: &[Bar], period: usize) -> Series {    let sma_values = sma(bars, period);    let shift = period / 2 + 1;    let mut out = vec![f64::NAN; bars.len()];    for index in 0..bars.len() {        if index < period.saturating_sub(1) || index < shift {            continue;        }        let mean = sma_values[index]; if !mean.is_nan() { out[index] = bars[index - shift].close - mean; }    }    out}
-pub fn dpo_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {    let key = format!("dpo:close:{period}");    if let Some(values) = nodes.get(&key) {        return (**values).clone();    }    let sma_key = format!("sma:close:{period}");    let sma_values = nodes        .get(&sma_key)        .map(|rc| (**rc).clone())        .unwrap_or_else(|| sma_close(bars, period, nodes));    let shift = period / 2 + 1;    let mut out = vec![f64::NAN; bars.len()];    for index in 0..bars.len() {        if index < period.saturating_sub(1) || index < shift {            continue;        }        let mean = sma_values[index]; if !mean.is_nan() { out[index] = bars[index - shift].close - mean; }    }    nodes.insert(key, Rc::new(out.clone()));    out}
-pub fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {    let key = format!("dpo:close:{period}");    if let Some(values) = nodes.get(&key) {        return Rc::clone(values);    }    let sma_values = rc_into_owned(sma_close_store(store, period, nodes));    let shift = period / 2 + 1;    let mut out = vec![f64::NAN; store.len()];    for index in 0..store.len() {        if index < period.saturating_sub(1) || index < shift {            continue;        }        let mean = sma_values[index]; if !mean.is_nan() { out[index] = store.close[index - shift] - mean; }    }    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc));    rc}
-pub fn latest_dpo(bars: &[Bar], period: usize) -> Option<f64> {    dpo(bars, period).last().copied().and_then(nan_to_none)}
-pub fn latest_dpo_store(store: &CandleStore, period: usize) -> Option<f64> {    if period == 0 || store.len() < period {        return None;    }    let shift = period / 2 + 1;    let index = store.len() - 1;    if index < shift || index < period.saturating_sub(1) {        return None;    }    latest_sma_store(store, period).map(|mean| store.close[index - shift] - mean)}
+pub fn dpo(bars: &[Bar], period: usize) -> Series {
+    let sma_values = sma(bars, period);
+    let shift = period / 2 + 1;
+    let mut out = vec![f64::NAN; bars.len()];
+    for index in 0..bars.len() {
+        if index < period.saturating_sub(1) || index < shift {
+            continue;
+        }
+        let mean = sma_values[index];
+        if !mean.is_nan() {
+            out[index] = bars[index - shift].close - mean;
+        }
+    }
+    out
+}
+pub fn dpo_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("dpo:close:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return (**values).clone();
+    }
+    let sma_key = format!("sma:close:{period}");
+    let sma_values = nodes
+        .get(&sma_key)
+        .map(|rc| (**rc).clone())
+        .unwrap_or_else(|| sma_close(bars, period, nodes));
+    let shift = period / 2 + 1;
+    let mut out = vec![f64::NAN; bars.len()];
+    for index in 0..bars.len() {
+        if index < period.saturating_sub(1) || index < shift {
+            continue;
+        }
+        let mean = sma_values[index];
+        if !mean.is_nan() {
+            out[index] = bars[index - shift].close - mean;
+        }
+    }
+    nodes.insert(key, Rc::new(out.clone()));
+    out
+}
+pub fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+    let key = format!("dpo:close:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
+    let sma_values = rc_into_owned(sma_close_store(store, period, nodes));
+    let shift = period / 2 + 1;
+    let mut out = vec![f64::NAN; store.len()];
+    for index in 0..store.len() {
+        if index < period.saturating_sub(1) || index < shift {
+            continue;
+        }
+        let mean = sma_values[index];
+        if !mean.is_nan() {
+            out[index] = store.close[index - shift] - mean;
+        }
+    }
+    let rc = Rc::new(out);
+    nodes.insert(key, Rc::clone(&rc));
+    rc
+}
+pub fn latest_dpo(bars: &[Bar], period: usize) -> Option<f64> {
+    dpo(bars, period).last().copied().and_then(nan_to_none)
+}
+pub fn latest_dpo_store(store: &CandleStore, period: usize) -> Option<f64> {
+    if period == 0 || store.len() < period {
+        return None;
+    }
+    let shift = period / 2 + 1;
+    let index = store.len() - 1;
+    if index < shift || index < period.saturating_sub(1) {
+        return None;
+    }
+    latest_sma_store(store, period).map(|mean| store.close[index - shift] - mean)
+}

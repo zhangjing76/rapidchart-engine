@@ -28,6 +28,12 @@ const indicators = [
   { kind: "MACD", fast: 12, slow: 26, signal: 9 },
   { kind: "BB", period: 20, multiplier: 2 },
   { kind: "ATR", period: 14 },
+  { kind: "STOCHASTIC", period: 14, smooth: 3 },
+  { kind: "ADX", period: 14 },
+  { kind: "ICHIMOKU", tenkan_period: 9, kijun_period: 26, senkou_b_period: 52 },
+  { kind: "SUPERTREND", period: 10, multiplier: 3 },
+  { kind: "VWAP" },
+  { kind: "OBV" },
 ];
 
 const results = {

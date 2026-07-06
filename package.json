@@ -13,6 +13,7 @@
   "scripts": {
     "build:wasm": "wasm-pack build --target web --out-dir pkg",
     "bench": "node scripts/bench.mjs",
+    "bench:indicators": "node scripts/bench-indicators.mjs",
     "bench:browser": "npm run build && node scripts/bench-browser.mjs",
     "bench:load-browser": "npm run build && node scripts/bench-load-browser.mjs",
     "bench:snapshot-browser": "npm run build && node scripts/bench-snapshot-browser.mjs",

@@ -14,6 +14,7 @@ pub(crate) struct Indicator {
     pub multiplier: f64,
     pub psar_step: f64,
     pub psar_max_step: f64,
+    pub anchor: usize,
     pub outputs: IndicatorArena,
 }
 
@@ -39,6 +40,7 @@ pub(crate) struct IndicatorConfig {
     pub senkou_b_period: Option<usize>,
     pub psar_step: Option<f64>,
     pub psar_max_step: Option<f64>,
+    pub anchor: Option<usize>,
 }
 
 #[derive(Clone, Serialize)]

@@ -4,6 +4,7 @@ use serde::Serialize;
 pub(crate) struct IndicatorDescriptor {
     pub kind: &'static str,
     pub name: &'static str,
+    pub category: &'static str,
     pub pane: &'static str,
     pub params: Vec<ParamDescriptor>,
     pub outputs: Vec<OutputDescriptor>,
@@ -29,12 +30,14 @@ pub(crate) struct OutputDescriptor {
 pub(crate) fn period_descriptor(
     kind: &'static str,
     name: &'static str,
+    category: &'static str,
     pane: &'static str,
     default: usize,
 ) -> IndicatorDescriptor {
     IndicatorDescriptor {
         kind,
         name,
+        category,
         pane,
         params: vec![ParamDescriptor {
             name: "period",
@@ -63,19 +66,20 @@ pub(crate) fn output_descriptor(
 
 pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
     vec![
-        period_descriptor("SMA", "SMA", "overlay", 20),
-        period_descriptor("EMA", "EMA", "overlay", 20),
-        period_descriptor("WMA", "WMA", "overlay", 20),
-        period_descriptor("HMA", "HMA", "overlay", 20),
-        period_descriptor("LINEAR_REGRESSION", "LINEAR REGRESSION", "overlay", 20),
-        period_descriptor("DEMA", "DEMA", "overlay", 20),
-        period_descriptor("TEMA", "TEMA", "overlay", 20),
-        period_descriptor("TRIMA", "TRIMA", "overlay", 20),
-        period_descriptor("STDDEV", "STDDEV", "separate", 20),
-        period_descriptor("TRIX", "TRIX", "separate", 15),
+        period_descriptor("SMA", "SMA", "Moving Average", "overlay", 20),
+        period_descriptor("EMA", "EMA", "Moving Average", "overlay", 20),
+        period_descriptor("WMA", "WMA", "Moving Average", "overlay", 20),
+        period_descriptor("HMA", "HMA", "Moving Average", "overlay", 20),
+        period_descriptor("LINEAR_REGRESSION", "LINEAR REGRESSION", "Projection", "overlay", 20),
+        period_descriptor("DEMA", "DEMA", "Moving Average", "overlay", 20),
+        period_descriptor("TEMA", "TEMA", "Moving Average", "overlay", 20),
+        period_descriptor("TRIMA", "TRIMA", "Moving Average", "overlay", 20),
+        period_descriptor("STDDEV", "STDDEV", "Statistical", "separate", 20),
+        period_descriptor("TRIX", "TRIX", "Momentum/Oscillator", "separate", 15),
         IndicatorDescriptor {
             kind: "ENVELOPE",
             name: "ENVELOPE",
+            category: "Averages/Bands",
             pane: "overlay",
             params: vec![
                 ParamDescriptor {
@@ -102,6 +106,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "TSI",
             name: "TSI",
+            category: "Momentum/Oscillator",
             pane: "separate",
             params: vec![
                 ParamDescriptor {
@@ -121,26 +126,28 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
             ],
             outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
         },
-        period_descriptor("DPO", "DPO", "separate", 20),
-        period_descriptor("MOMENTUM", "MOMENTUM", "separate", 10),
-        period_descriptor("RSI", "RSI", "separate", 14),
-        period_descriptor("ROC", "ROC", "separate", 14),
-        period_descriptor("CCI", "CCI", "separate", 20),
-        period_descriptor("MFI", "MFI", "separate", 14),
-        period_descriptor("CMF", "CMF", "separate", 20),
-        period_descriptor("FORCE_INDEX", "FORCE INDEX", "separate", 13),
-        period_descriptor("VWMA", "VWMA", "overlay", 20),
+        period_descriptor("DPO", "DPO", "Trend Analysis", "separate", 20),
+        period_descriptor("MOMENTUM", "MOMENTUM", "Momentum/Oscillator", "separate", 10),
+        period_descriptor("RSI", "RSI", "Momentum/Oscillator", "separate", 14),
+        period_descriptor("ROC", "ROC", "Momentum/Oscillator", "separate", 14),
+        period_descriptor("CCI", "CCI", "Momentum/Oscillator", "separate", 20),
+        period_descriptor("MFI", "MFI", "Money Flow", "separate", 14),
+        period_descriptor("CMF", "CMF", "Money Flow", "separate", 20),
+        period_descriptor("FORCE_INDEX", "FORCE INDEX", "Money Flow", "separate", 13),
+        period_descriptor("VWMA", "VWMA", "Moving Average", "overlay", 20),
         IndicatorDescriptor {
             kind: "WILLIAMS_AD",
             name: "WILLIAMS A/D",
+            category: "Volume",
             pane: "separate",
             params: Vec::new(),
             outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
         },
-        period_descriptor("CHAIKIN_VOLATILITY", "CHAIKIN VOLATILITY", "separate", 10),
+        period_descriptor("CHAIKIN_VOLATILITY", "CHAIKIN VOLATILITY", "Volatility", "separate", 10),
         IndicatorDescriptor {
             kind: "PRICE_CHANNEL",
             name: "PRICE CHANNEL",
+            category: "Support/Resistance",
             pane: "overlay",
             params: vec![ParamDescriptor {
                 name: "period",
@@ -158,6 +165,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "STARC",
             name: "STARC",
+            category: "Volatility",
             pane: "overlay",
             params: vec![
                 ParamDescriptor {
@@ -181,10 +189,11 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
                 output_descriptor("lower", "line", "overlay", "#0f766e"),
             ],
         },
-        period_descriptor("WILLIAMS_R", "WILLIAMS %R", "separate", 14),
+        period_descriptor("WILLIAMS_R", "WILLIAMS %R", "Momentum/Oscillator", "separate", 14),
         IndicatorDescriptor {
             kind: "PARABOLIC_SAR",
             name: "PARABOLIC SAR",
+            category: "Trend Analysis",
             pane: "overlay",
             params: vec![
                 ParamDescriptor {
@@ -207,6 +216,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "ICHIMOKU",
             name: "ICHIMOKU",
+            category: "Projection",
             pane: "overlay",
             params: vec![
                 ParamDescriptor {
@@ -242,6 +252,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "PIVOT_POINTS",
             name: "PIVOT POINTS",
+            category: "Support/Resistance",
             pane: "overlay",
             params: Vec::new(),
             outputs: vec![
@@ -255,6 +266,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "AROON",
             name: "AROON",
+            category: "Trend Analysis",
             pane: "separate",
             params: vec![ParamDescriptor {
                 name: "period",
@@ -272,6 +284,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "ADL",
             name: "ADL",
+            category: "Trend Analysis",
             pane: "separate",
             params: Vec::new(),
             outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
@@ -279,6 +292,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "KST",
             name: "KST",
+            category: "Momentum/Oscillator",
             pane: "separate",
             params: Vec::new(),
             outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
@@ -286,6 +300,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "BOP",
             name: "BOP",
+            category: "Momentum/Oscillator",
             pane: "separate",
             params: Vec::new(),
             outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
@@ -293,6 +308,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "ULTIMATE_OSCILLATOR",
             name: "ULTIMATE OSCILLATOR",
+            category: "Momentum/Oscillator",
             pane: "separate",
             params: vec![
                 ParamDescriptor {
@@ -322,6 +338,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "SUPERTREND",
             name: "SUPERTREND",
+            category: "Support/Resistance",
             pane: "overlay",
             params: vec![
                 ParamDescriptor {
@@ -344,6 +361,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "KELTNER",
             name: "KELTNER",
+            category: "Averages/Bands",
             pane: "overlay",
             params: vec![
                 ParamDescriptor {
@@ -370,6 +388,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "DONCHIAN",
             name: "DONCHIAN",
+            category: "Averages/Bands",
             pane: "overlay",
             params: vec![ParamDescriptor {
                 name: "period",
@@ -387,6 +406,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "STOCH_RSI",
             name: "STOCH RSI",
+            category: "Momentum/Oscillator",
             pane: "separate",
             params: vec![
                 ParamDescriptor {
@@ -423,10 +443,11 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
                 output_descriptor("d", "line", "separate", "#dc2626"),
             ],
         },
-        period_descriptor("ATR", "ATR", "separate", 14),
+        period_descriptor("ATR", "ATR", "Volatility", "separate", 14),
         IndicatorDescriptor {
             kind: "ADX",
             name: "ADX",
+            category: "Trend Analysis",
             pane: "separate",
             params: vec![ParamDescriptor {
                 name: "period",
@@ -444,6 +465,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "VWAP",
             name: "VWAP",
+            category: "Volume",
             pane: "overlay",
             params: Vec::new(),
             outputs: vec![output_descriptor("value", "line", "overlay", "#0f766e")],
@@ -451,6 +473,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "STOCHASTIC",
             name: "STOCHASTIC",
+            category: "Momentum/Oscillator",
             pane: "separate",
             params: vec![
                 ParamDescriptor {
@@ -476,6 +499,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "OBV",
             name: "OBV",
+            category: "Volume",
             pane: "separate",
             params: Vec::new(),
             outputs: vec![output_descriptor("value", "line", "separate", "#059669")],
@@ -483,6 +507,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "BB",
             name: "BOLLINGER",
+            category: "Volatility",
             pane: "overlay",
             params: vec![
                 ParamDescriptor {
@@ -509,6 +534,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "MACD",
             name: "MACD",
+            category: "Momentum/Oscillator",
             pane: "separate",
             params: vec![
                 ParamDescriptor {
@@ -542,6 +568,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "PPO",
             name: "PPO",
+            category: "Momentum/Oscillator",
             pane: "separate",
             params: vec![
                 ParamDescriptor {
@@ -575,6 +602,7 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
         IndicatorDescriptor {
             kind: "CHAIKIN_OSCILLATOR",
             name: "CHAIKIN OSCILLATOR",
+            category: "Money Flow",
             pane: "separate",
             params: vec![
                 ParamDescriptor {
@@ -593,6 +621,594 @@ pub(crate) fn indicator_descriptors() -> Vec<IndicatorDescriptor> {
                 },
             ],
             outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
+        },
+        // ─── New indicators ──────────────────────────────────────────
+        IndicatorDescriptor {
+            kind: "MEDIAN_PRICE",
+            name: "MEDIAN PRICE",
+            category: "Statistical",
+            pane: "overlay",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "overlay", "#64748b")],
+        },
+        period_descriptor("HIGHEST_HIGH", "HIGHEST HIGH VALUE", "Statistical", "overlay", 14),
+        period_descriptor("LOWEST_LOW", "LOWEST LOW VALUE", "Statistical", "overlay", 14),
+        IndicatorDescriptor {
+            kind: "ALLIGATOR",
+            name: "ALLIGATOR",
+            category: "Averages/Bands",
+            pane: "overlay",
+            params: Vec::new(),
+            outputs: vec![
+                output_descriptor("jaw", "line", "overlay", "#2563eb"),
+                output_descriptor("teeth", "line", "overlay", "#dc2626"),
+                output_descriptor("lips", "line", "overlay", "#059669"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "ATR_BANDS",
+            name: "ATR BANDS",
+            category: "Averages/Bands",
+            pane: "overlay",
+            params: vec![
+                ParamDescriptor {
+                    name: "period",
+                    label: "Period",
+                    default: 14.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "multiplier",
+                    label: "Multiplier",
+                    default: 2.0,
+                    min: 0.1,
+                    step: "0.1",
+                },
+            ],
+            outputs: vec![
+                output_descriptor("upper", "line", "overlay", "#0f766e"),
+                output_descriptor("middle", "line", "overlay", "#2563eb"),
+                output_descriptor("lower", "line", "overlay", "#0f766e"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "HIGH_LOW_BANDS",
+            name: "HIGH LOW BANDS",
+            category: "Statistical",
+            pane: "overlay",
+            params: vec![ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 14.0,
+                min: 1.0,
+                step: "1",
+            }],
+            outputs: vec![
+                output_descriptor("upper", "line", "overlay", "#f59e0b"),
+                output_descriptor("middle", "line", "overlay", "#64748b"),
+                output_descriptor("lower", "line", "overlay", "#f59e0b"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "FRACTAL_CHAOS_BANDS",
+            name: "FRACTAL CHAOS BANDS",
+            category: "Trend Analysis",
+            pane: "overlay",
+            params: Vec::new(),
+            outputs: vec![
+                output_descriptor("upper", "line", "overlay", "#9333ea"),
+                output_descriptor("lower", "line", "overlay", "#9333ea"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "GMMA",
+            name: "GUPPY MULTIPLE MOVING AVERAGE",
+            category: "Averages/Bands",
+            pane: "overlay",
+            params: Vec::new(),
+            outputs: vec![
+                output_descriptor("short_3", "line", "overlay", "#059669"),
+                output_descriptor("short_5", "line", "overlay", "#059669"),
+                output_descriptor("short_8", "line", "overlay", "#059669"),
+                output_descriptor("short_10", "line", "overlay", "#059669"),
+                output_descriptor("short_12", "line", "overlay", "#059669"),
+                output_descriptor("short_15", "line", "overlay", "#059669"),
+                output_descriptor("long_30", "line", "overlay", "#dc2626"),
+                output_descriptor("long_35", "line", "overlay", "#dc2626"),
+                output_descriptor("long_40", "line", "overlay", "#dc2626"),
+                output_descriptor("long_45", "line", "overlay", "#dc2626"),
+                output_descriptor("long_50", "line", "overlay", "#dc2626"),
+                output_descriptor("long_60", "line", "overlay", "#dc2626"),
+            ],
+        },
+        period_descriptor("LINEAR_REG_FORECAST", "LINEAR REG FORECAST", "Statistical", "overlay", 14),
+        period_descriptor("LINEAR_REG_INTERCEPT", "LINEAR REG INTERCEPT", "Statistical", "overlay", 14),
+        IndicatorDescriptor {
+            kind: "ANCHORED_VWAP",
+            name: "ANCHORED VWAP",
+            category: "Volume",
+            pane: "overlay",
+            params: vec![ParamDescriptor {
+                name: "anchor",
+                label: "Anchor Bar",
+                default: 0.0,
+                min: 0.0,
+                step: "1",
+            }],
+            outputs: vec![output_descriptor("value", "line", "overlay", "#0f766e")],
+        },
+        IndicatorDescriptor {
+            kind: "TYPICAL_PRICE",
+            name: "TYPICAL PRICE",
+            category: "Averages/Bands",
+            pane: "overlay",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "overlay", "#64748b")],
+        },
+        IndicatorDescriptor {
+            kind: "WEIGHTED_CLOSE",
+            name: "WEIGHTED CLOSE",
+            category: "Averages/Bands",
+            pane: "overlay",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "overlay", "#64748b")],
+        },
+        IndicatorDescriptor {
+            kind: "MA_CROSS",
+            name: "MOVING AVERAGE CROSS",
+            category: "Trend Analysis",
+            pane: "overlay",
+            params: vec![
+                ParamDescriptor {
+                    name: "fast",
+                    label: "Fast",
+                    default: 10.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "slow",
+                    label: "Slow",
+                    default: 20.0,
+                    min: 2.0,
+                    step: "1",
+                },
+            ],
+            outputs: vec![
+                output_descriptor("fast", "line", "overlay", "#059669"),
+                output_descriptor("slow", "line", "overlay", "#dc2626"),
+                output_descriptor("histogram", "histogram", "separate", "#86efac"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "RAINBOW_MA",
+            name: "RAINBOW MOVING AVERAGE",
+            category: "Averages/Bands",
+            pane: "overlay",
+            params: vec![ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 2.0,
+                min: 1.0,
+                step: "1",
+            }],
+            outputs: vec![
+                output_descriptor("r1", "line", "overlay", "#dc2626"),
+                output_descriptor("r2", "line", "overlay", "#ea580c"),
+                output_descriptor("r3", "line", "overlay", "#f59e0b"),
+                output_descriptor("r4", "line", "overlay", "#84cc16"),
+                output_descriptor("r5", "line", "overlay", "#059669"),
+                output_descriptor("r6", "line", "overlay", "#0891b2"),
+                output_descriptor("r7", "line", "overlay", "#2563eb"),
+                output_descriptor("r8", "line", "overlay", "#7c3aed"),
+                output_descriptor("r9", "line", "overlay", "#c026d3"),
+                output_descriptor("r10", "line", "overlay", "#9333ea"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "PRIME_NUMBER_BANDS",
+            name: "PRIME NUMBER BANDS",
+            category: "Support/Resistance",
+            pane: "overlay",
+            params: Vec::new(),
+            outputs: vec![
+                output_descriptor("upper", "line", "overlay", "#059669"),
+                output_descriptor("lower", "line", "overlay", "#dc2626"),
+            ],
+        },
+        period_descriptor("TIME_SERIES_FORECAST", "TIME SERIES FORECAST", "Statistical", "overlay", 14),
+        IndicatorDescriptor {
+            kind: "VALUATION_LINES",
+            name: "VALUATION LINES",
+            category: "Statistical",
+            pane: "overlay",
+            params: vec![
+                ParamDescriptor {
+                    name: "period",
+                    label: "Period",
+                    default: 20.0,
+                    min: 1.0,
+                    step: "1",
+                },
+                ParamDescriptor {
+                    name: "multiplier",
+                    label: "Offset %",
+                    default: 5.0,
+                    min: 0.1,
+                    step: "0.1",
+                },
+            ],
+            outputs: vec![
+                output_descriptor("upper", "line", "overlay", "#059669"),
+                output_descriptor("middle", "line", "overlay", "#2563eb"),
+                output_descriptor("lower", "line", "overlay", "#dc2626"),
+            ],
+        },
+        // ─── Compare category ──────────────────────────────────────
+        period_descriptor("BETA", "BETA", "Volatility", "separate", 20),
+        period_descriptor("CORRELATION_COEFFICIENT", "CORRELATION COEFFICIENT", "Statistical", "separate", 14),
+        IndicatorDescriptor {
+            kind: "PERFORMANCE_INDEX",
+            name: "PERFORMANCE INDEX",
+            category: "Trend Analysis",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        period_descriptor("PRICE_RELATIVE", "PRICE RELATIVE", "Compare", "separate", 14),
+        // ─── Momentum/Oscillator (new) ────────────────────────────────
+        IndicatorDescriptor {
+            kind: "AWESOME_OSCILLATOR",
+            name: "AWESOME OSCILLATOR",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "histogram", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "BOLLINGER_PCT_B",
+            name: "BOLLINGER %B",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor { name: "period", label: "Period", default: 20.0, min: 1.0, step: "1" },
+                ParamDescriptor { name: "multiplier", label: "Multiplier", default: 2.0, min: 0.1, step: "0.1" },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
+        },
+        period_descriptor("CENTER_OF_GRAVITY", "CENTER OF GRAVITY", "Momentum/Oscillator", "separate", 10),
+        period_descriptor("CHANDE_FORECAST", "CHANDE FORECAST OSCILLATOR", "Momentum/Oscillator", "separate", 14),
+        period_descriptor("CHANDE_MOMENTUM", "CHANDE MOMENTUM OSCILLATOR", "Momentum/Oscillator", "separate", 14),
+        IndicatorDescriptor {
+            kind: "COPPOCK_CURVE",
+            name: "COPPOCK CURVE",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        period_descriptor("DISPARITY_INDEX", "DISPARITY INDEX", "Momentum/Oscillator", "separate", 14),
+        period_descriptor("EASE_OF_MOVEMENT", "EASE OF MOVEMENT", "Momentum/Oscillator", "separate", 14),
+        IndicatorDescriptor {
+            kind: "EHLER_FISHER",
+            name: "EHLER FISHER TRANSFORM",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: vec![ParamDescriptor { name: "period", label: "Period", default: 10.0, min: 2.0, step: "1" }],
+            outputs: vec![
+                output_descriptor("fisher", "line", "separate", "#2563eb"),
+                output_descriptor("trigger", "line", "separate", "#dc2626"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "ELDER_RAY",
+            name: "ELDER RAY INDEX",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: vec![ParamDescriptor { name: "period", label: "Period", default: 13.0, min: 1.0, step: "1" }],
+            outputs: vec![
+                output_descriptor("bull", "histogram", "separate", "#059669"),
+                output_descriptor("bear", "histogram", "separate", "#dc2626"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "FRACTAL_CHAOS_OSCILLATOR",
+            name: "FRACTAL CHAOS OSCILLATOR",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "histogram", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "GATOR_OSCILLATOR",
+            name: "GATOR OSCILLATOR",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![
+                output_descriptor("upper", "histogram", "separate", "#059669"),
+                output_descriptor("lower", "histogram", "separate", "#dc2626"),
+            ],
+        },
+        period_descriptor("INTRADAY_MOMENTUM", "INTRADAY MOMENTUM INDEX", "Momentum/Oscillator", "separate", 14),
+        period_descriptor("LINEAR_REG_SLOPE", "LINEAR REG SLOPE", "Statistical", "separate", 14),
+        period_descriptor("MA_DEVIATION", "MOVING AVERAGE DEVIATION", "Momentum/Oscillator", "separate", 20),
+        period_descriptor("PRETTY_GOOD_OSCILLATOR", "PRETTY GOOD OSCILLATOR", "Momentum/Oscillator", "separate", 14),
+        IndicatorDescriptor {
+            kind: "PRICE_MOMENTUM_OSCILLATOR",
+            name: "PRICE MOMENTUM OSCILLATOR",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor { name: "period", label: "Smoothing", default: 35.0, min: 1.0, step: "1" },
+                ParamDescriptor { name: "smooth", label: "Double Smooth", default: 20.0, min: 1.0, step: "1" },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "PRICE_OSCILLATOR",
+            name: "PRICE OSCILLATOR",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor { name: "fast", label: "Fast", default: 12.0, min: 1.0, step: "1" },
+                ParamDescriptor { name: "slow", label: "Slow", default: 26.0, min: 2.0, step: "1" },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        period_descriptor("RAINBOW_OSCILLATOR", "RAINBOW OSCILLATOR", "Momentum/Oscillator", "separate", 2),
+        IndicatorDescriptor {
+            kind: "RAVI",
+            name: "RAVI",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor { name: "period", label: "Short", default: 7.0, min: 1.0, step: "1" },
+                ParamDescriptor { name: "stoch_period", label: "Long", default: 65.0, min: 2.0, step: "1" },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "RELATIVE_VIGOR",
+            name: "RELATIVE VIGOR INDEX",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: vec![ParamDescriptor { name: "period", label: "Period", default: 10.0, min: 1.0, step: "1" }],
+            outputs: vec![
+                output_descriptor("value", "line", "separate", "#2563eb"),
+                output_descriptor("signal", "line", "separate", "#dc2626"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "SCHAFF_TREND_CYCLE",
+            name: "SCHAFF TREND CYCLE",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor { name: "fast", label: "Fast", default: 23.0, min: 1.0, step: "1" },
+                ParamDescriptor { name: "slow", label: "Slow", default: 50.0, min: 2.0, step: "1" },
+                ParamDescriptor { name: "stoch_period", label: "Cycle", default: 10.0, min: 1.0, step: "1" },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "STOCHASTIC_MOMENTUM",
+            name: "STOCHASTIC MOMENTUM INDEX",
+            category: "Momentum/Oscillator",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor { name: "period", label: "Period", default: 13.0, min: 1.0, step: "1" },
+                ParamDescriptor { name: "smooth", label: "Smooth", default: 3.0, min: 1.0, step: "1" },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "SWING_INDEX",
+            name: "SWING INDEX",
+            category: "Trend Analysis",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        period_descriptor("TREND_INTENSITY", "TREND INTENSITY INDEX", "Momentum/Oscillator", "separate", 14),
+        IndicatorDescriptor {
+            kind: "VOLUME_OSCILLATOR",
+            name: "VOLUME OSCILLATOR",
+            category: "Volume",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor { name: "fast", label: "Fast", default: 5.0, min: 1.0, step: "1" },
+                ParamDescriptor { name: "slow", label: "Slow", default: 10.0, min: 2.0, step: "1" },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        // ─── Money Flow (new) ─────────────────────────────────────────
+        IndicatorDescriptor {
+            kind: "KLINGER_VOLUME",
+            name: "KLINGER VOLUME OSCILLATOR",
+            category: "Money Flow",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "MARKET_FACILITATION",
+            name: "MARKET FACILITATION INDEX",
+            category: "Volume",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
+        },
+        IndicatorDescriptor {
+            kind: "NEGATIVE_VOLUME_INDEX",
+            name: "NEGATIVE VOLUME INDEX",
+            category: "Trend Analysis",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#dc2626")],
+        },
+        IndicatorDescriptor {
+            kind: "POSITIVE_VOLUME_INDEX",
+            name: "POSITIVE VOLUME INDEX",
+            category: "Trend Analysis",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#059669")],
+        },
+        IndicatorDescriptor {
+            kind: "PRICE_VOLUME_TREND",
+            name: "PRICE VOLUME TREND",
+            category: "Money Flow",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "TRADE_VOLUME_INDEX",
+            name: "TRADE VOLUME INDEX",
+            category: "Money Flow",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#0f766e")],
+        },
+        period_descriptor("TWIGGS_MONEY_FLOW", "TWIGGS MONEY FLOW", "Volume", "separate", 21),
+        // ─── Projection (new) ─────────────────────────────────────────
+        period_descriptor("PROJECTED_AGGREGATE_VOLUME", "PROJECTED AGGREGATE VOLUME", "Volume", "separate", 24),
+        period_descriptor("PROJECTED_VOLUME_AT_TIME", "PROJECTED VOLUME AT TIME", "Volume", "separate", 24),
+        // ─── Statistical (new) ────────────────────────────────────────
+        period_descriptor("HISTORICAL_VOLATILITY", "HISTORICAL VOLATILITY", "Volatility", "separate", 20),
+        period_descriptor("LINEAR_REG_R2", "LINEAR REG R2", "Trend Analysis", "separate", 14),
+        IndicatorDescriptor {
+            kind: "PRIME_NUMBER_OSCILLATOR",
+            name: "PRIME NUMBER OSCILLATOR",
+            category: "Trend Analysis",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "histogram", "separate", "#2563eb")],
+        },
+        IndicatorDescriptor {
+            kind: "RANDOM_WALK_INDEX",
+            name: "RANDOM WALK INDEX",
+            category: "Statistical",
+            pane: "separate",
+            params: vec![ParamDescriptor { name: "period", label: "Period", default: 14.0, min: 2.0, step: "1" }],
+            outputs: vec![
+                output_descriptor("high", "line", "separate", "#059669"),
+                output_descriptor("low", "line", "separate", "#dc2626"),
+            ],
+        },
+        // ─── Support/Resistance (new) ──────────────────────────────────
+        IndicatorDescriptor {
+            kind: "DARVAS_BOX",
+            name: "DARVAS BOX",
+            category: "Support/Resistance",
+            pane: "overlay",
+            params: Vec::new(),
+            outputs: vec![
+                output_descriptor("top", "line", "overlay", "#059669"),
+                output_descriptor("bottom", "line", "overlay", "#dc2626"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "VOLUME_PROFILE",
+            name: "VOLUME PROFILE",
+            category: "Volume",
+            pane: "overlay",
+            params: vec![ParamDescriptor { name: "period", label: "Period", default: 24.0, min: 2.0, step: "1" }],
+            outputs: vec![
+                output_descriptor("poc", "line", "overlay", "#2563eb"),
+                output_descriptor("vah", "line", "overlay", "#059669"),
+                output_descriptor("val", "line", "overlay", "#dc2626"),
+            ],
+        },
+        // ─── Trend Analysis (new) ─────────────────────────────────────
+        period_descriptor("CHOPPINESS_INDEX", "CHOPPINESS INDEX", "Volatility", "separate", 14),
+        period_descriptor("ELDER_IMPULSE", "ELDER IMPULSE SYSTEM", "Trend Analysis", "separate", 13),
+        period_descriptor("GONOGO_TREND", "GONOGO TREND", "Trend Analysis", "separate", 14),
+        period_descriptor("PSYCHOLOGICAL_LINE", "PSYCHOLOGICAL LINE", "Trend Analysis", "separate", 12),
+        period_descriptor("QSTICK", "QSTICK", "Trend Analysis", "separate", 14),
+        IndicatorDescriptor {
+            kind: "SHINOHARA_INTENSITY",
+            name: "SHINOHARA INTENSITY RATIO",
+            category: "Trend Analysis",
+            pane: "separate",
+            params: vec![ParamDescriptor { name: "period", label: "Period", default: 26.0, min: 1.0, step: "1" }],
+            outputs: vec![
+                output_descriptor("strong", "line", "separate", "#2563eb"),
+                output_descriptor("weak", "line", "separate", "#dc2626"),
+            ],
+        },
+        period_descriptor("ULCER_INDEX", "ULCER INDEX", "Volatility", "separate", 14),
+        period_descriptor("VERTICAL_HORIZONTAL_FILTER", "VERTICAL HORIZONTAL FILTER", "Trend Analysis", "separate", 28),
+        IndicatorDescriptor {
+            kind: "VORTEX_INDICATOR",
+            name: "VORTEX INDICATOR",
+            category: "Trend Analysis",
+            pane: "separate",
+            params: vec![ParamDescriptor { name: "period", label: "Period", default: 14.0, min: 2.0, step: "1" }],
+            outputs: vec![
+                output_descriptor("plus", "line", "separate", "#059669"),
+                output_descriptor("minus", "line", "separate", "#dc2626"),
+            ],
+        },
+        IndicatorDescriptor {
+            kind: "ZIGZAG",
+            name: "ZIGZAG",
+            category: "Trend Analysis",
+            pane: "overlay",
+            params: vec![ParamDescriptor { name: "multiplier", label: "Threshold %", default: 5.0, min: 0.1, step: "0.1" }],
+            outputs: vec![output_descriptor("value", "line", "overlay", "#2563eb")],
+        },
+        // ─── Volatility (new) ─────────────────────────────────────────
+        IndicatorDescriptor {
+            kind: "BOLLINGER_BANDWIDTH",
+            name: "BOLLINGER BANDWIDTH",
+            category: "Volatility",
+            pane: "separate",
+            params: vec![
+                ParamDescriptor { name: "period", label: "Period", default: 20.0, min: 1.0, step: "1" },
+                ParamDescriptor { name: "multiplier", label: "Multiplier", default: 2.0, min: 0.1, step: "0.1" },
+            ],
+            outputs: vec![output_descriptor("value", "line", "separate", "#9333ea")],
+        },
+        period_descriptor("DONCHIAN_WIDTH", "DONCHIAN WIDTH", "Volatility", "separate", 20),
+        period_descriptor("GOPALAKRISHNAN_RANGE", "GOPALAKRISHNAN RANGE INDEX", "Volatility", "separate", 14),
+        IndicatorDescriptor {
+            kind: "HIGH_MINUS_LOW",
+            name: "HIGH MINUS LOW",
+            category: "Volatility",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        period_descriptor("MASS_INDEX", "MASS INDEX", "Volatility", "separate", 25),
+        period_descriptor("RELATIVE_VOLATILITY", "RELATIVE VOLATILITY", "Volatility", "separate", 14),
+        IndicatorDescriptor {
+            kind: "TRUE_RANGE",
+            name: "TRUE RANGE",
+            category: "Volatility",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "line", "separate", "#2563eb")],
+        },
+        // ─── Volume (new) ─────────────────────────────────────────────
+        IndicatorDescriptor {
+            kind: "VOLUME_CHART",
+            name: "VOLUME CHART",
+            category: "Volume",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "histogram", "separate", "#94a3b8")],
+        },
+        period_descriptor("VOLUME_ROC", "VOLUME RATE OF CHANGE", "Volume", "separate", 14),
+        IndicatorDescriptor {
+            kind: "VOLUME_UNDERLAY",
+            name: "VOLUME UNDERLAY",
+            category: "Volume",
+            pane: "separate",
+            params: Vec::new(),
+            outputs: vec![output_descriptor("value", "histogram", "separate", "#94a3b8")],
         },
     ]
 }

@@ -134,6 +134,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
+            anchor: 0,
             outputs: IndicatorArena::from_outputs(Vec::new()),
         }
     }
@@ -237,6 +238,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
+            anchor: 0,
             outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
@@ -274,6 +276,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
+            anchor: 0,
             outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
@@ -296,6 +299,7 @@ mod tests {
             multiplier: 2.0,
             psar_step: 0.02,
             psar_max_step: 0.2,
+            anchor: 0,
             outputs: IndicatorArena::from_outputs(Vec::new()),
         };
 
@@ -700,6 +704,7 @@ mod tests {
             multiplier: 0.0,
             psar_step: 0.0,
             psar_max_step: 0.0,
+            anchor: 0,
             outputs: IndicatorArena::from_outputs(vec![
                 IndicatorOutput {
                     name: "value".to_string(),
@@ -740,6 +745,7 @@ mod tests {
             multiplier: 0.0,
             psar_step: 0.0,
             psar_max_step: 0.0,
+            anchor: 0,
             outputs: IndicatorArena::from_outputs(vec![
                 IndicatorOutput {
                     name: "macd".to_string(),
@@ -788,10 +794,10 @@ mod tests {
     #[test]
     fn ema_nodes_are_reused_by_macd() {
         let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());
-        let mut nodes = HashMap::new();
+        let mut nodes: NodeCache = HashMap::new();
 
         let ema12 = compute_indicator(
-            &bars, "EMA", 12, 0, 0, 0, 9, 26, 52, None, 2.0, 0.02, 0.2, &mut nodes,
+            &bars, "EMA", 12, 0, 0, 0, 9, 26, 52, None, 2.0, 0.02, 0.2, 0, &mut nodes,
         )[0]
         .values
         .clone();
@@ -813,6 +819,7 @@ mod tests {
             2.0,
             0.02,
             0.2,
+            0,
             &mut nodes,
         );
 
@@ -931,6 +938,7 @@ mod tests {
                 senkou_b_period: None,
                 psar_step: None,
                 psar_max_step: None,
+                anchor: None,
             })
             .unwrap();
         assert!(engine.remove_indicator(id));

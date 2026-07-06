@@ -14,6 +14,7 @@ use crate::indicators::atr_bands::{atr_bands, atr_bands_store};
 use crate::indicators::awesome_oscillator::{awesome_oscillator_node, awesome_oscillator_store};
 use crate::indicators::beta::{beta_node, beta_store};
 use crate::indicators::bollinger::{bollinger, bollinger_store};
+use crate::indicators::bollinger_bandwidth::{bollinger_bandwidth_node, bollinger_bandwidth_store};
 use crate::indicators::bollinger_pct_b::{bollinger_pct_b_node, bollinger_pct_b_store};
 use crate::indicators::bop::{bop_node, bop_store};
 use crate::indicators::cci::{cci_node, cci_store};
@@ -24,6 +25,7 @@ use crate::indicators::chaikin::{
 };
 use crate::indicators::chande_forecast::{chande_forecast_node, chande_forecast_store};
 use crate::indicators::chande_momentum::{chande_momentum_node, chande_momentum_store};
+use crate::indicators::choppiness_index::{choppiness_index_node, choppiness_index_store};
 use crate::indicators::cmf::{cmf_node, cmf_store};
 use crate::indicators::coppock_curve::{coppock_curve_node, coppock_curve_store};
 use crate::indicators::correlation_coefficient::{correlation_coefficient_node, correlation_coefficient_store};
@@ -31,10 +33,12 @@ use crate::indicators::darvas_box::{darvas_box, darvas_box_store};
 use crate::indicators::dema::dema_store;
 use crate::indicators::disparity_index::{disparity_index_node, disparity_index_store};
 use crate::indicators::donchian::{donchian, donchian_store, price_channel, price_channel_store};
+use crate::indicators::donchian_width::{donchian_width_node, donchian_width_store};
 use crate::indicators::dpo::{dpo_node, dpo_store};
 use crate::indicators::ease_of_movement::{ease_of_movement_node, ease_of_movement_store};
 use crate::indicators::ehler_fisher::{ehler_fisher, ehler_fisher_store};
 use crate::indicators::elder_ray::{elder_ray, elder_ray_store};
+use crate::indicators::elder_impulse::{elder_impulse_node, elder_impulse_store};
 use crate::indicators::ema::{ema_close, ema_close_store};
 use crate::indicators::envelope::envelope_store;
 use crate::indicators::force_index::{force_index_node, force_index_store};
@@ -42,7 +46,10 @@ use crate::indicators::fractal_chaos_bands::{fractal_chaos_bands, fractal_chaos_
 use crate::indicators::fractal_chaos_oscillator::{fractal_chaos_oscillator_node, fractal_chaos_oscillator_store};
 use crate::indicators::gator_oscillator::{gator_oscillator, gator_oscillator_store};
 use crate::indicators::gmma::{gmma, gmma_store};
+use crate::indicators::gonogo_trend::{gonogo_trend_node, gonogo_trend_store};
+use crate::indicators::gopalakrishnan_range::{gopalakrishnan_range_node, gopalakrishnan_range_store};
 use crate::indicators::high_low_bands::{high_low_bands, high_low_bands_store};
+use crate::indicators::high_minus_low::{high_minus_low_node, high_minus_low_store};
 use crate::indicators::highest_high::{highest_high_node, highest_high_store};
 use crate::indicators::historical_volatility::{historical_volatility_node, historical_volatility_store};
 use crate::indicators::hma::{hma, hma_store};
@@ -61,6 +68,7 @@ use crate::indicators::macd::{macd, macd_store, ppo, ppo_store};
 use crate::indicators::ma_cross::{ma_cross, ma_cross_store};
 use crate::indicators::ma_deviation::{ma_deviation_node, ma_deviation_store};
 use crate::indicators::market_facilitation::{market_facilitation_node, market_facilitation_store};
+use crate::indicators::mass_index::{mass_index_node, mass_index_store};
 use crate::indicators::median_price::{median_price_node, median_price_store};
 use crate::indicators::mfi::{mfi_node, mfi_store};
 use crate::indicators::momentum::{momentum_node, momentum_store};
@@ -79,15 +87,19 @@ use crate::indicators::prime_number_bands::{prime_number_bands, prime_number_ban
 use crate::indicators::prime_number_oscillator::{prime_number_oscillator_node, prime_number_oscillator_store};
 use crate::indicators::projected_aggregate_volume::{projected_aggregate_volume_node, projected_aggregate_volume_store};
 use crate::indicators::projected_volume_at_time::{projected_volume_at_time_node, projected_volume_at_time_store};
+use crate::indicators::psychological_line::{psychological_line_node, psychological_line_store};
+use crate::indicators::qstick::{qstick_node, qstick_store};
 use crate::indicators::rainbow_ma::{rainbow_ma, rainbow_ma_store};
 use crate::indicators::rainbow_oscillator::{rainbow_oscillator_node, rainbow_oscillator_store};
 use crate::indicators::random_walk_index::{random_walk_index, random_walk_index_store};
 use crate::indicators::ravi::{ravi_node, ravi_store};
 use crate::indicators::relative_vigor::{relative_vigor, relative_vigor_store};
+use crate::indicators::relative_volatility::{relative_volatility_node, relative_volatility_store};
 use crate::indicators::roc::{roc_node, roc_store};
 use crate::indicators::rsi::{rsi_outputs, rsi_outputs_store};
 use crate::indicators::sma::{sma_close, sma_close_store};
 use crate::indicators::schaff_trend_cycle::{schaff_trend_cycle_node, schaff_trend_cycle_store};
+use crate::indicators::shinohara_intensity::{shinohara_intensity, shinohara_intensity_store};
 use crate::indicators::stddev::stddev_store;
 use crate::indicators::stoch::{stochastic, stochastic_store};
 use crate::indicators::stoch_rsi::{stoch_rsi, stoch_rsi_store};
@@ -100,18 +112,26 @@ use crate::indicators::trix::{trix_node, trix_store};
 use crate::indicators::tsi::{tsi_node, tsi_store};
 use crate::indicators::trend_intensity::{trend_intensity_node, trend_intensity_store};
 use crate::indicators::trade_volume_index::{trade_volume_index_node, trade_volume_index_store};
+use crate::indicators::true_range::{true_range_series_node, true_range_series_store};
 use crate::indicators::twiggs_money_flow::{twiggs_money_flow_node, twiggs_money_flow_store};
 use crate::indicators::typical_price::{typical_price_node, typical_price_store};
+use crate::indicators::ulcer_index::{ulcer_index_node, ulcer_index_store};
 use crate::indicators::ultimate_oscillator::{ultimate_oscillator_node, ultimate_oscillator_store};
 use crate::indicators::valuation_lines::{valuation_lines, valuation_lines_store};
+use crate::indicators::vertical_horizontal_filter::{vertical_horizontal_filter_node, vertical_horizontal_filter_store};
+use crate::indicators::vortex_indicator::{vortex_indicator, vortex_indicator_store};
 use crate::indicators::vwap::{vwap, vwap_store};
 use crate::indicators::vwma::{vwma_node, vwma_store};
 use crate::indicators::volume_oscillator::{volume_oscillator_node, volume_oscillator_store};
+use crate::indicators::volume_chart::{volume_chart_node, volume_chart_store};
 use crate::indicators::volume_profile::{volume_profile, volume_profile_store};
+use crate::indicators::volume_roc::{volume_roc_node, volume_roc_store};
+use crate::indicators::volume_underlay::{volume_underlay_node, volume_underlay_store};
 use crate::indicators::weighted_close::{weighted_close_node, weighted_close_store};
 use crate::indicators::williams_ad::{williams_ad_node, williams_ad_store};
 use crate::indicators::williams_r::{williams_r_node, williams_r_store};
 use crate::indicators::wma::{wma_close, wma_store};
+use crate::indicators::zigzag::{zigzag_node, zigzag_store};
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn compute_indicator(
@@ -286,6 +306,26 @@ pub(crate) fn compute_indicator(
         "RANDOM_WALK_INDEX" => random_walk_index(bars, period, nodes),
         "DARVAS_BOX" => darvas_box(bars, nodes),
         "VOLUME_PROFILE" => volume_profile(bars, period, nodes),
+        "CHOPPINESS_INDEX" => one_output(choppiness_index_node(bars, period, nodes)),
+        "ELDER_IMPULSE" => one_output(elder_impulse_node(bars, period, nodes)),
+        "GONOGO_TREND" => one_output(gonogo_trend_node(bars, period, nodes)),
+        "PSYCHOLOGICAL_LINE" => one_output(psychological_line_node(bars, period, nodes)),
+        "QSTICK" => one_output(qstick_node(bars, period, nodes)),
+        "SHINOHARA_INTENSITY" => shinohara_intensity(bars, period, nodes),
+        "ULCER_INDEX" => one_output(ulcer_index_node(bars, period, nodes)),
+        "VERTICAL_HORIZONTAL_FILTER" => one_output(vertical_horizontal_filter_node(bars, period, nodes)),
+        "VORTEX_INDICATOR" => vortex_indicator(bars, period, nodes),
+        "ZIGZAG" => one_output(zigzag_node(bars, multiplier, nodes)),
+        "BOLLINGER_BANDWIDTH" => one_output(bollinger_bandwidth_node(bars, period, multiplier, nodes)),
+        "DONCHIAN_WIDTH" => one_output(donchian_width_node(bars, period, nodes)),
+        "GOPALAKRISHNAN_RANGE" => one_output(gopalakrishnan_range_node(bars, period, nodes)),
+        "HIGH_MINUS_LOW" => one_output(high_minus_low_node(bars, nodes)),
+        "MASS_INDEX" => one_output(mass_index_node(bars, period, nodes)),
+        "RELATIVE_VOLATILITY" => one_output(relative_volatility_node(bars, period, nodes)),
+        "TRUE_RANGE" => one_output(true_range_series_node(bars, nodes)),
+        "VOLUME_CHART" => one_output(volume_chart_node(bars, nodes)),
+        "VOLUME_ROC" => one_output(volume_roc_node(bars, period, nodes)),
+        "VOLUME_UNDERLAY" => one_output(volume_underlay_node(bars, nodes)),
         _ => Vec::new(),
     }
 }
@@ -469,6 +509,26 @@ pub(crate) fn compute_indicator_store(
         "RANDOM_WALK_INDEX" => random_walk_index_store(store, period, nodes),
         "DARVAS_BOX" => darvas_box_store(store, nodes),
         "VOLUME_PROFILE" => volume_profile_store(store, period, nodes),
+        "CHOPPINESS_INDEX" => rc_one_output(choppiness_index_store(store, period, nodes)),
+        "ELDER_IMPULSE" => rc_one_output(elder_impulse_store(store, period, nodes)),
+        "GONOGO_TREND" => rc_one_output(gonogo_trend_store(store, period, nodes)),
+        "PSYCHOLOGICAL_LINE" => rc_one_output(psychological_line_store(store, period, nodes)),
+        "QSTICK" => rc_one_output(qstick_store(store, period, nodes)),
+        "SHINOHARA_INTENSITY" => shinohara_intensity_store(store, period, nodes),
+        "ULCER_INDEX" => rc_one_output(ulcer_index_store(store, period, nodes)),
+        "VERTICAL_HORIZONTAL_FILTER" => rc_one_output(vertical_horizontal_filter_store(store, period, nodes)),
+        "VORTEX_INDICATOR" => vortex_indicator_store(store, period, nodes),
+        "ZIGZAG" => rc_one_output(zigzag_store(store, multiplier, nodes)),
+        "BOLLINGER_BANDWIDTH" => rc_one_output(bollinger_bandwidth_store(store, period, multiplier, nodes)),
+        "DONCHIAN_WIDTH" => rc_one_output(donchian_width_store(store, period, nodes)),
+        "GOPALAKRISHNAN_RANGE" => rc_one_output(gopalakrishnan_range_store(store, period, nodes)),
+        "HIGH_MINUS_LOW" => rc_one_output(high_minus_low_store(store, nodes)),
+        "MASS_INDEX" => rc_one_output(mass_index_store(store, period, nodes)),
+        "RELATIVE_VOLATILITY" => rc_one_output(relative_volatility_store(store, period, nodes)),
+        "TRUE_RANGE" => rc_one_output(true_range_series_store(store, nodes)),
+        "VOLUME_CHART" => rc_one_output(volume_chart_store(store, nodes)),
+        "VOLUME_ROC" => rc_one_output(volume_roc_store(store, period, nodes)),
+        "VOLUME_UNDERLAY" => rc_one_output(volume_underlay_store(store, nodes)),
         _ => compute_indicator(
             materialized_bars(store, bars_snapshot),
             kind,

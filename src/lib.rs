@@ -349,6 +349,26 @@ impl ChartEngine {
             && kind != "RANDOM_WALK_INDEX"
             && kind != "DARVAS_BOX"
             && kind != "VOLUME_PROFILE"
+            && kind != "CHOPPINESS_INDEX"
+            && kind != "ELDER_IMPULSE"
+            && kind != "GONOGO_TREND"
+            && kind != "PSYCHOLOGICAL_LINE"
+            && kind != "QSTICK"
+            && kind != "SHINOHARA_INTENSITY"
+            && kind != "ULCER_INDEX"
+            && kind != "VERTICAL_HORIZONTAL_FILTER"
+            && kind != "VORTEX_INDICATOR"
+            && kind != "ZIGZAG"
+            && kind != "BOLLINGER_BANDWIDTH"
+            && kind != "DONCHIAN_WIDTH"
+            && kind != "GOPALAKRISHNAN_RANGE"
+            && kind != "HIGH_MINUS_LOW"
+            && kind != "MASS_INDEX"
+            && kind != "RELATIVE_VOLATILITY"
+            && kind != "TRUE_RANGE"
+            && kind != "VOLUME_CHART"
+            && kind != "VOLUME_ROC"
+            && kind != "VOLUME_UNDERLAY"
         {
             return Err(JsValue::from_str(
                 "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, DEMA, TEMA, TRIMA, STDDEV, ENVELOPE, TRIX, TSI, KST, BOP, DPO, MOMENTUM, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWMA, WILLIAMS_AD, CHAIKIN_VOLATILITY, PRICE_CHANNEL, STARC, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
@@ -1219,6 +1239,88 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "poc", target_len, poc);
                     upsert_output(&mut indicator.outputs, "vah", target_len, vah);
                     upsert_output(&mut indicator.outputs, "val", target_len, val);
+                }
+                "CHOPPINESS_INDEX" => {
+                    let value = latest_choppiness_index_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "ELDER_IMPULSE" => {
+                    let value = latest_elder_impulse_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "GONOGO_TREND" => {
+                    let value = latest_gonogo_trend_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PSYCHOLOGICAL_LINE" => {
+                    let value = latest_psychological_line_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "QSTICK" => {
+                    let value = latest_qstick_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "SHINOHARA_INTENSITY" => {
+                    let (strong, weak) = latest_shinohara_intensity_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "strong", target_len, strong);
+                    upsert_output(&mut indicator.outputs, "weak", target_len, weak);
+                }
+                "ULCER_INDEX" => {
+                    let value = latest_ulcer_index_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "VERTICAL_HORIZONTAL_FILTER" => {
+                    let value = latest_vertical_horizontal_filter_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "VORTEX_INDICATOR" => {
+                    let (plus, minus) = latest_vortex_indicator_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "plus", target_len, plus);
+                    upsert_output(&mut indicator.outputs, "minus", target_len, minus);
+                }
+                "ZIGZAG" => {
+                    let value = latest_zigzag_store(&self.bars, indicator.multiplier);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "BOLLINGER_BANDWIDTH" => {
+                    let value = latest_bollinger_bandwidth_store(&self.bars, indicator.period, indicator.multiplier);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "DONCHIAN_WIDTH" => {
+                    let value = latest_donchian_width_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "GOPALAKRISHNAN_RANGE" => {
+                    let value = latest_gopalakrishnan_range_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "HIGH_MINUS_LOW" => {
+                    let value = latest_high_minus_low_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "MASS_INDEX" => {
+                    let value = latest_mass_index_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "RELATIVE_VOLATILITY" => {
+                    let value = latest_relative_volatility_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "TRUE_RANGE" => {
+                    let value = latest_true_range_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "VOLUME_CHART" => {
+                    let value = latest_volume_chart_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "VOLUME_ROC" => {
+                    let value = latest_volume_roc_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "VOLUME_UNDERLAY" => {
+                    let value = latest_volume_underlay_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 _ => return false,
             }

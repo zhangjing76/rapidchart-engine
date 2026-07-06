@@ -1,0 +1,70 @@
+use crate::NodeCache;
+use crate::{Bar, CandleStore, IndicatorOutput, Series};
+use std::collections::HashMap;
+
+/// Shinohara Intensity Ratio:
+/// Strong Ratio = SUM(H - C) / SUM(C - L) * 100 over period
+/// Weak Ratio = SUM(H - PC) / SUM(PC - L) * 100 over period
+/// where PC = previous close
+pub fn shinohara_intensity_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+    let len = store.len();
+    let mut strong = vec![f64::NAN; len];
+    let mut weak = vec![f64::NAN; len];
+    if period == 0 || len < period + 1 {
+        return vec![
+            IndicatorOutput { name: "strong".to_string(), values: strong },
+            IndicatorOutput { name: "weak".to_string(), values: weak },
+        ];
+    }
+    for i in period..len {
+        let mut sum_hc = 0.0; let mut sum_cl = 0.0;
+        let mut sum_hpc = 0.0; let mut sum_pcl = 0.0;
+        for j in i + 1 - period..=i {
+            sum_hc += store.high[j] - store.close[j];
+            sum_cl += store.close[j] - store.low[j];
+            let pc = store.close[j - 1];
+            sum_hpc += store.high[j] - pc;
+            sum_pcl += pc - store.low[j];
+        }
+        if sum_cl.abs() > 1e-10 { strong[i] = (sum_hc / sum_cl) * 100.0; }
+        if sum_pcl.abs() > 1e-10 { weak[i] = (sum_hpc / sum_pcl) * 100.0; }
+    }
+    vec![
+        IndicatorOutput { name: "strong".to_string(), values: strong },
+        IndicatorOutput { name: "weak".to_string(), values: weak },
+    ]
+}
+pub fn shinohara_intensity(bars: &[Bar], period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+    let len = bars.len();
+    let mut strong = vec![f64::NAN; len];
+    let mut weak = vec![f64::NAN; len];
+    if period == 0 || len < period + 1 {
+        return vec![
+            IndicatorOutput { name: "strong".to_string(), values: strong },
+            IndicatorOutput { name: "weak".to_string(), values: weak },
+        ];
+    }
+    for i in period..len {
+        let mut sum_hc = 0.0; let mut sum_cl = 0.0;
+        let mut sum_hpc = 0.0; let mut sum_pcl = 0.0;
+        for j in i + 1 - period..=i {
+            sum_hc += bars[j].high - bars[j].close;
+            sum_cl += bars[j].close - bars[j].low;
+            let pc = bars[j - 1].close;
+            sum_hpc += bars[j].high - pc;
+            sum_pcl += pc - bars[j].low;
+        }
+        if sum_cl.abs() > 1e-10 { strong[i] = (sum_hc / sum_cl) * 100.0; }
+        if sum_pcl.abs() > 1e-10 { weak[i] = (sum_hpc / sum_pcl) * 100.0; }
+    }
+    vec![
+        IndicatorOutput { name: "strong".to_string(), values: strong },
+        IndicatorOutput { name: "weak".to_string(), values: weak },
+    ]
+}
+pub fn latest_shinohara_intensity_store(store: &CandleStore, period: usize) -> (Option<f64>, Option<f64>) {
+    let o = shinohara_intensity_store(store, period, &mut HashMap::new());
+    let s = o[0].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let w = o[1].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
+    (s, w)
+}

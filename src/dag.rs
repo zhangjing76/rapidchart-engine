@@ -113,6 +113,26 @@ pub(crate) fn supports_incremental(kind: &str) -> bool {
             | "RANDOM_WALK_INDEX"
             | "DARVAS_BOX"
             | "VOLUME_PROFILE"
+            | "CHOPPINESS_INDEX"
+            | "ELDER_IMPULSE"
+            | "GONOGO_TREND"
+            | "PSYCHOLOGICAL_LINE"
+            | "QSTICK"
+            | "SHINOHARA_INTENSITY"
+            | "ULCER_INDEX"
+            | "VERTICAL_HORIZONTAL_FILTER"
+            | "VORTEX_INDICATOR"
+            | "ZIGZAG"
+            | "BOLLINGER_BANDWIDTH"
+            | "DONCHIAN_WIDTH"
+            | "GOPALAKRISHNAN_RANGE"
+            | "HIGH_MINUS_LOW"
+            | "MASS_INDEX"
+            | "RELATIVE_VOLATILITY"
+            | "TRUE_RANGE"
+            | "VOLUME_CHART"
+            | "VOLUME_ROC"
+            | "VOLUME_UNDERLAY"
     )
 }
 
@@ -469,6 +489,26 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         "RANDOM_WALK_INDEX" => vec![format!("rwi:hlc:{}", indicator.period)],
         "DARVAS_BOX" => vec!["darvas:top".to_string(), "darvas:bottom".to_string()],
         "VOLUME_PROFILE" => vec![format!("vol_profile:hlv:{}", indicator.period)],
+        "CHOPPINESS_INDEX" => vec![format!("chop:hlc:{}", indicator.period)],
+        "ELDER_IMPULSE" => vec![format!("impulse:close:{}", indicator.period)],
+        "GONOGO_TREND" => vec![format!("gonogo:close:{}", indicator.period)],
+        "PSYCHOLOGICAL_LINE" => vec![format!("psy:close:{}", indicator.period)],
+        "QSTICK" => vec![format!("qstick:oc:{}", indicator.period)],
+        "SHINOHARA_INTENSITY" => vec![format!("shinohara:hlc:{}", indicator.period)],
+        "ULCER_INDEX" => vec![format!("ulcer:close:{}", indicator.period)],
+        "VERTICAL_HORIZONTAL_FILTER" => vec![format!("vhf:close:{}", indicator.period)],
+        "VORTEX_INDICATOR" => vec![format!("vortex:hlc:{}", indicator.period)],
+        "ZIGZAG" => vec![format!("zigzag:hl:{}", indicator.multiplier)],
+        "BOLLINGER_BANDWIDTH" => vec![format!("bb_bw:{}:{}", indicator.period, indicator.multiplier)],
+        "DONCHIAN_WIDTH" => vec![format!("donchian_width:{}", indicator.period)],
+        "GOPALAKRISHNAN_RANGE" => vec![format!("gapo:hl:{}", indicator.period)],
+        "HIGH_MINUS_LOW" => vec!["hml:hl".to_string()],
+        "MASS_INDEX" => vec![format!("mass:hl:{}", indicator.period)],
+        "RELATIVE_VOLATILITY" => vec![format!("rvi_vol:close:{}", indicator.period)],
+        "TRUE_RANGE" => vec!["true_range:hlc".to_string()],
+        "VOLUME_CHART" => vec!["vol_chart:v".to_string()],
+        "VOLUME_ROC" => vec![format!("vol_roc:v:{}", indicator.period)],
+        "VOLUME_UNDERLAY" => vec!["vol_underlay:cv".to_string()],
         _ => vec!["close".to_string()],
     }
 }
@@ -1280,6 +1320,80 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             let v = format!("vol_profile:hlv:{}", indicator.period);
             vec![edge("high", &v), edge("low", &v), edge("volume", &v), edge(&v, indicator_node)]
         }
+        "CHOPPINESS_INDEX" => {
+            let c = format!("chop:hlc:{}", indicator.period);
+            vec![edge("high", &c), edge("low", &c), edge("close", &c), edge(&c, indicator_node)]
+        }
+        "ELDER_IMPULSE" => {
+            let e = format!("impulse:close:{}", indicator.period);
+            vec![edge("close", &e), edge(&e, indicator_node)]
+        }
+        "GONOGO_TREND" => {
+            let g = format!("gonogo:close:{}", indicator.period);
+            vec![edge("close", &g), edge(&g, indicator_node)]
+        }
+        "PSYCHOLOGICAL_LINE" => {
+            let p = format!("psy:close:{}", indicator.period);
+            vec![edge("close", &p), edge(&p, indicator_node)]
+        }
+        "QSTICK" => {
+            let q = format!("qstick:oc:{}", indicator.period);
+            vec![edge("close", &q), edge(&q, indicator_node)]
+        }
+        "SHINOHARA_INTENSITY" => {
+            let s = format!("shinohara:hlc:{}", indicator.period);
+            vec![edge("high", &s), edge("low", &s), edge("close", &s), edge(&s, indicator_node)]
+        }
+        "ULCER_INDEX" => {
+            let u = format!("ulcer:close:{}", indicator.period);
+            vec![edge("close", &u), edge(&u, indicator_node)]
+        }
+        "VERTICAL_HORIZONTAL_FILTER" => {
+            let v = format!("vhf:close:{}", indicator.period);
+            vec![edge("close", &v), edge(&v, indicator_node)]
+        }
+        "VORTEX_INDICATOR" => {
+            let v = format!("vortex:hlc:{}", indicator.period);
+            vec![edge("high", &v), edge("low", &v), edge("close", &v), edge(&v, indicator_node)]
+        }
+        "ZIGZAG" => {
+            let z = format!("zigzag:hl:{}", indicator.multiplier);
+            vec![edge("high", &z), edge("low", &z), edge(&z, indicator_node)]
+        }
+        "BOLLINGER_BANDWIDTH" => {
+            let b = format!("bb_bw:{}:{}", indicator.period, indicator.multiplier);
+            vec![edge("close", &b), edge(&b, indicator_node)]
+        }
+        "DONCHIAN_WIDTH" => {
+            let d = format!("donchian_width:{}", indicator.period);
+            vec![edge("high", &d), edge("low", &d), edge(&d, indicator_node)]
+        }
+        "GOPALAKRISHNAN_RANGE" => {
+            let g = format!("gapo:hl:{}", indicator.period);
+            vec![edge("high", &g), edge("low", &g), edge(&g, indicator_node)]
+        }
+        "HIGH_MINUS_LOW" => vec![edge("high", "hml:hl"), edge("low", "hml:hl"), edge("hml:hl", indicator_node)],
+        "MASS_INDEX" => {
+            let m = format!("mass:hl:{}", indicator.period);
+            vec![edge("high", &m), edge("low", &m), edge(&m, indicator_node)]
+        }
+        "RELATIVE_VOLATILITY" => {
+            let r = format!("rvi_vol:close:{}", indicator.period);
+            vec![edge("close", &r), edge(&r, indicator_node)]
+        }
+        "TRUE_RANGE" => vec![
+            edge("high", "true_range:hlc"), edge("low", "true_range:hlc"),
+            edge("close", "true_range:hlc"), edge("true_range:hlc", indicator_node),
+        ],
+        "VOLUME_CHART" => vec![edge("volume", "vol_chart:v"), edge("vol_chart:v", indicator_node)],
+        "VOLUME_ROC" => {
+            let v = format!("vol_roc:v:{}", indicator.period);
+            vec![edge("volume", &v), edge(&v, indicator_node)]
+        }
+        "VOLUME_UNDERLAY" => vec![
+            edge("close", "vol_underlay:cv"), edge("volume", "vol_underlay:cv"),
+            edge("vol_underlay:cv", indicator_node),
+        ],
         _ => indicator_nodes(indicator)
             .into_iter()
             .map(|node| edge(&node, indicator_node))

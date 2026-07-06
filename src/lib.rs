@@ -286,19 +286,94 @@ impl ChartEngine {
             && kind != "STOCHASTIC"
             && kind != "WILLIAMS_R"
             && kind != "MFI"
+            && kind != "MEDIAN_PRICE"
+            && kind != "HIGHEST_HIGH"
+            && kind != "LOWEST_LOW"
+            && kind != "ALLIGATOR"
+            && kind != "ATR_BANDS"
+            && kind != "HIGH_LOW_BANDS"
+            && kind != "FRACTAL_CHAOS_BANDS"
+            && kind != "GMMA"
+            && kind != "LINEAR_REG_FORECAST"
+            && kind != "LINEAR_REG_INTERCEPT"
+            && kind != "ANCHORED_VWAP"
+            && kind != "TYPICAL_PRICE"
+            && kind != "WEIGHTED_CLOSE"
+            && kind != "MA_CROSS"
+            && kind != "RAINBOW_MA"
+            && kind != "PRIME_NUMBER_BANDS"
+            && kind != "TIME_SERIES_FORECAST"
+            && kind != "VALUATION_LINES"
+            && kind != "BETA"
+            && kind != "CORRELATION_COEFFICIENT"
+            && kind != "PERFORMANCE_INDEX"
+            && kind != "PRICE_RELATIVE"
+            && kind != "AWESOME_OSCILLATOR"
+            && kind != "BOLLINGER_PCT_B"
+            && kind != "CENTER_OF_GRAVITY"
+            && kind != "CHANDE_FORECAST"
+            && kind != "CHANDE_MOMENTUM"
+            && kind != "COPPOCK_CURVE"
+            && kind != "DISPARITY_INDEX"
+            && kind != "EASE_OF_MOVEMENT"
+            && kind != "EHLER_FISHER"
+            && kind != "ELDER_RAY"
+            && kind != "FRACTAL_CHAOS_OSCILLATOR"
+            && kind != "GATOR_OSCILLATOR"
+            && kind != "INTRADAY_MOMENTUM"
+            && kind != "LINEAR_REG_SLOPE"
+            && kind != "MA_DEVIATION"
+            && kind != "PRETTY_GOOD_OSCILLATOR"
+            && kind != "PRICE_MOMENTUM_OSCILLATOR"
+            && kind != "PRICE_OSCILLATOR"
+            && kind != "RAINBOW_OSCILLATOR"
+            && kind != "RAVI"
+            && kind != "RELATIVE_VIGOR"
+            && kind != "SCHAFF_TREND_CYCLE"
+            && kind != "STOCHASTIC_MOMENTUM"
+            && kind != "SWING_INDEX"
+            && kind != "TREND_INTENSITY"
+            && kind != "VOLUME_OSCILLATOR"
+            && kind != "KLINGER_VOLUME"
+            && kind != "MARKET_FACILITATION"
+            && kind != "NEGATIVE_VOLUME_INDEX"
+            && kind != "POSITIVE_VOLUME_INDEX"
+            && kind != "PRICE_VOLUME_TREND"
+            && kind != "TRADE_VOLUME_INDEX"
+            && kind != "TWIGGS_MONEY_FLOW"
+            && kind != "PROJECTED_AGGREGATE_VOLUME"
+            && kind != "PROJECTED_VOLUME_AT_TIME"
+            && kind != "HISTORICAL_VOLATILITY"
+            && kind != "LINEAR_REG_R2"
+            && kind != "PRIME_NUMBER_OSCILLATOR"
+            && kind != "RANDOM_WALK_INDEX"
+            && kind != "DARVAS_BOX"
+            && kind != "VOLUME_PROFILE"
         {
             return Err(JsValue::from_str(
                 "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, DEMA, TEMA, TRIMA, STDDEV, ENVELOPE, TRIX, TSI, KST, BOP, DPO, MOMENTUM, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWMA, WILLIAMS_AD, CHAIKIN_VOLATILITY, PRICE_CHANNEL, STARC, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
             ));
         }
-        let macd = if kind == "MACD" || kind == "PPO" || kind == "CHAIKIN_OSCILLATOR" {
+        let macd = if kind == "MACD" || kind == "PPO" || kind == "CHAIKIN_OSCILLATOR" || kind == "MA_CROSS" || kind == "PRICE_OSCILLATOR" || kind == "VOLUME_OSCILLATOR" || kind == "SCHAFF_TREND_CYCLE" {
             Some(MacdParams {
-                fast: config
-                    .fast
-                    .unwrap_or(if kind == "CHAIKIN_OSCILLATOR" { 3 } else { 12 }),
-                slow: config
-                    .slow
-                    .unwrap_or(if kind == "CHAIKIN_OSCILLATOR" { 10 } else { 26 }),
+                fast: config.fast.unwrap_or(if kind == "CHAIKIN_OSCILLATOR" {
+                    3
+                } else if kind == "MA_CROSS" {
+                    10
+                } else if kind == "VOLUME_OSCILLATOR" {
+                    5
+                } else {
+                    12
+                }),
+                slow: config.slow.unwrap_or(if kind == "CHAIKIN_OSCILLATOR" {
+                    10
+                } else if kind == "MA_CROSS" {
+                    20
+                } else if kind == "VOLUME_OSCILLATOR" {
+                    10
+                } else {
+                    26
+                }),
                 signal: config.signal.unwrap_or(9),
             })
         } else {
@@ -314,6 +389,7 @@ impl ChartEngine {
         let multiplier = config.multiplier.unwrap_or(2.0);
         let psar_step = config.psar_step.unwrap_or(0.02);
         let psar_max_step = config.psar_max_step.unwrap_or(0.2);
+        let anchor = config.anchor.unwrap_or(0);
         validate_indicator(
             &kind,
             period,
@@ -345,6 +421,7 @@ impl ChartEngine {
             multiplier,
             psar_step,
             psar_max_step,
+            anchor,
             outputs: IndicatorArena::from_outputs(Vec::new()),
         };
         self.indicators.push(indicator);
@@ -475,6 +552,7 @@ impl ChartEngine {
                 indicator.multiplier,
                 indicator.psar_step,
                 indicator.psar_max_step,
+                indicator.anchor,
                 &mut nodes,
                 &mut bars_snapshot,
             ));
@@ -828,6 +906,319 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "ppo", target_len, ppo);
                     upsert_output(&mut indicator.outputs, "signal", target_len, signal);
                     upsert_output(&mut indicator.outputs, "histogram", target_len, histogram);
+                }
+                "MEDIAN_PRICE" => {
+                    let value = latest_median_price_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "HIGHEST_HIGH" => {
+                    let value = latest_highest_high_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "LOWEST_LOW" => {
+                    let value = latest_lowest_low_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "ALLIGATOR" => {
+                    let (jaw, teeth, lips) = latest_alligator_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "jaw", target_len, jaw);
+                    upsert_output(&mut indicator.outputs, "teeth", target_len, teeth);
+                    upsert_output(&mut indicator.outputs, "lips", target_len, lips);
+                }
+                "ATR_BANDS" => {
+                    let (upper, middle, lower) = latest_atr_bands_store(
+                        &self.bars,
+                        indicator.period,
+                        indicator.multiplier,
+                        &indicator.outputs,
+                    );
+                    upsert_output(&mut indicator.outputs, "upper", target_len, upper);
+                    upsert_output(&mut indicator.outputs, "middle", target_len, middle);
+                    upsert_output(&mut indicator.outputs, "lower", target_len, lower);
+                }
+                "HIGH_LOW_BANDS" => {
+                    let (upper, middle, lower) =
+                        latest_high_low_bands_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "upper", target_len, upper);
+                    upsert_output(&mut indicator.outputs, "middle", target_len, middle);
+                    upsert_output(&mut indicator.outputs, "lower", target_len, lower);
+                }
+                "FRACTAL_CHAOS_BANDS" => {
+                    let (upper, lower) = latest_fractal_chaos_bands_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "upper", target_len, upper);
+                    upsert_output(&mut indicator.outputs, "lower", target_len, lower);
+                }
+                "GMMA" => {
+                    let results = latest_gmma_store(&self.bars, &indicator.outputs);
+                    for (name, value) in results {
+                        upsert_output(&mut indicator.outputs, &name, target_len, value);
+                    }
+                }
+                "LINEAR_REG_FORECAST" => {
+                    let value = latest_linear_reg_forecast_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "LINEAR_REG_INTERCEPT" => {
+                    let value = latest_linear_reg_intercept_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "ANCHORED_VWAP" => {
+                    let (value, cum_pv, cum_vol) = latest_anchored_vwap_store(
+                        &self.bars,
+                        indicator.anchor,
+                        &indicator.outputs,
+                    );
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "cumulative_pv", target_len, cum_pv);
+                    upsert_output(
+                        &mut indicator.outputs,
+                        "cumulative_volume",
+                        target_len,
+                        cum_vol,
+                    );
+                }
+                "TYPICAL_PRICE" => {
+                    let value = latest_typical_price_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "WEIGHTED_CLOSE" => {
+                    let value = latest_weighted_close_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "MA_CROSS" => {
+                    let params = indicator.macd.unwrap_or(MacdParams {
+                        fast: 10,
+                        slow: 20,
+                        signal: 9,
+                    });
+                    let (fast, slow, histogram) =
+                        latest_ma_cross_store(&self.bars, params.fast, params.slow);
+                    upsert_output(&mut indicator.outputs, "fast", target_len, fast);
+                    upsert_output(&mut indicator.outputs, "slow", target_len, slow);
+                    upsert_output(&mut indicator.outputs, "histogram", target_len, histogram);
+                }
+                "RAINBOW_MA" => {
+                    let results = latest_rainbow_ma_store(&self.bars, indicator.period);
+                    for (name, value) in results {
+                        upsert_output(&mut indicator.outputs, &name, target_len, value);
+                    }
+                }
+                "PRIME_NUMBER_BANDS" => {
+                    let (upper, lower) = latest_prime_number_bands_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "upper", target_len, upper);
+                    upsert_output(&mut indicator.outputs, "lower", target_len, lower);
+                }
+                "TIME_SERIES_FORECAST" => {
+                    let value = latest_linear_reg_forecast_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "VALUATION_LINES" => {
+                    let (upper, middle, lower) =
+                        latest_valuation_lines_store(&self.bars, indicator.period, indicator.multiplier);
+                    upsert_output(&mut indicator.outputs, "upper", target_len, upper);
+                    upsert_output(&mut indicator.outputs, "middle", target_len, middle);
+                    upsert_output(&mut indicator.outputs, "lower", target_len, lower);
+                }
+                "BETA" => {
+                    let value = latest_beta_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "CORRELATION_COEFFICIENT" => {
+                    let value = latest_correlation_coefficient_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PERFORMANCE_INDEX" => {
+                    let value = latest_performance_index_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PRICE_RELATIVE" => {
+                    let value = latest_price_relative_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "AWESOME_OSCILLATOR" => {
+                    let value = latest_awesome_oscillator_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "BOLLINGER_PCT_B" => {
+                    let value = latest_bollinger_pct_b_store(&self.bars, indicator.period, indicator.multiplier);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "CENTER_OF_GRAVITY" => {
+                    let value = latest_center_of_gravity_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "CHANDE_FORECAST" => {
+                    let value = latest_chande_forecast_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "CHANDE_MOMENTUM" => {
+                    let value = latest_chande_momentum_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "COPPOCK_CURVE" => {
+                    let value = latest_coppock_curve_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "DISPARITY_INDEX" => {
+                    let value = latest_disparity_index_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "EASE_OF_MOVEMENT" => {
+                    let value = latest_ease_of_movement_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "EHLER_FISHER" => {
+                    let (fisher, trigger) = latest_ehler_fisher_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "fisher", target_len, fisher);
+                    upsert_output(&mut indicator.outputs, "trigger", target_len, trigger);
+                }
+                "ELDER_RAY" => {
+                    let (bull, bear) = latest_elder_ray_store(
+                        &self.bars, indicator.period, &indicator.outputs);
+                    upsert_output(&mut indicator.outputs, "bull", target_len, bull);
+                    upsert_output(&mut indicator.outputs, "bear", target_len, bear);
+                }
+                "FRACTAL_CHAOS_OSCILLATOR" => {
+                    let value = latest_fractal_chaos_oscillator_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "GATOR_OSCILLATOR" => {
+                    let (upper, lower) = latest_gator_oscillator_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "upper", target_len, upper);
+                    upsert_output(&mut indicator.outputs, "lower", target_len, lower);
+                }
+                "INTRADAY_MOMENTUM" => {
+                    let value = latest_intraday_momentum_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "LINEAR_REG_SLOPE" => {
+                    let value = latest_linear_reg_slope_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "MA_DEVIATION" => {
+                    let value = latest_ma_deviation_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PRETTY_GOOD_OSCILLATOR" => {
+                    let value = latest_pretty_good_oscillator_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PRICE_MOMENTUM_OSCILLATOR" => {
+                    let value = latest_price_momentum_oscillator_store(
+                        &self.bars, indicator.period, indicator.smooth);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PRICE_OSCILLATOR" => {
+                    let params = indicator.macd.unwrap_or(MacdParams {
+                        fast: 12, slow: 26, signal: 9,
+                    });
+                    let value = latest_price_oscillator_store(&self.bars, params);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "RAINBOW_OSCILLATOR" => {
+                    let value = latest_rainbow_oscillator_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "RAVI" => {
+                    let value = latest_ravi_store(&self.bars, indicator.period, indicator.stoch_period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "RELATIVE_VIGOR" => {
+                    let (value, signal) = latest_relative_vigor_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "signal", target_len, signal);
+                }
+                "SCHAFF_TREND_CYCLE" => {
+                    let params = indicator.macd.unwrap_or(MacdParams { fast: 12, slow: 26, signal: 9 });
+                    let value = latest_schaff_trend_cycle_store(
+                        &self.bars, params.fast, params.slow, indicator.stoch_period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "STOCHASTIC_MOMENTUM" => {
+                    let value = latest_stochastic_momentum_store(
+                        &self.bars, indicator.period, indicator.smooth);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "SWING_INDEX" => {
+                    let value = latest_swing_index_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "TREND_INTENSITY" => {
+                    let value = latest_trend_intensity_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "VOLUME_OSCILLATOR" => {
+                    let params = indicator.macd.unwrap_or(MacdParams { fast: 5, slow: 10, signal: 9 });
+                    let value = latest_volume_oscillator_store(&self.bars, params);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "KLINGER_VOLUME" => {
+                    let value = latest_klinger_volume_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "MARKET_FACILITATION" => {
+                    let value = latest_market_facilitation_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "NEGATIVE_VOLUME_INDEX" => {
+                    let value = latest_negative_volume_index_store(
+                        &self.bars, indicator.outputs.get("value"));
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "POSITIVE_VOLUME_INDEX" => {
+                    let value = latest_positive_volume_index_store(
+                        &self.bars, indicator.outputs.get("value"));
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PRICE_VOLUME_TREND" => {
+                    let value = latest_price_volume_trend_store(
+                        &self.bars, indicator.outputs.get("value"));
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "TRADE_VOLUME_INDEX" => {
+                    let value = latest_trade_volume_index_store(
+                        &self.bars, indicator.outputs.get("value"));
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "TWIGGS_MONEY_FLOW" => {
+                    let value = latest_twiggs_money_flow_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PROJECTED_AGGREGATE_VOLUME" => {
+                    let value = latest_projected_aggregate_volume_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PROJECTED_VOLUME_AT_TIME" => {
+                    let value = latest_projected_volume_at_time_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "HISTORICAL_VOLATILITY" => {
+                    let value = latest_historical_volatility_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "LINEAR_REG_R2" => {
+                    let value = latest_linear_reg_r2_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "PRIME_NUMBER_OSCILLATOR" => {
+                    let value = latest_prime_number_oscillator_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "value", target_len, value);
+                }
+                "RANDOM_WALK_INDEX" => {
+                    let (high, low) = latest_random_walk_index_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "high", target_len, high);
+                    upsert_output(&mut indicator.outputs, "low", target_len, low);
+                }
+                "DARVAS_BOX" => {
+                    let (top, bottom) = latest_darvas_box_store(&self.bars);
+                    upsert_output(&mut indicator.outputs, "top", target_len, top);
+                    upsert_output(&mut indicator.outputs, "bottom", target_len, bottom);
+                }
+                "VOLUME_PROFILE" => {
+                    let (poc, vah, val) = latest_volume_profile_store(&self.bars, indicator.period);
+                    upsert_output(&mut indicator.outputs, "poc", target_len, poc);
+                    upsert_output(&mut indicator.outputs, "vah", target_len, vah);
+                    upsert_output(&mut indicator.outputs, "val", target_len, val);
                 }
                 _ => return false,
             }

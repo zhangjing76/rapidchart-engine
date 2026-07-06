@@ -1,0 +1,66 @@
+use crate::NodeCache;
+use crate::{Bar, CandleStore, RcSeries, Series};
+use std::collections::HashMap;
+use std::rc::Rc;
+
+/// Intraday Momentum Index (IMI):
+/// IMI = (sum of gains / (sum of gains + sum of losses)) * 100
+/// where gain = close - open when close > open, loss = open - close when close < open
+/// Computed over a rolling window of `period` bars.
+pub fn intraday_momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+    let key = format!("imi:oc:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
+    let len = store.len();
+    let mut out = vec![f64::NAN; len];
+    if period == 0 || len < period {
+        let rc = Rc::new(out);
+        nodes.insert(key, Rc::clone(&rc));
+        return rc;
+    }
+    for i in period - 1..len {
+        let mut gains = 0.0;
+        let mut losses = 0.0;
+        for j in i + 1 - period..=i {
+            let diff = store.close[j] - store.open[j];
+            if diff > 0.0 { gains += diff; }
+            else { losses += -diff; }
+        }
+        let total = gains + losses;
+        out[i] = if total > 0.0 { (gains / total) * 100.0 } else { 50.0 };
+    }
+    let rc = Rc::new(out);
+    nodes.insert(key, Rc::clone(&rc));
+    rc
+}
+
+pub fn intraday_momentum_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
+    let key = format!("imi:oc:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return (**values).clone();
+    }
+    let len = bars.len();
+    let mut out = vec![f64::NAN; len];
+    if period == 0 || len < period {
+        nodes.insert(key, Rc::new(out.clone()));
+        return out;
+    }
+    for i in period - 1..len {
+        let mut gains = 0.0;
+        let mut losses = 0.0;
+        for j in i + 1 - period..=i {
+            let diff = bars[j].close - bars[j].open;
+            if diff > 0.0 { gains += diff; } else { losses += -diff; }
+        }
+        let total = gains + losses;
+        out[i] = if total > 0.0 { (gains / total) * 100.0 } else { 50.0 };
+    }
+    nodes.insert(key, Rc::new(out.clone()));
+    out
+}
+
+pub fn latest_intraday_momentum_store(store: &CandleStore, period: usize) -> Option<f64> {
+    intraday_momentum_store(store, period, &mut HashMap::new())
+        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+}

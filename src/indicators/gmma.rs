@@ -1,6 +1,6 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, IndicatorOutput};
-use crate::indicators::ema::{ema_close, ema_close_store, latest_ema_store};
+use crate::{CandleStore, IndicatorOutput};
+use crate::indicators::ema::{ema_close_store, latest_ema_store};
 use crate::series::rc_into_owned;
 
 /// GMMA periods: short-term group and long-term group.
@@ -12,24 +12,6 @@ fn output_name(prefix: &str, period: usize) -> String {
 }
 
 /// Guppy Multiple Moving Average: 12 EMA lines.
-pub fn gmma(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let mut outputs = Vec::with_capacity(12);
-    for &p in &SHORT_PERIODS {
-        let values = ema_close(bars, p, nodes);
-        outputs.push(IndicatorOutput {
-            name: output_name("short", p),
-            values,
-        });
-    }
-    for &p in &LONG_PERIODS {
-        let values = ema_close(bars, p, nodes);
-        outputs.push(IndicatorOutput {
-            name: output_name("long", p),
-            values,
-        });
-    }
-    outputs
-}
 
 pub fn gmma_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let mut outputs = Vec::with_capacity(12);

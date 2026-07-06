@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use crate::indicators::ema::ema_series;
 use crate::types::MacdParams;
 use std::collections::HashMap;
@@ -29,24 +29,6 @@ pub fn volume_oscillator_store(
     rc
 }
 
-pub fn volume_oscillator_node(bars: &[Bar], params: MacdParams, nodes: &mut NodeCache) -> Series {
-    let key = format!("vol_osc:volume:{}:{}", params.fast, params.slow);
-    if let Some(values) = nodes.get(&key) { return (**values).clone(); }
-    let vol: Vec<f64> = bars.iter().map(|b| b.volume).collect();
-    let fast_ema = ema_series(&vol, params.fast);
-    let slow_ema = ema_series(&vol, params.slow);
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    for i in 0..len {
-        let f = fast_ema[i];
-        let s = slow_ema[i];
-        if !f.is_nan() && !s.is_nan() && s.abs() > 1e-10 {
-            out[i] = ((f - s) / s) * 100.0;
-        }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_volume_oscillator_store(store: &CandleStore, params: MacdParams) -> Option<f64> {
     volume_oscillator_store(store, params, &mut HashMap::new())

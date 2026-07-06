@@ -1,6 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Price Volume Trend (PVT):
@@ -26,24 +25,6 @@ pub fn price_volume_trend_store(store: &CandleStore, nodes: &mut NodeCache) -> R
     rc
 }
 
-pub fn price_volume_trend_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "pvt:cv".to_string();
-    if let Some(values) = nodes.get(&key) { return (**values).clone(); }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if len == 0 { nodes.insert(key, Rc::new(out.clone())); return out; }
-    out[0] = 0.0;
-    for i in 1..len {
-        if bars[i-1].close != 0.0 {
-            let roc = (bars[i].close - bars[i-1].close) / bars[i-1].close;
-            out[i] = out[i-1] + bars[i].volume * roc;
-        } else {
-            out[i] = out[i-1];
-        }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_price_volume_trend_store(store: &CandleStore, prev: Option<&[f64]>) -> Option<f64> {
     let len = store.len();

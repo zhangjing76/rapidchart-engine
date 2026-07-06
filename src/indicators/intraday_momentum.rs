@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -35,30 +35,6 @@ pub fn intraday_momentum_store(store: &CandleStore, period: usize, nodes: &mut N
     rc
 }
 
-pub fn intraday_momentum_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("imi:oc:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if period == 0 || len < period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    for i in period - 1..len {
-        let mut gains = 0.0;
-        let mut losses = 0.0;
-        for j in i + 1 - period..=i {
-            let diff = bars[j].close - bars[j].open;
-            if diff > 0.0 { gains += diff; } else { losses += -diff; }
-        }
-        let total = gains + losses;
-        out[i] = if total > 0.0 { (gains / total) * 100.0 } else { 50.0 };
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_intraday_momentum_store(store: &CandleStore, period: usize) -> Option<f64> {
     intraday_momentum_store(store, period, &mut HashMap::new())

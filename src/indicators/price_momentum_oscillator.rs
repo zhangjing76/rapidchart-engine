@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use crate::indicators::ema::ema_series;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -43,34 +43,6 @@ pub fn price_momentum_oscillator_store(
     rc
 }
 
-pub fn price_momentum_oscillator_node(
-    bars: &[Bar],
-    period: usize,
-    smooth: usize,
-    nodes: &mut NodeCache,
-) -> Series {
-    let key = format!("pmo:close:{}:{}", period, smooth);
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let len = bars.len();
-    if len < 2 {
-        let out = vec![f64::NAN; len];
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    let mut roc1 = vec![f64::NAN; len];
-    for i in 1..len {
-        if bars[i - 1].close != 0.0 {
-            roc1[i] = ((bars[i].close / bars[i - 1].close) - 1.0) * 100.0;
-        }
-    }
-    let smooth1 = ema_series(&roc1, period);
-    let scaled: Vec<f64> = smooth1.iter().map(|&v| if v.is_nan() { f64::NAN } else { v * 10.0 }).collect();
-    let out = ema_series(&scaled, smooth);
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_price_momentum_oscillator_store(
     store: &CandleStore,

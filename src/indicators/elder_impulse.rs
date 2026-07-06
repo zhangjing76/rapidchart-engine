@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use crate::indicators::ema::{ema_close_store, ema_series};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -58,45 +58,6 @@ pub fn elder_impulse_store(store: &CandleStore, period: usize, nodes: &mut NodeC
     rc
 }
 
-pub fn elder_impulse_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("impulse:close:{period}");
-    if let Some(values) = nodes.get(&key) { return (**values).clone(); }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if len < 2 {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    let close: Vec<f64> = bars.iter().map(|b| b.close).collect();
-    let ema = crate::indicators::ema::ema_values(close.iter().copied(), period);
-    let ema12 = crate::indicators::ema::ema_values(close.iter().copied(), 12);
-    let ema26 = crate::indicators::ema::ema_values(close.iter().copied(), 26);
-    let mut macd_line = vec![f64::NAN; len];
-    for i in 0..len {
-        macd_line[i] = ema12[i] - ema26[i];
-    }
-    let signal = ema_series(&macd_line, 9);
-    let mut histogram = vec![f64::NAN; len];
-    for i in 0..len {
-        if !macd_line[i].is_nan() && !signal[i].is_nan() {
-            histogram[i] = macd_line[i] - signal[i];
-        }
-    }
-    for i in 1..len {
-        if ema[i].is_nan() || histogram[i].is_nan() || histogram[i - 1].is_nan() {
-            continue;
-        }
-        let ema_rising = ema[i] > ema[i - 1];
-        let ema_falling = ema[i] < ema[i - 1];
-        let hist_rising = histogram[i] > histogram[i - 1];
-        let hist_falling = histogram[i] < histogram[i - 1];
-        if ema_rising && hist_rising { out[i] = 1.0; }
-        else if ema_falling && hist_falling { out[i] = -1.0; }
-        else { out[i] = 0.0; }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_elder_impulse_store(store: &CandleStore, period: usize) -> Option<f64> {
     elder_impulse_store(store, period, &mut HashMap::new())

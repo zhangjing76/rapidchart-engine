@@ -1,29 +1,9 @@
-use crate::indicators::adl::{money_flow_multiplier, money_flow_multiplier_parts};
+use crate::indicators::adl::money_flow_multiplier_parts;
 use crate::nan_to_none;
 use crate::NodeCache;
 use crate::{Bar, CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
-pub fn cmf(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![f64::NAN; bars.len()];
-    if period == 0 || bars.len() < period {
-        return out;
-    }
-    for index in period - 1..bars.len() {
-        let window = &bars[index + 1 - period..=index];
-        let mfv_sum = window
-            .iter()
-            .map(|bar| money_flow_multiplier(bar) * bar.volume)
-            .sum::<f64>();
-        let volume_sum = window.iter().map(|bar| bar.volume).sum::<f64>();
-        out[index] = if volume_sum != 0.0 {
-            mfv_sum / volume_sum
-        } else {
-            f64::NAN
-        };
-    }
-    out
-}
 pub fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("cmf:hlcv:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -56,19 +36,6 @@ pub fn cmf_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-pub fn cmf_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("cmf:hlcv:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = cmf(bars, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
-#[allow(dead_code)]
-pub fn latest_cmf(bars: &[Bar], period: usize) -> Option<f64> {
-    cmf(bars, period).last().copied().and_then(nan_to_none)
 }
 pub fn latest_cmf_store(store: &CandleStore, period: usize) -> Option<f64> {
     if period == 0 || store.len() < period {

@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -42,38 +42,6 @@ pub fn fractal_chaos_oscillator_store(store: &CandleStore, _nodes: &mut NodeCach
     rc
 }
 
-pub fn fractal_chaos_oscillator_node(bars: &[Bar], _nodes: &mut NodeCache) -> Series {
-    let key = "fco:hl".to_string();
-    if let Some(values) = _nodes.get(&key) {
-        return (**values).clone();
-    }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if len < 5 {
-        _nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    for i in 4..len {
-        let mid = i - 2;
-        let is_high = bars[mid].high > bars[mid - 2].high
-            && bars[mid].high > bars[mid - 1].high
-            && bars[mid].high > bars[mid + 1].high
-            && bars[mid].high > bars[mid + 2].high;
-        let is_low = bars[mid].low < bars[mid - 2].low
-            && bars[mid].low < bars[mid - 1].low
-            && bars[mid].low < bars[mid + 1].low
-            && bars[mid].low < bars[mid + 2].low;
-        if is_high {
-            out[i] = 1.0;
-        } else if is_low {
-            out[i] = -1.0;
-        } else {
-            out[i] = 0.0;
-        }
-    }
-    _nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_fractal_chaos_oscillator_store(store: &CandleStore) -> Option<f64> {
     fractal_chaos_oscillator_store(store, &mut HashMap::new())

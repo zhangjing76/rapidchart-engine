@@ -1,28 +1,10 @@
 use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, IndicatorOutput};
+use crate::{CandleStore, IndicatorOutput};
 
 /// Anchored VWAP: VWAP starting from a user-specified bar index (anchor).
 /// Before the anchor, values are NaN.
 /// anchor = 0 means start from the first bar (equivalent to session VWAP).
-pub fn anchored_vwap(bars: &[Bar], anchor: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let len = bars.len();
-    let mut values = vec![f64::NAN; len];
-    if anchor >= len {
-        return vec![IndicatorOutput { name: "value".to_string(), values }];
-    }
-    let mut cum_pv = 0.0;
-    let mut cum_vol = 0.0;
-    for i in anchor..len {
-        let tp = (bars[i].high + bars[i].low + bars[i].close) / 3.0;
-        cum_pv += tp * bars[i].volume;
-        cum_vol += bars[i].volume;
-        if cum_vol > 0.0 {
-            values[i] = cum_pv / cum_vol;
-        }
-    }
-    vec![IndicatorOutput { name: "value".to_string(), values }]
-}
 
 pub fn anchored_vwap_store(
     store: &CandleStore,

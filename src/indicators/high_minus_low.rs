@@ -1,6 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// High Minus Low: simple H - L for each bar.
@@ -9,12 +8,6 @@ pub fn high_minus_low_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSer
     if let Some(v) = nodes.get(&key) { return Rc::clone(v); }
     let out: Vec<f64> = store.high.iter().zip(store.low.iter()).map(|(h, l)| h - l).collect();
     let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc)); rc
-}
-pub fn high_minus_low_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "hml:hl".to_string();
-    if let Some(v) = nodes.get(&key) { return (**v).clone(); }
-    let out: Vec<f64> = bars.iter().map(|b| b.high - b.low).collect();
-    nodes.insert(key, Rc::new(out.clone())); out
 }
 pub fn latest_high_minus_low_store(store: &CandleStore) -> Option<f64> {
     if store.len() == 0 { return None; }

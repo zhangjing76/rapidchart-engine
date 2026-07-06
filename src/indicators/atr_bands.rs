@@ -1,33 +1,10 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, IndicatorOutput};
-use crate::indicators::atr::{atr_node, atr_store};
-use crate::indicators::ema::{ema_close, ema_close_store};
+use crate::{CandleStore, IndicatorOutput};
+use crate::indicators::atr::atr_store;
+use crate::indicators::ema::ema_close_store;
 use crate::series::rc_into_owned;
 
 /// ATR Bands: EMA(close, period) ± multiplier * ATR(period)
-pub fn atr_bands(
-    bars: &[Bar],
-    period: usize,
-    multiplier: f64,
-    nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
-    let middle = ema_close(bars, period, nodes);
-    let atr = atr_node(bars, period, nodes);
-    let len = bars.len();
-    let mut upper = vec![f64::NAN; len];
-    let mut lower = vec![f64::NAN; len];
-    for i in 0..len {
-        if !middle[i].is_nan() && !atr[i].is_nan() {
-            upper[i] = middle[i] + multiplier * atr[i];
-            lower[i] = middle[i] - multiplier * atr[i];
-        }
-    }
-    vec![
-        IndicatorOutput { name: "upper".to_string(), values: upper },
-        IndicatorOutput { name: "middle".to_string(), values: middle },
-        IndicatorOutput { name: "lower".to_string(), values: lower },
-    ]
-}
 
 pub fn atr_bands_store(
     store: &CandleStore,

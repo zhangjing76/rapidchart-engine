@@ -1,6 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Trade Volume Index (TVI):
@@ -30,22 +29,6 @@ pub fn trade_volume_index_store(store: &CandleStore, nodes: &mut NodeCache) -> R
     rc
 }
 
-pub fn trade_volume_index_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "tvi:cv".to_string();
-    if let Some(values) = nodes.get(&key) { return (**values).clone(); }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if len == 0 { nodes.insert(key, Rc::new(out.clone())); return out; }
-    out[0] = 0.0;
-    for i in 1..len {
-        let diff = bars[i].close - bars[i-1].close;
-        if diff > 0.0 { out[i] = out[i-1] + bars[i].volume; }
-        else if diff < 0.0 { out[i] = out[i-1] - bars[i].volume; }
-        else { out[i] = out[i-1]; }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_trade_volume_index_store(store: &CandleStore, prev: Option<&[f64]>) -> Option<f64> {
     let len = store.len();

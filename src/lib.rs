@@ -545,9 +545,7 @@ impl ChartEngine {
     }
 
     fn recompute_indicators(&mut self) {
-        // ponytail: full recompute is enough for snapshot testing; switch to incremental state for live streams.
         let mut nodes = HashMap::new();
-        let mut bars_snapshot = None;
         let mut dag = DagDebug {
             nodes: vec![
                 "close".to_string(),
@@ -574,7 +572,6 @@ impl ChartEngine {
                 indicator.psar_max_step,
                 indicator.anchor,
                 &mut nodes,
-                &mut bars_snapshot,
             ));
             let indicator_node = indicator_node(indicator);
             dag.nodes.push(indicator_node.clone());

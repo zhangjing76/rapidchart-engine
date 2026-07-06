@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, IndicatorOutput, Series};
+use crate::{CandleStore, IndicatorOutput, Series};
 use std::collections::HashMap;
 
 /// Smoothed Moving Average (Wilder's smoothing): alpha = 1/period
@@ -22,27 +22,6 @@ fn smma(values: &[f64], period: usize) -> Series {
 /// Gator Oscillator: derived from Alligator's jaw, teeth, lips.
 /// Upper histogram = |jaw_smma - teeth_smma| (positive)
 /// Lower histogram = -(|teeth_smma - lips_smma|) (negative)
-pub fn gator_oscillator(bars: &[Bar], _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let median: Vec<f64> = bars.iter().map(|b| (b.high + b.low) / 2.0).collect();
-    let jaw = smma(&median, 13);
-    let teeth = smma(&median, 8);
-    let lips = smma(&median, 5);
-    let len = bars.len();
-    let mut upper = vec![f64::NAN; len];
-    let mut lower = vec![f64::NAN; len];
-    for i in 0..len {
-        if !jaw[i].is_nan() && !teeth[i].is_nan() {
-            upper[i] = (jaw[i] - teeth[i]).abs();
-        }
-        if !teeth[i].is_nan() && !lips[i].is_nan() {
-            lower[i] = -(teeth[i] - lips[i]).abs();
-        }
-    }
-    vec![
-        IndicatorOutput { name: "upper".to_string(), values: upper },
-        IndicatorOutput { name: "lower".to_string(), values: lower },
-    ]
-}
 
 pub fn gator_oscillator_store(store: &CandleStore, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let median: Vec<f64> = store.high.iter().zip(store.low.iter())

@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -65,50 +65,6 @@ pub fn zigzag_store(store: &CandleStore, threshold_pct: f64, _nodes: &mut NodeCa
         }
     }
     let rc = Rc::new(out); _nodes.insert(key, Rc::clone(&rc)); rc
-}
-pub fn zigzag_node(bars: &[Bar], threshold_pct: f64, _nodes: &mut NodeCache) -> Series {
-    let key = format!("zigzag:hl:{}", threshold_pct);
-    if let Some(v) = _nodes.get(&key) { return (**v).clone(); }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if len < 2 || threshold_pct <= 0.0 { _nodes.insert(key, Rc::new(out.clone())); return out; }
-    let threshold = threshold_pct / 100.0;
-    let mut pivots: Vec<(usize, f64)> = Vec::new();
-    let mut trend = 0i8;
-    let mut last_high = bars[0].high; let mut last_low = bars[0].low;
-    let mut last_high_idx = 0; let mut last_low_idx = 0;
-    pivots.push((0, bars[0].close));
-    for i in 1..len {
-        if trend >= 0 {
-            if bars[i].high > last_high { last_high = bars[i].high; last_high_idx = i; }
-            if bars[i].low < last_high * (1.0 - threshold) {
-                pivots.push((last_high_idx, last_high));
-                trend = -1; last_low = bars[i].low; last_low_idx = i;
-            }
-        }
-        if trend <= 0 {
-            if bars[i].low < last_low { last_low = bars[i].low; last_low_idx = i; }
-            if bars[i].high > last_low * (1.0 + threshold) {
-                pivots.push((last_low_idx, last_low));
-                trend = 1; last_high = bars[i].high; last_high_idx = i;
-            }
-        }
-        if trend == 0 {
-            if bars[i].high > last_high { last_high = bars[i].high; last_high_idx = i; }
-            if bars[i].low < last_low { last_low = bars[i].low; last_low_idx = i; }
-            if last_high > bars[0].close * (1.0 + threshold) { trend = 1; }
-            else if last_low < bars[0].close * (1.0 - threshold) { trend = -1; }
-        }
-    }
-    if trend == 1 { pivots.push((last_high_idx, last_high)); }
-    else if trend == -1 { pivots.push((last_low_idx, last_low)); }
-    else { pivots.push((len - 1, bars[len - 1].close)); }
-    for w in pivots.windows(2) {
-        let (i0, v0) = w[0]; let (i1, v1) = w[1];
-        if i1 == i0 { out[i0] = v0; continue; }
-        for j in i0..=i1 { out[j] = v0 + (j - i0) as f64 / (i1 - i0) as f64 * (v1 - v0); }
-    }
-    _nodes.insert(key, Rc::new(out.clone())); out
 }
 pub fn latest_zigzag_store(store: &CandleStore, threshold_pct: f64) -> Option<f64> {
     zigzag_store(store, threshold_pct, &mut HashMap::new())

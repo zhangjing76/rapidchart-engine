@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, IndicatorOutput, Series};
+use crate::{CandleStore, IndicatorOutput};
 use std::collections::HashMap;
 
 /// Random Walk Index:
@@ -8,46 +8,6 @@ use std::collections::HashMap;
 /// RWI_Low = (High[n] - Low) / (ATR * sqrt(n))
 /// where n ranges from 2 to period, and we take the maximum.
 /// High RWI (>1) suggests trending; low (<1) suggests random.
-pub fn random_walk_index(bars: &[Bar], period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let len = bars.len();
-    let mut rw_high = vec![f64::NAN; len];
-    let mut rw_low = vec![f64::NAN; len];
-    if period < 2 || len < period {
-        return vec![
-            IndicatorOutput { name: "high".to_string(), values: rw_high },
-            IndicatorOutput { name: "low".to_string(), values: rw_low },
-        ];
-    }
-    // Compute ATR(1) = true range for each bar
-    let mut tr = vec![0.0f64; len];
-    for i in 1..len {
-        tr[i] = (bars[i].high - bars[i].low)
-            .max((bars[i].high - bars[i - 1].close).abs())
-            .max((bars[i].low - bars[i - 1].close).abs());
-    }
-    for i in period..len {
-        let mut max_rwi_high = 0.0f64;
-        let mut max_rwi_low = 0.0f64;
-        for n in 2..=period {
-            if i < n { break; }
-            // Average TR over n bars
-            let atr_n: f64 = tr[i + 1 - n..=i].iter().sum::<f64>() / n as f64;
-            let denom = atr_n * (n as f64).sqrt();
-            if denom > 1e-10 {
-                let rwi_h = (bars[i].high - bars[i - n].low) / denom;
-                let rwi_l = (bars[i - n].high - bars[i].low) / denom;
-                max_rwi_high = max_rwi_high.max(rwi_h);
-                max_rwi_low = max_rwi_low.max(rwi_l);
-            }
-        }
-        rw_high[i] = max_rwi_high;
-        rw_low[i] = max_rwi_low;
-    }
-    vec![
-        IndicatorOutput { name: "high".to_string(), values: rw_high },
-        IndicatorOutput { name: "low".to_string(), values: rw_low },
-    ]
-}
 
 pub fn random_walk_index_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let len = store.len();

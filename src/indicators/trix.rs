@@ -26,36 +26,6 @@ pub fn trix(bars: &[Bar], period: usize) -> Series {
     }
     out
 }
-pub fn trix_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("trix:value:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let ema1 = ema_close(bars, period, nodes);
-    let ema2_key = format!("trix:ema2:{period}");
-    let ema2 = nodes
-        .get(&ema2_key)
-        .map(|rc| (**rc).clone())
-        .unwrap_or_else(|| ema_series(&ema1, period));
-    nodes.insert(ema2_key, Rc::new(ema2.clone()));
-    let ema3 = ema_series(&ema2, period);
-    let mut out = vec![f64::NAN; bars.len()];
-    for index in 1..bars.len() {
-        {
-            let previous = ema3[index - 1];
-            let current = ema3[index];
-            if !previous.is_nan() && !current.is_nan() {
-                out[index] = if previous != 0.0 {
-                    100.0 * (current / previous - 1.0)
-                } else {
-                    0.0
-                };
-            }
-        }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 pub fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("trix:value:{period}");
     if let Some(values) = nodes.get(&key) {

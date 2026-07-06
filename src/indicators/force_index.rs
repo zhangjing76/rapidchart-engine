@@ -11,15 +11,6 @@ pub fn force_index(bars: &[Bar], period: usize) -> Series {
     }
     ema_series(&raw, period)
 }
-pub fn force_index_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("force:close:volume:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = force_index(bars, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn force_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("force:close:volume:{period}");
     if let Some(values) = nodes.get(&key) {

@@ -14,15 +14,6 @@ pub fn momentum(bars: &[Bar], period: usize) -> Series {
     }
     out
 }
-pub fn momentum_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("momentum:close:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = momentum(bars, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("momentum:close:{period}");
     if let Some(values) = nodes.get(&key) {

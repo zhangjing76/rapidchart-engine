@@ -30,15 +30,6 @@ pub fn linear_regression(bars: &[Bar], period: usize) -> Series {
     }
     out
 }
-pub fn linear_regression_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("linreg:close:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = linear_regression(bars, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn linear_regression_store(
     store: &CandleStore,
     period: usize,

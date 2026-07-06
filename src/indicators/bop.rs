@@ -16,15 +16,6 @@ pub fn bop(bars: &[Bar]) -> Series {
         })
         .collect()
 }
-pub fn bop_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "bop:ohlc".to_string();
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = bop(bars);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "bop:ohlc".to_string();
     if let Some(values) = nodes.get(&key) {

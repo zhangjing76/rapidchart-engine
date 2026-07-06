@@ -1,19 +1,8 @@
 use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore, RcSeries};
 use std::rc::Rc;
 
-pub fn williams_ad(bars: &[Bar]) -> Series {
-    let mut out = Vec::with_capacity(bars.len());
-    let mut current = 0.0;
-    for (index, bar) in bars.iter().enumerate() {
-        if index > 0 {
-            current += williams_ad_step(bars[index - 1].close, bar);
-        }
-        out.push(current);
-    }
-    out
-}
 pub fn williams_ad_step(previous_close: f64, bar: &Bar) -> f64 {
     williams_ad_step_parts(previous_close, bar.high, bar.low, bar.close)
 }
@@ -25,15 +14,6 @@ pub fn williams_ad_step_parts(previous_close: f64, high: f64, low: f64, close: f
     } else {
         0.0
     }
-}
-pub fn williams_ad_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "wad:ohlc".to_string();
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = williams_ad(bars);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
 }
 pub fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "wad:ohlc".to_string();

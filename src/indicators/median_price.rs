@@ -1,21 +1,9 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{Bar, CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Median Price = (High + Low) / 2
-pub fn median_price(bars: &[Bar]) -> Series {
-    bars.iter().map(|bar| (bar.high + bar.low) / 2.0).collect()
-}
 
-pub fn median_price_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "median_price:hl".to_string();
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = median_price(bars);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 
 pub fn median_price_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "median_price:hl".to_string();

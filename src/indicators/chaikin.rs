@@ -3,7 +3,7 @@ use crate::indicators::ema::ema_series;
 use crate::nan_to_none;
 use crate::MacdParams;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 

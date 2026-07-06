@@ -33,21 +33,6 @@ pub fn ultimate_oscillator(bars: &[Bar], short: usize, medium: usize, long: usiz
     }
     out
 }
-pub fn ultimate_oscillator_node(
-    bars: &[Bar],
-    short: usize,
-    medium: usize,
-    long: usize,
-    nodes: &mut NodeCache,
-) -> Series {
-    let key = format!("uo:{short}:{medium}:{long}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = ultimate_oscillator(bars, short, medium, long);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn ultimate_oscillator_store(
     store: &CandleStore,
     short: usize,

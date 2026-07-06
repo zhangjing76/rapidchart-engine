@@ -403,7 +403,7 @@ mod tests {
 
         assert_vec_eq!(roc(&bars, 2), &roc_store(&store, 2, &mut HashMap::new()));
         assert_vec_eq!(*cmf_store(&store, 3, &mut HashMap::new()), &cmf_store(&store, 3, &mut HashMap::new()));
-        let row_bb = bollinger(&bars, 3, 2.0, &mut HashMap::new());
+        let row_bb = bollinger_store(&store, 3, 2.0, &mut HashMap::new());
         let store_bb = bollinger_store(&store, 3, 2.0, &mut HashMap::new());
         assert_outputs_eq(&row_bb, &store_bb, &["upper", "middle", "lower"]);
     }
@@ -423,9 +423,9 @@ mod tests {
         }
         let store = store_from_bars(bars.clone());
 
-        assert_vec_eq!(cci(&bars, 3), &cci_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(*cci_store(&store, 3, &mut HashMap::new()), &cci_store(&store, 3, &mut HashMap::new()));
         assert_vec_eq!(
-            williams_r(&bars, 3),
+            *williams_r_store(&store, 3, &mut HashMap::new()),
             williams_r_store(&store, 3, &mut HashMap::new())
         );
         assert_vec_eq!(mfi(&bars, 3), &mfi_store(&store, 3, &mut HashMap::new()));
@@ -467,11 +467,11 @@ mod tests {
         );
         for (row, store_output) in [
             (
-                keltner(&bars, 3, 2.0, &mut HashMap::new()),
+                keltner_store(&store, 3, 2.0, &mut HashMap::new()),
                 keltner_store(&store, 3, 2.0, &mut HashMap::new()),
             ),
             (
-                starc(&bars, 3, 2.0, &mut HashMap::new()),
+                starc_store(&store, 3, 2.0, &mut HashMap::new()),
                 starc_store(&store, 3, 2.0, &mut HashMap::new()),
             ),
             (
@@ -511,7 +511,7 @@ mod tests {
             force_index(&bars, 2),
             force_index_store(&store, 2, &mut HashMap::new())
         );
-        let row_channel = price_channel(&bars, 3, &mut HashMap::new());
+        let row_channel = price_channel_store(&store, 3, &mut HashMap::new());
         let store_channel = price_channel_store(&store, 3, &mut HashMap::new());
         assert_outputs_eq(&row_channel, &store_channel, &["upper", "middle", "lower"]);
     }
@@ -563,7 +563,7 @@ mod tests {
 
         for (row, store_output) in [
             (
-                donchian(&bars, 3, &mut HashMap::new()),
+                donchian_store(&store, 3, &mut HashMap::new()),
                 donchian_store(&store, 3, &mut HashMap::new()),
             ),
             (
@@ -575,7 +575,7 @@ mod tests {
                 ichimoku_store(&store, 3, 4, 5, &mut HashMap::new()),
             ),
             (
-                pivot_points(&bars, &mut HashMap::new()),
+                pivot_points_store(&store, &mut HashMap::new()),
                 pivot_points_store(&store, &mut HashMap::new()),
             ),
             (

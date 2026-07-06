@@ -20,16 +20,6 @@ pub(crate) fn rc_one_output(rc: RcSeries) -> Vec<crate::types::IndicatorOutput> 
     }]
 }
 
-pub(crate) fn materialized_bars<'a>(
-    store: &CandleStore,
-    snapshot: &'a mut Option<Vec<Bar>>,
-) -> &'a [Bar] {
-    if snapshot.is_none() {
-        *snapshot = Some(store.to_bars());
-    }
-    snapshot.as_deref().expect("bars snapshot initialized")
-}
-
 pub(crate) fn upsert_output(
     outputs: &mut IndicatorArena,
     name: &str,

@@ -149,7 +149,6 @@ pub use coppock_curve::*;
 pub use correlation_coefficient::*;
 pub use darvas_box::*;
 pub use dema::*;
-pub use derived::*;
 pub use disparity_index::*;
 pub use donchian::*;
 pub use donchian_width::*;

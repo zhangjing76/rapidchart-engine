@@ -4,12 +4,10 @@ use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Typical price used by CCI, VWAP, and MFI.
-#[allow(dead_code)]
 pub fn typical_price_parts(high: f64, low: f64, close: f64) -> f64 {
     (high + low + close) / 3.0
 }
 /// Typical price at a given bar index.
-#[allow(dead_code)]
 pub fn typical_price_at(store: &CandleStore, index: usize) -> f64 {
     typical_price_parts(store.high[index], store.low[index], store.close[index])
 }

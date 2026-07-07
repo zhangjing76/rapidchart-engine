@@ -454,6 +454,15 @@ impl ChartEngine {
             dag.edges
                 .extend(indicator_edges(indicator, &indicator_node));
         }
+        // Add derived series (hl2, hlc3) as DAG nodes if any indicator used them.
+        for (key, sources) in [("hl2", &["high", "low"][..]), ("hlc3", &["high", "low", "close"][..])] {
+            if nodes.contains_key(key) && !dag.nodes.contains(&key.to_string()) {
+                dag.nodes.push(key.to_string());
+                for src in sources {
+                    dag.edges.push(DagEdge { from: src.to_string(), to: key.to_string() });
+                }
+            }
+        }
         self.dag = dag;
     }
 

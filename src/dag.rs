@@ -577,12 +577,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
         }
         "CCI" => {
             let c = format!("cci:hlc:{}", indicator.period);
-            vec![
-                edge("high", &c),
-                edge("low", &c),
-                edge("close", &c),
-                edge(&c, indicator_node),
-            ]
+            vec![edge("hlc3", &c), edge(&c, indicator_node)]
         }
         "VWMA" => {
             let v = format!("vwma:close:volume:{}", indicator.period);
@@ -791,8 +786,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 edge("high", &a),
                 edge("low", &a),
                 edge("close", &a),
-                edge("high", &s),
-                edge("low", &s),
+                edge("hl2", &s),
                 edge("close", &s),
                 edge(&a, &s),
                 edge(&s, indicator_node),
@@ -1008,8 +1002,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         "MEDIAN_PRICE" => vec![
-            edge("high", "median_price:hl"),
-            edge("low", "median_price:hl"),
+            edge("hl2", "median_price:hl"),
             edge("median_price:hl", indicator_node),
         ],
         "HIGHEST_HIGH" => {
@@ -1100,9 +1093,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         "TYPICAL_PRICE" => vec![
-            edge("high", "typical_price:hlc"),
-            edge("low", "typical_price:hlc"),
-            edge("close", "typical_price:hlc"),
+            edge("hlc3", "typical_price:hlc"),
             edge("typical_price:hlc", indicator_node),
         ],
         "WEIGHTED_CLOSE" => vec![
@@ -1210,7 +1201,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
         }
         "EHLER_FISHER" => {
             let f = format!("fisher:hl:{}", indicator.period);
-            vec![edge("high", &f), edge("low", &f), edge(&f, indicator_node)]
+            vec![edge("hl2", &f), edge(&f, indicator_node)]
         }
         "ELDER_RAY" => {
             let e = format!("ema:close:{}", indicator.period);

@@ -991,6 +991,7 @@ function renderIndicatorList() {
 function renderDag() {
   const graph = engine.dagDebug();
   const sources = graph.nodes.filter((node) => node === "close" || node === "high" || node === "low" || node === "volume");
+  const derived = graph.nodes.filter((node) => node === "hl2" || node === "hlc3" || node === "ohlc4");
   const computed = graph.nodes.filter((node) => node.includes(":"));
   const indicatorNodes = graph.nodes.filter((node) => node.includes("#"));
   const outDegree = new Map<string, number>();
@@ -999,6 +1000,7 @@ function renderDag() {
     <header><strong>DAG</strong><span>${graph.nodes.length} nodes</span><span>${graph.edges.length} edges</span></header>
     <div class="dag-grid">
       ${dagLayer("Source", sources, outDegree)}
+      ${derived.length ? dagLayer("Derived", derived, outDegree) : ""}
       ${dagLayer("Computed", computed, outDegree)}
       ${dagLayer("Indicators", indicatorNodes, outDegree)}
     </div>

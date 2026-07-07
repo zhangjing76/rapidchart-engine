@@ -1,9 +1,14 @@
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::{output_at, output_at_vec};
+use crate::value_at_slice;
 use crate::CandleStore;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+const VALUE_SLOT: usize = 0;
+const EP_SLOT: usize = 1;
+const AF_SLOT: usize = 2;
+const TREND_SLOT: usize = 3;
 
 pub fn parabolic_sar_store(
     store: &CandleStore,
@@ -118,14 +123,16 @@ pub fn latest_parabolic_sar_store(
         let outputs = parabolic_sar_store(store, step, max_step, &mut HashMap::new());
         let index = store.len() - 1;
         return (
-            output_at_vec(&outputs, "value", index),
-            output_at_vec(&outputs, "ep", index),
-            output_at_vec(&outputs, "af", index),
-            output_at_vec(&outputs, "trend", index),
+            value_at_slice(outputs[VALUE_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[EP_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[AF_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[TREND_SLOT].values.as_slice(), index),
         );
     }
     let previous_index = store.len() - 2;
-    let previous_sar = output_at(outputs, "value", previous_index).unwrap_or_else(|| {
+    let previous_sar = outputs
+        .value_at_slot(VALUE_SLOT, previous_index)
+        .unwrap_or_else(|| {
         parabolic_sar_store(
             &CandleStore {
                 time: store.time[..store.len() - 1].to_vec(),
@@ -138,12 +145,16 @@ pub fn latest_parabolic_sar_store(
             step,
             max_step,
             &mut HashMap::new(),
-        )[0]
+        )[VALUE_SLOT]
         .values[previous_index]
     });
-    let previous_ep = output_at(outputs, "ep", previous_index).unwrap_or(previous_sar);
-    let previous_af = output_at(outputs, "af", previous_index).unwrap_or(step);
-    let previous_trend = output_at(outputs, "trend", previous_index).unwrap_or(1.0);
+    let previous_ep = outputs
+        .value_at_slot(EP_SLOT, previous_index)
+        .unwrap_or(previous_sar);
+    let previous_af = outputs.value_at_slot(AF_SLOT, previous_index).unwrap_or(step);
+    let previous_trend = outputs
+        .value_at_slot(TREND_SLOT, previous_index)
+        .unwrap_or(1.0);
     let index = store.len() - 1;
     let mut trend = previous_trend;
     let mut sar = previous_sar + previous_af * (previous_ep - previous_sar);

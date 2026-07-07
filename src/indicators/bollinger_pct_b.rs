@@ -6,6 +6,9 @@ use std::rc::Rc;
 
 /// Bollinger %b: (close - lower) / (upper - lower)
 /// Values above 1 = above upper band, below 0 = below lower band.
+const UPPER_SLOT: usize = 0;
+const LOWER_SLOT: usize = 2;
+
 pub fn bollinger_pct_b_store(
     store: &CandleStore,
     period: usize,
@@ -17,17 +20,15 @@ pub fn bollinger_pct_b_store(
         return Rc::clone(values);
     }
     let bb = bollinger_store(store, period, multiplier, nodes);
-    let upper_vals = bb.iter().find(|o| o.name == "upper").map(|o| &o.values);
-    let lower_vals = bb.iter().find(|o| o.name == "lower").map(|o| &o.values);
+    let upper = &bb[UPPER_SLOT].values;
+    let lower = &bb[LOWER_SLOT].values;
     let len = store.len();
     let mut out = vec![f64::NAN; len];
-    if let (Some(upper), Some(lower)) = (upper_vals, lower_vals) {
-        for i in 0..len {
-            let u = upper[i];
-            let l = lower[i];
-            if !u.is_nan() && !l.is_nan() && (u - l).abs() > 1e-10 {
-                out[i] = (store.close[i] - l) / (u - l);
-            }
+    for i in 0..len {
+        let u = upper[i];
+        let l = lower[i];
+        if !u.is_nan() && !l.is_nan() && (u - l).abs() > 1e-10 {
+            out[i] = (store.close[i] - l) / (u - l);
         }
     }
     let rc = Rc::new(out);

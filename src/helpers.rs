@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use crate::bar::{Bar, CandleStore};
 use crate::series::{rc_into_owned, RcSeries, Series};
-use crate::types::{IndicatorArena, IndicatorOutput, NamedOutputLike, NamedSeries};
+use crate::types::{IndicatorArena, IndicatorOutput, NamedSeries};
 
 pub(crate) trait IntoIndicatorOutputs {
     fn into_outputs(self) -> Vec<IndicatorOutput>;
@@ -72,20 +72,10 @@ pub(crate) fn upsert_output(
     outputs.upsert_last(name, target_len, val);
 }
 
-pub(crate) fn output_at(outputs: &IndicatorArena, name: &str, index: usize) -> Option<f64> {
-    outputs.value_at(name, index)
-}
-
-/// Same as output_at but for Vec<IndicatorOutput> used in internal compute functions.
-pub(crate) fn output_at_vec<T: NamedOutputLike>(
-    outputs: &[T],
-    name: &str,
-    index: usize,
-) -> Option<f64> {
-    outputs
-        .iter()
-        .find(|output| output.name() == name)
-        .and_then(|output| output.values().get(index))
+#[inline]
+pub(crate) fn value_at_slice(values: &[f64], index: usize) -> Option<f64> {
+    values
+        .get(index)
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

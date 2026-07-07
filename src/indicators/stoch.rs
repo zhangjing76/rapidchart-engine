@@ -1,8 +1,9 @@
-use crate::output_at;
 use crate::IndicatorArena;
 use crate::NodeCache;
 use crate::{CandleStore, Series};
 use std::rc::Rc;
+
+const K_SLOT: usize = 0;
 
 pub fn stochastic_k_values(values: &[f64], period: usize) -> Series {
     let mut out = vec![f64::NAN; values.len()];
@@ -105,7 +106,7 @@ pub fn latest_stochastic_store(
     }
     let mut values = Vec::with_capacity(smooth);
     for index in store.len() - smooth..store.len() - 1 {
-        let Some(value) = output_at(outputs, "k", index) else {
+        let Some(value) = outputs.value_at_slot(K_SLOT, index) else {
             return (Some(k), None);
         };
         values.push(value);

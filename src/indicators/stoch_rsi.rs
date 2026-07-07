@@ -1,6 +1,6 @@
 use crate::indicators::rsi::rsi_close_store;
 use crate::indicators::stoch::{smooth_series, stochastic_k_values};
-use crate::output_at_vec;
+use crate::value_at_slice;
 use crate::NodeCache;
 use crate::CandleStore;
 use std::collections::HashMap;
@@ -45,7 +45,7 @@ pub fn latest_stoch_rsi_store(
     );
     let index = store.len().saturating_sub(1);
     (
-        output_at_vec(&outputs, "k", index),
-        output_at_vec(&outputs, "d", index),
+        value_at_slice(outputs[0].values.as_slice(), index),
+        value_at_slice(outputs[1].values.as_slice(), index),
     )
 }

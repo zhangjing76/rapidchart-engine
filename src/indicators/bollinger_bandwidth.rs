@@ -5,20 +5,26 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Bollinger Bandwidth: (upper - lower) / middle * 100
+const UPPER_SLOT: usize = 0;
+const MIDDLE_SLOT: usize = 1;
+const LOWER_SLOT: usize = 2;
+
 pub fn bollinger_bandwidth_store(store: &CandleStore, period: usize, multiplier: f64, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("bb_bw:{}:{}", period, multiplier);
     if let Some(v) = nodes.get(&key) { return Rc::clone(v); }
     let bb = bollinger_store(store, period, multiplier, nodes);
-    let upper = bb.iter().find(|o| o.name == "upper").map(|o| &o.values);
-    let middle = bb.iter().find(|o| o.name == "middle").map(|o| &o.values);
-    let lower = bb.iter().find(|o| o.name == "lower").map(|o| &o.values);
+    let upper = &bb[UPPER_SLOT].values;
+    let middle = &bb[MIDDLE_SLOT].values;
+    let lower = &bb[LOWER_SLOT].values;
     let len = store.len();
     let mut out = vec![f64::NAN; len];
-    if let (Some(u), Some(m), Some(l)) = (upper, middle, lower) {
-        for i in 0..len {
-            if !u[i].is_nan() && !m[i].is_nan() && !l[i].is_nan() && m[i].abs() > 1e-10 {
-                out[i] = ((u[i] - l[i]) / m[i]) * 100.0;
-            }
+    for i in 0..len {
+        if !upper[i].is_nan()
+            && !middle[i].is_nan()
+            && !lower[i].is_nan()
+            && middle[i].abs() > 1e-10
+        {
+            out[i] = ((upper[i] - lower[i]) / middle[i]) * 100.0;
         }
     }
     let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc)); rc

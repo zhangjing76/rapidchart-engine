@@ -6,6 +6,9 @@ use crate::series::rc_into_owned;
 
 /// ATR Bands: EMA(close, period) ± multiplier * ATR(period)
 
+const MIDDLE_SLOT: usize = 1;
+const ATR_STATE_SLOT: usize = 3;
+
 pub fn atr_bands_store(
     store: &CandleStore,
     period: usize,
@@ -30,6 +33,7 @@ pub fn atr_bands_store(
         crate::named_series("upper", upper),
         crate::named_series("middle", middle),
         crate::named_series("lower", lower),
+        crate::named_series("atr_state", atr_rc),
     ]
 }
 
@@ -43,12 +47,12 @@ pub fn latest_atr_bands_store(
     let middle = crate::indicators::ema::latest_ema_store(
         store,
         period,
-        outputs.get("middle"),
+        outputs.get_slot(MIDDLE_SLOT),
     );
     let atr_val = crate::indicators::atr::latest_atr_store(
         store,
         period,
-        outputs.get("atr_state"),
+        outputs.get_slot(ATR_STATE_SLOT),
     );
     match (middle, atr_val) {
         (Some(m), Some(a)) => (Some(m + multiplier * a), Some(m), Some(m - multiplier * a)),

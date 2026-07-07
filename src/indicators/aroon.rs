@@ -1,4 +1,4 @@
-use crate::output_at_vec;
+use crate::value_at_slice;
 use crate::NodeCache;
 use crate::CandleStore;
 use std::collections::HashMap;
@@ -80,8 +80,8 @@ pub fn latest_aroon_store(
     let outputs = aroon_store(store, period, &mut HashMap::new());
     let index = store.len().saturating_sub(1);
     (
-        output_at_vec(&outputs, "up", index),
-        output_at_vec(&outputs, "down", index),
-        output_at_vec(&outputs, "oscillator", index),
+        value_at_slice(outputs[0].values.as_slice(), index),
+        value_at_slice(outputs[1].values.as_slice(), index),
+        value_at_slice(outputs[2].values.as_slice(), index),
     )
 }

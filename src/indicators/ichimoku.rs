@@ -1,4 +1,4 @@
-use crate::output_at_vec;
+use crate::value_at_slice;
 use crate::NodeCache;
 use crate::CandleStore;
 use std::collections::HashMap;
@@ -87,11 +87,11 @@ pub fn latest_ichimoku_store(
     );
     let index = store.len().saturating_sub(1);
     (
-        output_at_vec(&outputs, "tenkan", index),
-        output_at_vec(&outputs, "kijun", index),
-        output_at_vec(&outputs, "senkou_a", index),
-        output_at_vec(&outputs, "senkou_b", index),
-        output_at_vec(&outputs, "chikou", index),
+        value_at_slice(outputs[0].values.as_slice(), index),
+        value_at_slice(outputs[1].values.as_slice(), index),
+        value_at_slice(outputs[2].values.as_slice(), index),
+        value_at_slice(outputs[3].values.as_slice(), index),
+        value_at_slice(outputs[4].values.as_slice(), index),
     )
 }
 pub fn midpoint_store(store: &CandleStore, start: usize, end: usize) -> f64 {

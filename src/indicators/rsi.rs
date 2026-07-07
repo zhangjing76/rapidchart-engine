@@ -1,9 +1,13 @@
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::{output_at, output_at_vec};
+use crate::value_at_slice;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
+
+const VALUE_SLOT: usize = 0;
+const AVG_GAIN_SLOT: usize = 1;
+const AVG_LOSS_SLOT: usize = 2;
 
 pub fn rsi_outputs_store(
     store: &CandleStore,
@@ -88,15 +92,15 @@ pub fn latest_rsi_store(
         let outputs = rsi_outputs_store(store, period, &mut HashMap::new());
         let index = store.len() - 1;
         return (
-            output_at_vec(&outputs, "value", index),
-            output_at_vec(&outputs, "avg_gain", index),
-            output_at_vec(&outputs, "avg_loss", index),
+            value_at_slice(outputs[0].values.as_slice(), index),
+            value_at_slice(outputs[1].values.as_slice(), index),
+            value_at_slice(outputs[2].values.as_slice(), index),
         );
     }
     let previous_index = store.len() - 2;
     let previous_outputs;
-    let source_outputs = if output_at(outputs, "avg_gain", previous_index).is_some()
-        && output_at(outputs, "avg_loss", previous_index).is_some()
+    let source_outputs = if outputs.value_at_slot(AVG_GAIN_SLOT, previous_index).is_some()
+        && outputs.value_at_slot(AVG_LOSS_SLOT, previous_index).is_some()
     {
         outputs
     } else {
@@ -111,8 +115,12 @@ pub fn latest_rsi_store(
         previous_outputs = IndicatorArena::from_named_outputs(rsi_outputs_store(&previous, period, &mut HashMap::new()));
         &previous_outputs
     };
-    let previous_gain = output_at(source_outputs, "avg_gain", previous_index).unwrap_or(0.0);
-    let previous_loss = output_at(source_outputs, "avg_loss", previous_index).unwrap_or(0.0);
+    let previous_gain = source_outputs
+        .value_at_slot(AVG_GAIN_SLOT, previous_index)
+        .unwrap_or(0.0);
+    let previous_loss = source_outputs
+        .value_at_slot(AVG_LOSS_SLOT, previous_index)
+        .unwrap_or(0.0);
     let change = store.close[store.len() - 1] - store.close[previous_index];
     let gain = change.max(0.0);
     let loss = (-change).max(0.0);
@@ -129,7 +137,9 @@ pub fn rsi_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let rc = rsi_outputs_store(store, period, nodes).remove(0).values;
+    let rc = rsi_outputs_store(store, period, nodes)
+        .remove(VALUE_SLOT)
+        .values;
     nodes.insert(key, Rc::clone(&rc));
     rc
 }

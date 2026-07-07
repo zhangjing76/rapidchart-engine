@@ -3,10 +3,15 @@ use crate::indicators::derived::{hl2_store, latest_hl2};
 use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::{output_at, output_at_vec};
+use crate::value_at_slice;
 use crate::{CandleStore, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
+
+const VALUE_SLOT: usize = 0;
+const UPPER_BAND_SLOT: usize = 1;
+const LOWER_BAND_SLOT: usize = 2;
+const TREND_SLOT: usize = 3;
 
 pub fn supertrend_store(
     store: &CandleStore,
@@ -134,10 +139,10 @@ pub fn latest_supertrend_store(
         let outputs = supertrend_store(store, period, multiplier, &mut HashMap::new());
         let index = store.len() - 1;
         return (
-            output_at_vec(&outputs, "value", index),
-            output_at_vec(&outputs, "upper_band", index),
-            output_at_vec(&outputs, "lower_band", index),
-            output_at_vec(&outputs, "trend", index),
+            value_at_slice(outputs[VALUE_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[UPPER_BAND_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[LOWER_BAND_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[TREND_SLOT].values.as_slice(), index),
         );
     }
     let Some(atr_value) = latest_atr_store(store, period, None) else {
@@ -148,9 +153,13 @@ pub fn latest_supertrend_store(
     let basic_upper = hl2 + multiplier * atr_value;
     let basic_lower = hl2 - multiplier * atr_value;
     let previous_close = store.close[index - 1];
-    let previous_upper = output_at(outputs, "upper_band", index - 1).unwrap_or(basic_upper);
-    let previous_lower = output_at(outputs, "lower_band", index - 1).unwrap_or(basic_lower);
-    let previous_trend = output_at(outputs, "trend", index - 1).unwrap_or(1.0);
+    let previous_upper = outputs
+        .value_at_slot(UPPER_BAND_SLOT, index - 1)
+        .unwrap_or(basic_upper);
+    let previous_lower = outputs
+        .value_at_slot(LOWER_BAND_SLOT, index - 1)
+        .unwrap_or(basic_lower);
+    let previous_trend = outputs.value_at_slot(TREND_SLOT, index - 1).unwrap_or(1.0);
     let upper = if basic_upper < previous_upper || previous_close > previous_upper {
         basic_upper
     } else {

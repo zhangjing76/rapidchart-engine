@@ -56,6 +56,7 @@ pub(crate) struct NamedSeries {
     pub values: RcSeries,
 }
 
+#[allow(dead_code)]
 pub(crate) trait NamedOutputLike {
     fn name(&self) -> &str;
     fn values(&self) -> &[f64];
@@ -116,10 +117,14 @@ impl IndicatorArena {
         Some(&self.values[idx])
     }
 
-    /// Get value at a specific index for a named output.
-    pub(crate) fn value_at(&self, name: &str, index: usize) -> Option<f64> {
-        let idx = self.names.iter().position(|s| s == name)?;
-        self.values[idx]
+    #[inline]
+    pub(crate) fn get_slot(&self, slot_idx: usize) -> Option<&[f64]> {
+        self.values.get(slot_idx).map(Vec::as_slice)
+    }
+
+    #[inline]
+    pub(crate) fn value_at_slot(&self, slot_idx: usize, index: usize) -> Option<f64> {
+        self.values[slot_idx]
             .get(index)
             .copied()
             .and_then(|v| if v.is_nan() { None } else { Some(v) })

@@ -8,6 +8,9 @@ use crate::NodeCache;
 use crate::CandleStore;
 use std::rc::Rc;
 
+const MIDDLE_SLOT: usize = 1;
+const ATR_STATE_SLOT: usize = 3;
+
 pub fn keltner_store(
     store: &CandleStore,
     period: usize,
@@ -33,6 +36,7 @@ pub fn keltner_store(
         crate::named_series("upper", upper,),
         crate::named_series("middle", middle,),
         crate::named_series("lower", lower,),
+        crate::named_series("atr_state", atr,),
     ];
     for output in &outputs {
         nodes.insert(
@@ -48,8 +52,8 @@ pub fn latest_keltner_store(
     multiplier: f64,
     outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let middle = latest_ema_store(store, period, outputs.get("middle"));
-    let atr = latest_atr_store(store, period, None);
+    let middle = latest_ema_store(store, period, outputs.get_slot(MIDDLE_SLOT));
+    let atr = latest_atr_store(store, period, outputs.get_slot(ATR_STATE_SLOT));
     match (middle, atr) {
         (Some(middle), Some(atr)) => (
             Some(middle + multiplier * atr),

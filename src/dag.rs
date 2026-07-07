@@ -176,6 +176,7 @@ pub(crate) fn is_visible_output(name: &str) -> bool {
             | "cumulative_pv"
             | "cumulative_volume"
             | "atr_state"
+            | "ema_state"
             | "ema1"
             | "ema2"
             | "ema3"

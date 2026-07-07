@@ -481,7 +481,7 @@ impl ChartEngine {
                     let value = latest_ema_store(
                         &self.bars,
                         indicator.period,
-                        indicator.outputs.get("value"),
+                        indicator.outputs.get_slot(0),
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
@@ -524,14 +524,14 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "d", target_len, d);
                 }
                 "OBV" => {
-                    let value = latest_obv_store(&self.bars, indicator.outputs.get("value"));
+                    let value = latest_obv_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "ATR" => {
                     let value = latest_atr_store(
                         &self.bars,
                         indicator.period,
-                        indicator.outputs.get("value"),
+                        indicator.outputs.get_slot(0),
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
@@ -626,7 +626,7 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "oscillator", target_len, oscillator);
                 }
                 "ADL" => {
-                    let value = latest_adl_store(&self.bars, indicator.outputs.get("value"));
+                    let value = latest_adl_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "WMA" => {
@@ -742,7 +742,7 @@ impl ChartEngine {
                 }
                 "WILLIAMS_AD" => {
                     let value =
-                        latest_williams_ad_store(&self.bars, indicator.outputs.get("value"));
+                        latest_williams_ad_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "CHAIKIN_VOLATILITY" => {
@@ -1080,22 +1080,22 @@ impl ChartEngine {
                 }
                 "NEGATIVE_VOLUME_INDEX" => {
                     let value = latest_negative_volume_index_store(
-                        &self.bars, indicator.outputs.get("value"));
+                        &self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "POSITIVE_VOLUME_INDEX" => {
                     let value = latest_positive_volume_index_store(
-                        &self.bars, indicator.outputs.get("value"));
+                        &self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "PRICE_VOLUME_TREND" => {
                     let value = latest_price_volume_trend_store(
-                        &self.bars, indicator.outputs.get("value"));
+                        &self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "TRADE_VOLUME_INDEX" => {
                     let value = latest_trade_volume_index_store(
-                        &self.bars, indicator.outputs.get("value"));
+                        &self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "TWIGGS_MONEY_FLOW" => {

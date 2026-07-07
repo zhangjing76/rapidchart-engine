@@ -1,7 +1,7 @@
 use crate::indicators::atr::true_range_store;
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::{output_at, output_at_vec};
+use crate::value_at_slice;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -15,6 +15,14 @@ type AdxResult = (
     Option<f64>,
     Option<f64>,
 );
+
+const VALUE_SLOT: usize = 0;
+const PLUS_DI_SLOT: usize = 1;
+const MINUS_DI_SLOT: usize = 2;
+const TR_AVG_SLOT: usize = 3;
+const PLUS_DM_AVG_SLOT: usize = 4;
+const MINUS_DM_AVG_SLOT: usize = 5;
+const DX_SLOT: usize = 6;
 
 pub fn directional_movement_store(store: &CandleStore, index: usize) -> (f64, f64) {
     if index == 0 {
@@ -194,21 +202,25 @@ pub fn latest_adx_store(store: &CandleStore, period: usize, outputs: &IndicatorA
         let outputs = adx_store(store, period, &mut HashMap::new());
         let index = store.len() - 1;
         return (
-            output_at_vec(&outputs, "value", index),
-            output_at_vec(&outputs, "plus_di", index),
-            output_at_vec(&outputs, "minus_di", index),
-            output_at_vec(&outputs, "tr_avg", index),
-            output_at_vec(&outputs, "plus_dm_avg", index),
-            output_at_vec(&outputs, "minus_dm_avg", index),
-            output_at_vec(&outputs, "dx", index),
+            value_at_slice(outputs[VALUE_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[PLUS_DI_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[MINUS_DI_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[TR_AVG_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[PLUS_DM_AVG_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[MINUS_DM_AVG_SLOT].values.as_slice(), index),
+            value_at_slice(outputs[DX_SLOT].values.as_slice(), index),
         );
     }
     let previous_index = store.len() - 2;
     let previous_outputs;
-    let source_outputs = if output_at(outputs, "tr_avg", previous_index).is_some()
-        && output_at(outputs, "plus_dm_avg", previous_index).is_some()
-        && output_at(outputs, "minus_dm_avg", previous_index).is_some()
-        && output_at(outputs, "dx", previous_index).is_some()
+    let source_outputs = if outputs.value_at_slot(TR_AVG_SLOT, previous_index).is_some()
+        && outputs
+            .value_at_slot(PLUS_DM_AVG_SLOT, previous_index)
+            .is_some()
+        && outputs
+            .value_at_slot(MINUS_DM_AVG_SLOT, previous_index)
+            .is_some()
+        && outputs.value_at_slot(DX_SLOT, previous_index).is_some()
     {
         outputs
     } else {
@@ -224,16 +236,22 @@ pub fn latest_adx_store(store: &CandleStore, period: usize, outputs: &IndicatorA
             IndicatorArena::from_named_outputs(adx_store(&previous, period, &mut HashMap::new()));
         &previous_outputs
     };
-    let tr_avg = (output_at(source_outputs, "tr_avg", previous_index).unwrap_or(0.0)
+    let tr_avg = (source_outputs
+        .value_at_slot(TR_AVG_SLOT, previous_index)
+        .unwrap_or(0.0)
         * (period - 1) as f64
         + true_range_store(store, store.len() - 1))
         / period as f64;
     let (plus_dm, minus_dm) = directional_movement_store(store, store.len() - 1);
-    let plus_dm_avg = (output_at(source_outputs, "plus_dm_avg", previous_index).unwrap_or(0.0)
+    let plus_dm_avg = (source_outputs
+        .value_at_slot(PLUS_DM_AVG_SLOT, previous_index)
+        .unwrap_or(0.0)
         * (period - 1) as f64
         + plus_dm)
         / period as f64;
-    let minus_dm_avg = (output_at(source_outputs, "minus_dm_avg", previous_index).unwrap_or(0.0)
+    let minus_dm_avg = (source_outputs
+        .value_at_slot(MINUS_DM_AVG_SLOT, previous_index)
+        .unwrap_or(0.0)
         * (period - 1) as f64
         + minus_dm)
         / period as f64;
@@ -242,11 +260,13 @@ pub fn latest_adx_store(store: &CandleStore, period: usize, outputs: &IndicatorA
     let dx = dx_value(tr_avg, plus_dm_avg, minus_dm_avg);
     let value = if store.len() == period * 2 + 1 {
         let prior_dx_sum = (period + 1..=previous_index)
-            .map(|index| output_at(source_outputs, "dx", index).unwrap_or(0.0))
+            .map(|index| source_outputs.value_at_slot(DX_SLOT, index).unwrap_or(0.0))
             .sum::<f64>();
         Some((prior_dx_sum + dx) / period as f64)
     } else {
-        let previous_adx = output_at(source_outputs, "value", previous_index).unwrap_or(0.0);
+        let previous_adx = source_outputs
+            .value_at_slot(VALUE_SLOT, previous_index)
+            .unwrap_or(0.0);
         Some((previous_adx * (period - 1) as f64 + dx) / period as f64)
     };
     (

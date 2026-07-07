@@ -6,6 +6,8 @@ use crate::indicators::ema::ema_close_store;
 /// Bull Power = High - EMA(close, period)
 /// Bear Power = Low - EMA(close, period)
 
+const EMA_STATE_SLOT: usize = 2;
+
 pub fn elder_ray_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let ema = ema_close_store(store, period, nodes);
     let len = store.len();
@@ -20,6 +22,7 @@ pub fn elder_ray_store(store: &CandleStore, period: usize, nodes: &mut NodeCache
     vec![
         crate::named_series("bull", bull),
         crate::named_series("bear", bear),
+        crate::named_series("ema_state", ema),
     ]
 }
 
@@ -29,7 +32,7 @@ pub fn latest_elder_ray_store(
     outputs: &crate::types::IndicatorArena,
 ) -> (Option<f64>, Option<f64>) {
     let ema_val = crate::indicators::ema::latest_ema_store(
-        store, period, outputs.get("ema_state"),
+        store, period, outputs.get_slot(EMA_STATE_SLOT),
     );
     match ema_val {
         Some(e) => {

@@ -1,9 +1,11 @@
 use crate::indicators::cci::typical_price_parts;
-use crate::output_at;
 use crate::IndicatorArena;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
+
+const CUMULATIVE_PV_SLOT: usize = 1;
+const CUMULATIVE_VOLUME_SLOT: usize = 2;
 
 pub fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     if let Some(values) = nodes.get("vwap:hlcv") {
@@ -66,10 +68,12 @@ pub fn latest_vwap_store(
     };
     let previous_index = index.checked_sub(1);
     let previous_pv = previous_index
-        .and_then(|previous_index| output_at(outputs, "cumulative_pv", previous_index))
+        .and_then(|previous_index| outputs.value_at_slot(CUMULATIVE_PV_SLOT, previous_index))
         .unwrap_or(0.0);
     let previous_volume = previous_index
-        .and_then(|previous_index| output_at(outputs, "cumulative_volume", previous_index))
+        .and_then(|previous_index| {
+            outputs.value_at_slot(CUMULATIVE_VOLUME_SLOT, previous_index)
+        })
         .unwrap_or(0.0);
     let cumulative_pv = previous_pv
         + typical_price_parts(store.high[index], store.low[index], store.close[index])

@@ -3,7 +3,6 @@ use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::MacdParams;
 use crate::NodeCache;
-use crate::{output_at};
 use crate::{CandleStore, Series};
 use std::rc::Rc;
 
@@ -14,6 +13,11 @@ type MacdResult = (
     Option<f64>,
     Option<f64>,
 );
+
+const MACD_SLOT: usize = 0;
+const SIGNAL_SLOT: usize = 1;
+const FAST_EMA_SLOT: usize = 3;
+const SLOW_EMA_SLOT: usize = 4;
 
 pub fn macd_store(
     store: &CandleStore,
@@ -93,12 +97,18 @@ pub fn latest_macd_store(
     }
     let previous_index = store.len() - 2;
     let previous_close = store.close[previous_index];
-    let previous_fast = output_at(outputs, "fast_ema", previous_index).unwrap_or(previous_close);
-    let previous_slow = output_at(outputs, "slow_ema", previous_index).unwrap_or(previous_close);
+    let previous_fast = outputs
+        .value_at_slot(FAST_EMA_SLOT, previous_index)
+        .unwrap_or(previous_close);
+    let previous_slow = outputs
+        .value_at_slot(SLOW_EMA_SLOT, previous_index)
+        .unwrap_or(previous_close);
     let fast = ema_next(last, previous_fast, params.fast);
     let slow = ema_next(last, previous_slow, params.slow);
     let macd_line = fast - slow;
-    let previous_signal = output_at(outputs, "signal", previous_index).unwrap_or(0.0);
+    let previous_signal = outputs
+        .value_at_slot(SIGNAL_SLOT, previous_index)
+        .unwrap_or(0.0);
     let signal = ema_next(macd_line, previous_signal, params.signal);
     let histogram = macd_line - signal;
     (
@@ -138,16 +148,8 @@ pub fn ppo_store(
         ];
     }
     let macd_outputs = macd_store(store, params, nodes);
-    let macd_line = macd_outputs
-        .iter()
-        .find(|output| output.name == "macd")
-        .map(|output| output.values.clone())
-        .unwrap_or_else(|| Rc::new(vec![f64::NAN; store.len()]));
-    let slow_ema = macd_outputs
-        .iter()
-        .find(|output| output.name == "slow_ema")
-        .map(|output| output.values.clone())
-        .unwrap_or_else(|| Rc::new(vec![f64::NAN; store.len()]));
+    let macd_line = macd_outputs[MACD_SLOT].values.clone();
+    let slow_ema = macd_outputs[SLOW_EMA_SLOT].values.clone();
     let ppo: Series = macd_line
         .iter()
         .zip(slow_ema.iter())
@@ -191,7 +193,7 @@ pub fn latest_ppo_store(
     let previous_signal = store
         .len()
         .checked_sub(2)
-        .and_then(|index| output_at(outputs, "signal", index))
+        .and_then(|index| outputs.value_at_slot(SIGNAL_SLOT, index))
         .unwrap_or(ppo.unwrap_or(0.0));
     let signal = ppo.map(|ppo| ema_next(ppo, previous_signal, params.signal));
     let histogram = ppo.zip(signal).map(|(ppo, signal)| ppo - signal);

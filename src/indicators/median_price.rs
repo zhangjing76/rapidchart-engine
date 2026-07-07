@@ -1,30 +1,12 @@
+use crate::indicators::derived::{hl2_store, latest_hl2};
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use std::rc::Rc;
 
-/// Median Price = (High + Low) / 2
-
-
+/// Median Price = (High + Low) / 2 — delegates to the shared `hl2_store` cache.
 pub fn median_price_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
-    let key = "median_price:hl".to_string();
-    if let Some(values) = nodes.get(&key) {
-        return Rc::clone(values);
-    }
-    let out: Vec<f64> = store
-        .high
-        .iter()
-        .zip(store.low.iter())
-        .map(|(h, l)| (h + l) / 2.0)
-        .collect();
-    let rc = Rc::new(out);
-    nodes.insert(key, Rc::clone(&rc));
-    rc
+    hl2_store(store, nodes)
 }
 
 pub fn latest_median_price_store(store: &CandleStore) -> Option<f64> {
-    if store.len() == 0 {
-        return None;
-    }
-    let i = store.len() - 1;
-    Some((store.high[i] + store.low[i]) / 2.0)
+    latest_hl2(store)
 }

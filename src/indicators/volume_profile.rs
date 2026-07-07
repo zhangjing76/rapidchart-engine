@@ -1,3 +1,4 @@
+use crate::indicators::derived::hl2_store;
 use crate::NodeCache;
 use crate::{CandleStore, IndicatorOutput};
 use std::collections::HashMap;
@@ -8,8 +9,9 @@ use std::collections::HashMap;
 ///
 /// Outputs: poc (price with most volume), vah (value area high), val (value area low)
 
-pub fn volume_profile_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let len = store.len();
+    let hl2 = hl2_store(store, nodes);
     let mut poc_out = vec![f64::NAN; len];
     let mut vah_out = vec![f64::NAN; len];
     let mut val_out = vec![f64::NAN; len];
@@ -40,7 +42,7 @@ pub fn volume_profile_store(store: &CandleStore, period: usize, _nodes: &mut Nod
         let mut bins = vec![0.0f64; num_bins];
         let mut total_vol = 0.0f64;
         for j in window_start..=i {
-            let mid = (store.high[j] + store.low[j]) / 2.0;
+            let mid = hl2[j];
             let bin = ((mid - low) / bin_size).floor() as usize;
             let bin = bin.min(num_bins - 1);
             bins[bin] += store.volume[j];

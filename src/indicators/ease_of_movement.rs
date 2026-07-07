@@ -1,3 +1,4 @@
+use crate::indicators::derived::hl2_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
@@ -13,10 +14,10 @@ pub fn ease_of_movement_store(store: &CandleStore, period: usize, nodes: &mut No
         return Rc::clone(values);
     }
     let len = store.len();
+    let hl2 = hl2_store(store, nodes);
     let mut raw = vec![f64::NAN; len];
     for i in 1..len {
-        let distance = (store.high[i] + store.low[i]) / 2.0
-            - (store.high[i - 1] + store.low[i - 1]) / 2.0;
+        let distance = hl2[i] - hl2[i - 1];
         let hl_diff = store.high[i] - store.low[i];
         if hl_diff.abs() > 1e-10 && store.volume[i] > 0.0 {
             let box_ratio = (store.volume[i] / 10000.0) / hl_diff;

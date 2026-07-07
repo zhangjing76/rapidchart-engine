@@ -1,3 +1,4 @@
+use crate::indicators::derived::hl2_store;
 use crate::NodeCache;
 use crate::{CandleStore, IndicatorOutput};
 use std::collections::HashMap;
@@ -7,8 +8,9 @@ use std::collections::HashMap;
 /// 2. Apply Fisher Transform: fisher = 0.5 * ln((1+x)/(1-x))
 /// 3. Outputs: fisher line and trigger (previous fisher value)
 
-pub fn ehler_fisher_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn ehler_fisher_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let len = store.len();
+    let hl2 = hl2_store(store, nodes);
     let mut fisher_out = vec![f64::NAN; len];
     let mut trigger_out = vec![f64::NAN; len];
     if period < 2 || len < period {
@@ -22,7 +24,7 @@ pub fn ehler_fisher_store(store: &CandleStore, period: usize, _nodes: &mut NodeC
     for i in period - 1..len {
         let max_high = store.high[i + 1 - period..=i].iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
         let min_low = store.low[i + 1 - period..=i].iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let mid = (store.high[i] + store.low[i]) / 2.0;
+        let mid = hl2[i];
         let range = max_high - min_low;
         let normalized = if range > 1e-10 {
             0.33 * 2.0 * ((mid - min_low) / range - 0.5) + 0.67 * prev_value

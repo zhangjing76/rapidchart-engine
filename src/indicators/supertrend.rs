@@ -1,4 +1,5 @@
 use crate::indicators::atr::{atr_store, latest_atr_store};
+use crate::indicators::derived::{hl2_store, latest_hl2};
 use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
@@ -15,6 +16,7 @@ pub fn supertrend_store(
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
     let atr = rc_into_owned(atr_store(store, period, nodes));
+    let hl2 = hl2_store(store, nodes);
     let mut values = vec![f64::NAN; store.len()];
     let mut upper_band = vec![f64::NAN; store.len()];
     let mut lower_band = vec![f64::NAN; store.len()];
@@ -27,7 +29,7 @@ pub fn supertrend_store(
         if atr_value.is_nan() {
             continue;
         };
-        let hl2 = (store.high[index] + store.low[index]) / 2.0;
+        let hl2 = hl2[index];
         let basic_upper = hl2 + multiplier * atr_value;
         let basic_lower = hl2 - multiplier * atr_value;
         let previous_close = store.close[index - 1];
@@ -155,7 +157,7 @@ pub fn latest_supertrend_store(
         return (None, None, None, None);
     };
     let index = store.len() - 1;
-    let hl2 = (store.high[index] + store.low[index]) / 2.0;
+    let hl2 = latest_hl2(store).unwrap_or(f64::NAN);
     let basic_upper = hl2 + multiplier * atr_value;
     let basic_lower = hl2 - multiplier * atr_value;
     let previous_close = store.close[index - 1];

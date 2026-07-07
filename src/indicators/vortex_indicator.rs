@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Vortex Indicator:
@@ -7,14 +7,14 @@ use std::collections::HashMap;
 /// TR = max(H-L, |H-PC|, |L-PC|)
 /// VI+ = SUM(VM+, period) / SUM(TR, period)
 /// VI- = SUM(VM-, period) / SUM(TR, period)
-pub fn vortex_indicator_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn vortex_indicator_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut vi_plus = vec![f64::NAN; len];
     let mut vi_minus = vec![f64::NAN; len];
     if period == 0 || len < period + 1 {
         return vec![
-            IndicatorOutput { name: "plus".to_string(), values: vi_plus },
-            IndicatorOutput { name: "minus".to_string(), values: vi_minus },
+            crate::named_series("plus", vi_plus),
+            crate::named_series("minus", vi_minus),
         ];
     }
     let mut vm_plus = vec![0.0f64; len];
@@ -37,8 +37,8 @@ pub fn vortex_indicator_store(store: &CandleStore, period: usize, _nodes: &mut N
         }
     }
     vec![
-        IndicatorOutput { name: "plus".to_string(), values: vi_plus },
-        IndicatorOutput { name: "minus".to_string(), values: vi_minus },
+        crate::named_series("plus", vi_plus),
+        crate::named_series("minus", vi_minus),
     ]
 }
 pub fn latest_vortex_indicator_store(store: &CandleStore, period: usize) -> (Option<f64>, Option<f64>) {

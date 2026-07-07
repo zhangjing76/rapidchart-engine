@@ -2,7 +2,6 @@ use crate::indicators::atr::{atr_store, latest_atr_store};
 use crate::indicators::derived::{hl2_store, latest_hl2};
 use crate::rc_into_owned;
 use crate::IndicatorArena;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::{output_at, output_at_vec};
 use crate::{CandleStore, Series};
@@ -14,7 +13,7 @@ pub fn supertrend_store(
     period: usize,
     multiplier: f64,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let atr = rc_into_owned(atr_store(store, period, nodes));
     let hl2 = hl2_store(store, nodes);
     let mut values = vec![f64::NAN; store.len()];
@@ -114,24 +113,12 @@ pub fn supertrend_outputs(
     upper_band: Series,
     lower_band: Series,
     trend: Series,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     vec![
-        IndicatorOutput {
-            name: "value".to_string(),
-            values,
-        },
-        IndicatorOutput {
-            name: "upper_band".to_string(),
-            values: upper_band,
-        },
-        IndicatorOutput {
-            name: "lower_band".to_string(),
-            values: lower_band,
-        },
-        IndicatorOutput {
-            name: "trend".to_string(),
-            values: trend,
-        },
+        crate::named_series("value", values),
+        crate::named_series("upper_band", upper_band),
+        crate::named_series("lower_band", lower_band),
+        crate::named_series("trend", trend),
     ]
 }
 pub fn latest_supertrend_store(

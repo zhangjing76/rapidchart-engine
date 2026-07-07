@@ -1,6 +1,6 @@
 use crate::indicators::derived::hl2_store;
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Ehlers Fisher Transform:
@@ -8,15 +8,15 @@ use std::collections::HashMap;
 /// 2. Apply Fisher Transform: fisher = 0.5 * ln((1+x)/(1-x))
 /// 3. Outputs: fisher line and trigger (previous fisher value)
 
-pub fn ehler_fisher_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn ehler_fisher_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let hl2 = hl2_store(store, nodes);
     let mut fisher_out = vec![f64::NAN; len];
     let mut trigger_out = vec![f64::NAN; len];
     if period < 2 || len < period {
         return vec![
-            IndicatorOutput { name: "fisher".to_string(), values: fisher_out },
-            IndicatorOutput { name: "trigger".to_string(), values: trigger_out },
+            crate::named_series("fisher", fisher_out),
+            crate::named_series("trigger", trigger_out),
         ];
     }
     let mut prev_value = 0.0f64;
@@ -39,8 +39,8 @@ pub fn ehler_fisher_store(store: &CandleStore, period: usize, nodes: &mut NodeCa
         prev_fisher = fisher;
     }
     vec![
-        IndicatorOutput { name: "fisher".to_string(), values: fisher_out },
-        IndicatorOutput { name: "trigger".to_string(), values: trigger_out },
+        crate::named_series("fisher", fisher_out),
+        crate::named_series("trigger", trigger_out),
     ]
 }
 

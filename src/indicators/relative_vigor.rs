@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Relative Vigor Index (RVI):
@@ -7,14 +7,14 @@ use std::collections::HashMap;
 /// Denominator = (high-low) + 2*(high[1]-low[1]) + 2*(high[2]-low[2]) + (high[3]-low[3]) / 6
 /// RVI = SMA(numerator/denominator, period)
 /// Signal = (RVI + 2*RVI[1] + 2*RVI[2] + RVI[3]) / 6
-pub fn relative_vigor_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn relative_vigor_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut rvi_out = vec![f64::NAN; len];
     let mut signal_out = vec![f64::NAN; len];
     if period == 0 || len < period + 3 { 
         return vec![
-            IndicatorOutput { name: "value".to_string(), values: rvi_out },
-            IndicatorOutput { name: "signal".to_string(), values: signal_out },
+            crate::named_series("value", rvi_out),
+            crate::named_series("signal", signal_out),
         ];
     }
     // Compute smoothed numerator and denominator
@@ -52,8 +52,8 @@ pub fn relative_vigor_store(store: &CandleStore, period: usize, _nodes: &mut Nod
         }
     }
     vec![
-        IndicatorOutput { name: "value".to_string(), values: rvi_out },
-        IndicatorOutput { name: "signal".to_string(), values: signal_out },
+        crate::named_series("value", rvi_out),
+        crate::named_series("signal", signal_out),
     ]
 }
 

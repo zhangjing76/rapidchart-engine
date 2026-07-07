@@ -1,5 +1,4 @@
 use crate::IndicatorArena;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::{output_at, output_at_vec};
 use crate::{CandleStore, RcSeries};
@@ -10,7 +9,7 @@ pub fn rsi_outputs_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let key = format!("rsi:close:{period}");
     let gain_key = format!("rsi:avg_gain:{period}");
     let loss_key = format!("rsi:avg_loss:{period}");
@@ -18,18 +17,9 @@ pub fn rsi_outputs_store(
         (nodes.get(&key), nodes.get(&gain_key), nodes.get(&loss_key))
     {
         return vec![
-            IndicatorOutput {
-                name: "value".to_string(),
-                values: (**values).clone(),
-            },
-            IndicatorOutput {
-                name: "avg_gain".to_string(),
-                values: (**avg_gains).clone(),
-            },
-            IndicatorOutput {
-                name: "avg_loss".to_string(),
-                values: (**avg_losses).clone(),
-            },
+            crate::named_series("value", Rc::clone(values)),
+            crate::named_series("avg_gain", Rc::clone(avg_gains)),
+            crate::named_series("avg_loss", Rc::clone(avg_losses)),
         ];
     }
     let mut values = vec![f64::NAN; store.len()];
@@ -40,18 +30,9 @@ pub fn rsi_outputs_store(
         nodes.insert(gain_key, Rc::new(avg_gains.clone()));
         nodes.insert(loss_key, Rc::new(avg_losses.clone()));
         return vec![
-            IndicatorOutput {
-                name: "value".to_string(),
-                values,
-            },
-            IndicatorOutput {
-                name: "avg_gain".to_string(),
-                values: avg_gains,
-            },
-            IndicatorOutput {
-                name: "avg_loss".to_string(),
-                values: avg_losses,
-            },
+            crate::named_series("value", values),
+            crate::named_series("avg_gain", avg_gains),
+            crate::named_series("avg_loss", avg_losses),
         ];
     }
     let mut avg_gain = 0.0;
@@ -83,18 +64,9 @@ pub fn rsi_outputs_store(
     nodes.insert(gain_key, Rc::new(avg_gains.clone()));
     nodes.insert(loss_key, Rc::new(avg_losses.clone()));
     vec![
-        IndicatorOutput {
-            name: "value".to_string(),
-            values,
-        },
-        IndicatorOutput {
-            name: "avg_gain".to_string(),
-            values: avg_gains,
-        },
-        IndicatorOutput {
-            name: "avg_loss".to_string(),
-            values: avg_losses,
-        },
+        crate::named_series("value", values),
+        crate::named_series("avg_gain", avg_gains),
+        crate::named_series("avg_loss", avg_losses),
     ]
 }
 pub fn rsi_value(avg_gain: f64, avg_loss: f64) -> f64 {
@@ -136,8 +108,7 @@ pub fn latest_rsi_store(
             close: store.close[..store.len() - 1].to_vec(),
             volume: store.volume[..store.len() - 1].to_vec(),
         };
-        previous_outputs =
-            IndicatorArena::from_outputs(rsi_outputs_store(&previous, period, &mut HashMap::new()));
+        previous_outputs = IndicatorArena::from_named_outputs(rsi_outputs_store(&previous, period, &mut HashMap::new()));
         &previous_outputs
     };
     let previous_gain = output_at(source_outputs, "avg_gain", previous_index).unwrap_or(0.0);
@@ -158,7 +129,7 @@ pub fn rsi_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let rc = Rc::new(rsi_outputs_store(store, period, nodes).remove(0).values);
+    let rc = rsi_outputs_store(store, period, nodes).remove(0).values;
     nodes.insert(key, Rc::clone(&rc));
     rc
 }

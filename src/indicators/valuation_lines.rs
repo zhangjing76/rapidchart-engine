@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use crate::indicators::sma::sma_close_store;
 use crate::series::rc_into_owned;
 
@@ -11,7 +11,7 @@ pub fn valuation_lines_store(
     period: usize,
     multiplier: f64,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let middle = rc_into_owned(sma_close_store(store, period, nodes));
     let pct = multiplier / 100.0;
     let upper: Vec<f64> = middle
@@ -23,9 +23,9 @@ pub fn valuation_lines_store(
         .map(|&m| if m.is_nan() { f64::NAN } else { m * (1.0 - pct) })
         .collect();
     vec![
-        IndicatorOutput { name: "upper".to_string(), values: upper },
-        IndicatorOutput { name: "middle".to_string(), values: middle },
-        IndicatorOutput { name: "lower".to_string(), values: lower },
+        crate::named_series("upper", upper),
+        crate::named_series("middle", middle),
+        crate::named_series("lower", lower),
     ]
 }
 

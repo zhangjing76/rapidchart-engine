@@ -1,23 +1,16 @@
 use crate::indicators::cci::typical_price_parts;
 use crate::output_at;
 use crate::IndicatorArena;
-use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{CandleStore, Series};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
-pub fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     if let Some(values) = nodes.get("vwap:hlcv") {
         return vwap_outputs(
-            (**values).clone(),
-            nodes
-                .get("vwap:cumulative_pv")
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
-            nodes
-                .get("vwap:cumulative_volume")
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
+            Rc::clone(values),
+            nodes.get("vwap:cumulative_pv").map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes.get("vwap:cumulative_volume").map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
         );
     }
     let mut values = Vec::with_capacity(store.len());
@@ -51,26 +44,17 @@ pub fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOu
         "vwap:cumulative_volume".to_string(),
         Rc::new(cumulative_volume_values.clone()),
     );
-    vwap_outputs(values, cumulative_pv_values, cumulative_volume_values)
+    vwap_outputs(Rc::new(values), Rc::new(cumulative_pv_values), Rc::new(cumulative_volume_values))
 }
 pub fn vwap_outputs(
-    values: Series,
-    cumulative_pv: Series,
-    cumulative_volume: Series,
-) -> Vec<IndicatorOutput> {
+    values: RcSeries,
+    cumulative_pv: RcSeries,
+    cumulative_volume: RcSeries,
+) -> Vec<crate::NamedSeries> {
     vec![
-        IndicatorOutput {
-            name: "value".to_string(),
-            values,
-        },
-        IndicatorOutput {
-            name: "cumulative_pv".to_string(),
-            values: cumulative_pv,
-        },
-        IndicatorOutput {
-            name: "cumulative_volume".to_string(),
-            values: cumulative_volume,
-        },
+        crate::named_series("value", values),
+        crate::named_series("cumulative_pv", cumulative_pv),
+        crate::named_series("cumulative_volume", cumulative_volume),
     ]
 }
 pub fn latest_vwap_store(

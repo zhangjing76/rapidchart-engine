@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput, Series};
+use crate::{CandleStore, Series};
 use std::collections::HashMap;
 
 /// Smoothed Moving Average (Wilder's smoothing): alpha = 1/period
@@ -23,7 +23,7 @@ fn smma(values: &[f64], period: usize) -> Series {
 /// Upper histogram = |jaw_smma - teeth_smma| (positive)
 /// Lower histogram = -(|teeth_smma - lips_smma|) (negative)
 
-pub fn gator_oscillator_store(store: &CandleStore, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn gator_oscillator_store(store: &CandleStore, _nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let median: Vec<f64> = store.high.iter().zip(store.low.iter())
         .map(|(h, l)| (h + l) / 2.0).collect();
     let jaw = smma(&median, 13);
@@ -41,8 +41,8 @@ pub fn gator_oscillator_store(store: &CandleStore, _nodes: &mut NodeCache) -> Ve
         }
     }
     vec![
-        IndicatorOutput { name: "upper".to_string(), values: upper },
-        IndicatorOutput { name: "lower".to_string(), values: lower },
+        crate::named_series("upper", upper),
+        crate::named_series("lower", lower),
     ]
 }
 

@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Random Walk Index:
@@ -9,14 +9,14 @@ use std::collections::HashMap;
 /// where n ranges from 2 to period, and we take the maximum.
 /// High RWI (>1) suggests trending; low (<1) suggests random.
 
-pub fn random_walk_index_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn random_walk_index_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut rw_high = vec![f64::NAN; len];
     let mut rw_low = vec![f64::NAN; len];
     if period < 2 || len < period {
         return vec![
-            IndicatorOutput { name: "high".to_string(), values: rw_high },
-            IndicatorOutput { name: "low".to_string(), values: rw_low },
+            crate::named_series("high", rw_high),
+            crate::named_series("low", rw_low),
         ];
     }
     let mut tr = vec![0.0f64; len];
@@ -43,8 +43,8 @@ pub fn random_walk_index_store(store: &CandleStore, period: usize, _nodes: &mut 
         rw_low[i] = max_rwi_low;
     }
     vec![
-        IndicatorOutput { name: "high".to_string(), values: rw_high },
-        IndicatorOutput { name: "low".to_string(), values: rw_low },
+        crate::named_series("high", rw_high),
+        crate::named_series("low", rw_low),
     ]
 }
 

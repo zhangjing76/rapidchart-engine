@@ -1,16 +1,63 @@
 use js_sys::Object;
 use js_sys::Reflect;
 use wasm_bindgen::prelude::*;
+use std::rc::Rc;
 
 use crate::bar::{Bar, CandleStore};
-use crate::series::RcSeries;
-use crate::types::IndicatorArena;
+use crate::series::{rc_into_owned, RcSeries, Series};
+use crate::types::{IndicatorArena, IndicatorOutput, NamedOutputLike, NamedSeries};
 
-pub(crate) fn rc_one_output(rc: RcSeries) -> Vec<crate::types::IndicatorOutput> {
-    vec![crate::types::IndicatorOutput {
-        name: "value".to_string(),
-        values: crate::series::rc_into_owned(rc),
-    }]
+pub(crate) trait IntoIndicatorOutputs {
+    fn into_outputs(self) -> Vec<IndicatorOutput>;
+}
+
+impl IntoIndicatorOutputs for RcSeries {
+    fn into_outputs(self) -> Vec<IndicatorOutput> {
+        vec![IndicatorOutput {
+            name: "value".to_string(),
+            values: crate::series::rc_into_owned(self),
+        }]
+    }
+}
+
+impl IntoIndicatorOutputs for Vec<IndicatorOutput> {
+    fn into_outputs(self) -> Vec<IndicatorOutput> {
+        self
+    }
+}
+
+impl IntoIndicatorOutputs for Vec<NamedSeries> {
+    fn into_outputs(self) -> Vec<IndicatorOutput> {
+        self.into_iter()
+            .map(|series| IndicatorOutput {
+                name: series.name,
+                values: rc_into_owned(series.values),
+            })
+            .collect()
+    }
+}
+
+pub(crate) trait IntoRcSeries {
+    fn into_rc_series(self) -> RcSeries;
+}
+
+impl IntoRcSeries for RcSeries {
+    fn into_rc_series(self) -> RcSeries {
+        self
+    }
+}
+
+impl IntoRcSeries for Series {
+    fn into_rc_series(self) -> RcSeries {
+        Rc::new(self)
+    }
+}
+
+pub(crate) fn named_series(name: impl Into<String>, values: impl IntoRcSeries) -> NamedSeries {
+    NamedSeries {
+        name: name.into(),
+        values: values.into_rc_series(),
+    }
 }
 
 /// Fast-path upsert for the incremental hot path. Resolves slot by name (1-7 slots typical).
@@ -30,15 +77,15 @@ pub(crate) fn output_at(outputs: &IndicatorArena, name: &str, index: usize) -> O
 }
 
 /// Same as output_at but for Vec<IndicatorOutput> used in internal compute functions.
-pub(crate) fn output_at_vec(
-    outputs: &[crate::types::IndicatorOutput],
+pub(crate) fn output_at_vec<T: NamedOutputLike>(
+    outputs: &[T],
     name: &str,
     index: usize,
 ) -> Option<f64> {
     outputs
         .iter()
-        .find(|output| output.name == name)
-        .and_then(|output| output.values.get(index))
+        .find(|output| output.name() == name)
+        .and_then(|output| output.values().get(index))
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

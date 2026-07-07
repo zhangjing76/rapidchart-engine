@@ -1,19 +1,19 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Shinohara Intensity Ratio:
 /// Strong Ratio = SUM(H - C) / SUM(C - L) * 100 over period
 /// Weak Ratio = SUM(H - PC) / SUM(PC - L) * 100 over period
 /// where PC = previous close
-pub fn shinohara_intensity_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn shinohara_intensity_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut strong = vec![f64::NAN; len];
     let mut weak = vec![f64::NAN; len];
     if period == 0 || len < period + 1 {
         return vec![
-            IndicatorOutput { name: "strong".to_string(), values: strong },
-            IndicatorOutput { name: "weak".to_string(), values: weak },
+            crate::named_series("strong", strong),
+            crate::named_series("weak", weak),
         ];
     }
     for i in period..len {
@@ -30,8 +30,8 @@ pub fn shinohara_intensity_store(store: &CandleStore, period: usize, _nodes: &mu
         if sum_pcl.abs() > 1e-10 { weak[i] = (sum_hpc / sum_pcl) * 100.0; }
     }
     vec![
-        IndicatorOutput { name: "strong".to_string(), values: strong },
-        IndicatorOutput { name: "weak".to_string(), values: weak },
+        crate::named_series("strong", strong),
+        crate::named_series("weak", weak),
     ]
 }
 pub fn latest_shinohara_intensity_store(store: &CandleStore, period: usize) -> (Option<f64>, Option<f64>) {

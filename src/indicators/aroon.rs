@@ -1,5 +1,4 @@
 use crate::output_at_vec;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::CandleStore;
 use std::collections::HashMap;
@@ -9,28 +8,23 @@ pub fn aroon_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let key = format!("aroon:hl:{period}");
     if let Some(values) = nodes.get(&key) {
         return vec![
-            IndicatorOutput {
-                name: "up".to_string(),
-                values: (**values).clone(),
-            },
-            IndicatorOutput {
-                name: "down".to_string(),
-                values: nodes
-                    .get(&format!("aroon:down:{period}"))
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
-            IndicatorOutput {
-                name: "oscillator".to_string(),
-                values: nodes
-                    .get(&format!("aroon:oscillator:{period}"))
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
+            crate::named_series("up", Rc::clone(values)),
+            crate::named_series(
+                "down",
+                nodes.get(&format!("aroon:down:{period}"))
+                    .map(Rc::clone)
+                    .unwrap_or_else(|| Rc::new(Vec::new())),
+            ),
+            crate::named_series(
+                "oscillator",
+                nodes.get(&format!("aroon:oscillator:{period}"))
+                    .map(Rc::clone)
+                    .unwrap_or_else(|| Rc::new(Vec::new())),
+            ),
         ];
     }
     let mut up = vec![f64::NAN; store.len()];
@@ -38,18 +32,9 @@ pub fn aroon_store(
     let mut oscillator = vec![f64::NAN; store.len()];
     if period == 0 || store.len() < period {
         return vec![
-            IndicatorOutput {
-                name: "up".to_string(),
-                values: up,
-            },
-            IndicatorOutput {
-                name: "down".to_string(),
-                values: down,
-            },
-            IndicatorOutput {
-                name: "oscillator".to_string(),
-                values: oscillator,
-            },
+            crate::named_series("up", up),
+            crate::named_series("down", down),
+            crate::named_series("oscillator", oscillator),
         ];
     }
     for index in period - 1..store.len() {
@@ -83,18 +68,9 @@ pub fn aroon_store(
         Rc::new(oscillator.clone()),
     );
     vec![
-        IndicatorOutput {
-            name: "up".to_string(),
-            values: up,
-        },
-        IndicatorOutput {
-            name: "down".to_string(),
-            values: down,
-        },
-        IndicatorOutput {
-            name: "oscillator".to_string(),
-            values: oscillator,
-        },
+        crate::named_series("up", up),
+        crate::named_series("down", down),
+        crate::named_series("oscillator", oscillator),
     ]
 }
 pub fn latest_aroon_store(

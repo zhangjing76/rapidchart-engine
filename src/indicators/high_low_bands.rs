@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput, Series};
+use crate::{CandleStore, Series};
 
 /// Simple Moving Average over a slice of f64 values.
 fn sma_series(values: &[f64], period: usize) -> Series {
@@ -22,7 +22,7 @@ pub fn high_low_bands_store(
     store: &CandleStore,
     period: usize,
     _nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let upper = sma_series(&store.high, period);
     let lower = sma_series(&store.low, period);
     let middle: Vec<f64> = upper
@@ -37,9 +37,9 @@ pub fn high_low_bands_store(
         })
         .collect();
     vec![
-        IndicatorOutput { name: "upper".to_string(), values: upper },
-        IndicatorOutput { name: "middle".to_string(), values: middle },
-        IndicatorOutput { name: "lower".to_string(), values: lower },
+        crate::named_series("upper", upper),
+        crate::named_series("middle", middle),
+        crate::named_series("lower", lower),
     ]
 }
 

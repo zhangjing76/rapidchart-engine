@@ -1,5 +1,4 @@
 use crate::indicators::bollinger::bollinger_outputs;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::CandleStore;
 use std::rc::Rc;
@@ -8,7 +7,7 @@ pub fn donchian_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let mut upper = vec![f64::NAN; store.len()];
     let mut middle = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
@@ -32,7 +31,7 @@ pub fn donchian_store(
     for output in &outputs {
         nodes.insert(
             format!("donchian:{}:{}", output.name, period),
-            Rc::new(output.values.clone()),
+            Rc::clone(&output.values),
         );
     }
     outputs
@@ -58,7 +57,7 @@ pub fn price_channel_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let mut upper = vec![f64::NAN; store.len()];
     let mut middle = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
@@ -82,7 +81,7 @@ pub fn price_channel_store(
     for output in &outputs {
         nodes.insert(
             format!("price_channel:{}:{}", output.name, period),
-            Rc::new(output.values.clone()),
+            Rc::clone(&output.values),
         );
     }
     outputs

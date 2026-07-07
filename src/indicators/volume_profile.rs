@@ -1,6 +1,6 @@
 use crate::indicators::derived::hl2_store;
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Volume Profile (simplified for line chart output):
@@ -9,7 +9,7 @@ use std::collections::HashMap;
 ///
 /// Outputs: poc (price with most volume), vah (value area high), val (value area low)
 
-pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let hl2 = hl2_store(store, nodes);
     let mut poc_out = vec![f64::NAN; len];
@@ -17,9 +17,9 @@ pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut Node
     let mut val_out = vec![f64::NAN; len];
     if period == 0 || len < period {
         return vec![
-            IndicatorOutput { name: "poc".to_string(), values: poc_out },
-            IndicatorOutput { name: "vah".to_string(), values: vah_out },
-            IndicatorOutput { name: "val".to_string(), values: val_out },
+            crate::named_series("poc", poc_out),
+            crate::named_series("vah", vah_out),
+            crate::named_series("val", val_out),
         ];
     }
     let num_bins = 20usize;
@@ -75,9 +75,9 @@ pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut Node
         val_out[i] = low + va_low_bin as f64 * bin_size;
     }
     vec![
-        IndicatorOutput { name: "poc".to_string(), values: poc_out },
-        IndicatorOutput { name: "vah".to_string(), values: vah_out },
-        IndicatorOutput { name: "val".to_string(), values: val_out },
+        crate::named_series("poc", poc_out),
+        crate::named_series("vah", vah_out),
+        crate::named_series("val", val_out),
     ]
 }
 

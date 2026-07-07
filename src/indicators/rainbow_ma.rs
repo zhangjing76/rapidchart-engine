@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput, Series};
+use crate::{CandleStore, Series};
 
 /// Rainbow Moving Average: 10 recursive SMAs.
 /// Layer 1 = SMA(close, period)
@@ -49,7 +49,7 @@ pub fn rainbow_ma_store(
     store: &CandleStore,
     period: usize,
     _nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let mut layers: Vec<Series> = Vec::with_capacity(10);
     let first = sma_of_series(&store.close, period);
     layers.push(first);
@@ -60,10 +60,7 @@ pub fn rainbow_ma_store(
     layers
         .into_iter()
         .enumerate()
-        .map(|(i, values)| IndicatorOutput {
-            name: format!("r{}", i + 1),
-            values,
-        })
+        .map(|(i, values)| crate::named_series(format!("r{}", i + 1), values))
         .collect()
 }
 

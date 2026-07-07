@@ -4,7 +4,6 @@ use crate::indicators::ema::{ema_close_store, latest_ema_store};
 use crate::indicators::sma::{latest_sma_store, sma_close_store};
 use crate::rc_into_owned;
 use crate::IndicatorArena;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::CandleStore;
 use std::rc::Rc;
@@ -14,7 +13,7 @@ pub fn keltner_store(
     period: usize,
     multiplier: f64,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let middle = rc_into_owned(ema_close_store(store, period, nodes));
     let atr = rc_into_owned(atr_store(store, period, nodes));
     let mut upper = vec![f64::NAN; store.len()];
@@ -31,23 +30,14 @@ pub fn keltner_store(
         *lower_val = mid - multiplier * atr_value;
     }
     let outputs = vec![
-        IndicatorOutput {
-            name: "upper".to_string(),
-            values: upper,
-        },
-        IndicatorOutput {
-            name: "middle".to_string(),
-            values: middle,
-        },
-        IndicatorOutput {
-            name: "lower".to_string(),
-            values: lower,
-        },
+        crate::named_series("upper", upper,),
+        crate::named_series("middle", middle,),
+        crate::named_series("lower", lower,),
     ];
     for output in &outputs {
         nodes.insert(
             format!("keltner:{}:{}:{}", output.name, period, multiplier),
-            Rc::new(output.values.clone()),
+            Rc::clone(&output.values),
         );
     }
     outputs
@@ -74,7 +64,7 @@ pub fn starc_store(
     period: usize,
     multiplier: f64,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let middle = rc_into_owned(sma_close_store(store, period, nodes));
     let atr = rc_into_owned(atr_store(store, period, nodes));
     let mut upper = vec![f64::NAN; store.len()];
@@ -94,7 +84,7 @@ pub fn starc_store(
     for output in &outputs {
         nodes.insert(
             format!("starc:{}:{}:{}", output.name, period, multiplier),
-            Rc::new(output.values.clone()),
+            Rc::clone(&output.values),
         );
     }
     outputs

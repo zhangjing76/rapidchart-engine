@@ -1,6 +1,6 @@
 use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput, Series};
+use crate::{CandleStore, Series};
 use std::rc::Rc;
 
 /// Smoothed Moving Average (Wilder's smoothing): alpha = 1/period
@@ -37,16 +37,16 @@ fn shift_forward(values: &[f64], shift: usize) -> Series {
 /// - Teeth: SMMA(8) of median price, shifted 5 bars forward
 /// - Lips: SMMA(5) of median price, shifted 3 bars forward
 
-pub fn alligator_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn alligator_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let key = "alligator:jaw";
     if let Some(jaw_rc) = nodes.get(key) {
         let jaw = (**jaw_rc).clone();
         let teeth = (**nodes.get("alligator:teeth").unwrap()).clone();
         let lips = (**nodes.get("alligator:lips").unwrap()).clone();
         return vec![
-            IndicatorOutput { name: "jaw".to_string(), values: jaw },
-            IndicatorOutput { name: "teeth".to_string(), values: teeth },
-            IndicatorOutput { name: "lips".to_string(), values: lips },
+            crate::named_series("jaw", jaw),
+            crate::named_series("teeth", teeth),
+            crate::named_series("lips", lips),
         ];
     }
     let median: Vec<f64> = store
@@ -65,9 +65,9 @@ pub fn alligator_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<Indica
     nodes.insert("alligator:teeth".to_string(), Rc::new(teeth.clone()));
     nodes.insert("alligator:lips".to_string(), Rc::new(lips.clone()));
     vec![
-        IndicatorOutput { name: "jaw".to_string(), values: jaw },
-        IndicatorOutput { name: "teeth".to_string(), values: teeth },
-        IndicatorOutput { name: "lips".to_string(), values: lips },
+        crate::named_series("jaw", jaw),
+        crate::named_series("teeth", teeth),
+        crate::named_series("lips", lips),
     ]
 }
 

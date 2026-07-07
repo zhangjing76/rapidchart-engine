@@ -1,6 +1,5 @@
 use crate::output_at;
 use crate::IndicatorArena;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::{CandleStore, Series};
 use std::rc::Rc;
@@ -70,22 +69,16 @@ pub fn stochastic_store(
     period: usize,
     smooth: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let k = stochastic_k_store(store, period);
     let d = smooth_series(&k, smooth);
     let outputs = vec![
-        IndicatorOutput {
-            name: "k".to_string(),
-            values: k,
-        },
-        IndicatorOutput {
-            name: "d".to_string(),
-            values: d,
-        },
+        crate::named_series("k", k,),
+        crate::named_series("d", d,),
     ];
     nodes.insert(
         format!("stoch:hlc:{period}:{smooth}"),
-        Rc::new(outputs[0].values.clone()),
+        Rc::clone(&outputs[0].values),
     );
     outputs
 }

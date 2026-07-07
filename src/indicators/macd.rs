@@ -1,7 +1,6 @@
 use crate::indicators::ema::{ema_close_store, ema_next, ema_series};
 use crate::rc_into_owned;
 use crate::IndicatorArena;
-use crate::IndicatorOutput;
 use crate::MacdParams;
 use crate::NodeCache;
 use crate::{output_at};
@@ -20,7 +19,7 @@ pub fn macd_store(
     store: &CandleStore,
     params: MacdParams,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let macd_key = format!(
         "macd:value:{}:{}:{}",
         params.fast, params.slow, params.signal
@@ -43,26 +42,11 @@ pub fn macd_store(
         nodes.get(&slow_key),
     ) {
         return vec![
-            IndicatorOutput {
-                name: "macd".to_string(),
-                values: (**macd).clone(),
-            },
-            IndicatorOutput {
-                name: "signal".to_string(),
-                values: (**signal).clone(),
-            },
-            IndicatorOutput {
-                name: "histogram".to_string(),
-                values: (**histogram).clone(),
-            },
-            IndicatorOutput {
-                name: "fast_ema".to_string(),
-                values: (**fast_ema).clone(),
-            },
-            IndicatorOutput {
-                name: "slow_ema".to_string(),
-                values: (**slow_ema).clone(),
-            },
+            crate::named_series("macd", (**macd).clone(),),
+            crate::named_series("signal", (**signal).clone(),),
+            crate::named_series("histogram", (**histogram).clone(),),
+            crate::named_series("fast_ema", (**fast_ema).clone(),),
+            crate::named_series("slow_ema", (**slow_ema).clone(),),
         ];
     }
     let fast_ema = rc_into_owned(ema_close_store(store, params.fast, nodes));
@@ -88,26 +72,11 @@ pub fn macd_store(
     nodes.insert(signal_key, Rc::new(signal.clone()));
     nodes.insert(histogram_key, Rc::new(histogram.clone()));
     vec![
-        IndicatorOutput {
-            name: "macd".to_string(),
-            values: macd,
-        },
-        IndicatorOutput {
-            name: "signal".to_string(),
-            values: signal,
-        },
-        IndicatorOutput {
-            name: "histogram".to_string(),
-            values: histogram,
-        },
-        IndicatorOutput {
-            name: "fast_ema".to_string(),
-            values: fast_ema,
-        },
-        IndicatorOutput {
-            name: "slow_ema".to_string(),
-            values: slow_ema,
-        },
+        crate::named_series("macd", macd,),
+        crate::named_series("signal", signal,),
+        crate::named_series("histogram", histogram,),
+        crate::named_series("fast_ema", fast_ema,),
+        crate::named_series("slow_ema", slow_ema,),
     ]
 }
 pub fn latest_macd_store(
@@ -144,7 +113,7 @@ pub fn ppo_store(
     store: &CandleStore,
     params: MacdParams,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let ppo_key = format!(
         "ppo:value:{}:{}:{}",
         params.fast, params.slow, params.signal
@@ -163,18 +132,9 @@ pub fn ppo_store(
         nodes.get(&histogram_key),
     ) {
         return vec![
-            IndicatorOutput {
-                name: "ppo".to_string(),
-                values: (**ppo).clone(),
-            },
-            IndicatorOutput {
-                name: "signal".to_string(),
-                values: (**signal).clone(),
-            },
-            IndicatorOutput {
-                name: "histogram".to_string(),
-                values: (**histogram).clone(),
-            },
+            crate::named_series("ppo", Rc::clone(ppo)),
+            crate::named_series("signal", Rc::clone(signal)),
+            crate::named_series("histogram", Rc::clone(histogram)),
         ];
     }
     let macd_outputs = macd_store(store, params, nodes);
@@ -182,12 +142,12 @@ pub fn ppo_store(
         .iter()
         .find(|output| output.name == "macd")
         .map(|output| output.values.clone())
-        .unwrap_or_else(|| vec![f64::NAN; store.len()]);
+        .unwrap_or_else(|| Rc::new(vec![f64::NAN; store.len()]));
     let slow_ema = macd_outputs
         .iter()
         .find(|output| output.name == "slow_ema")
         .map(|output| output.values.clone())
-        .unwrap_or_else(|| vec![f64::NAN; store.len()]);
+        .unwrap_or_else(|| Rc::new(vec![f64::NAN; store.len()]));
     let ppo: Series = macd_line
         .iter()
         .zip(slow_ema.iter())
@@ -212,18 +172,9 @@ pub fn ppo_store(
     nodes.insert(signal_key, Rc::new(signal.clone()));
     nodes.insert(histogram_key, Rc::new(histogram.clone()));
     vec![
-        IndicatorOutput {
-            name: "ppo".to_string(),
-            values: ppo,
-        },
-        IndicatorOutput {
-            name: "signal".to_string(),
-            values: signal,
-        },
-        IndicatorOutput {
-            name: "histogram".to_string(),
-            values: histogram,
-        },
+        crate::named_series("ppo", ppo),
+        crate::named_series("signal", signal),
+        crate::named_series("histogram", histogram),
     ]
 }
 pub fn latest_ppo_store(

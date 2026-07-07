@@ -30,17 +30,21 @@ mod tests {
         };
     }
 
-    fn assert_outputs_eq(left: &[IndicatorOutput], right: &[IndicatorOutput], names: &[&str]) {
+    fn assert_outputs_eq<L: NamedOutputLike, R: NamedOutputLike>(
+        left: &[L],
+        right: &[R],
+        names: &[&str],
+    ) {
         for name in names {
             let l = left
                 .iter()
-                .find(|o| o.name == *name)
+                .find(|o| o.name() == *name)
                 .expect(&format!("left missing {}", name));
             let r = right
                 .iter()
-                .find(|o| o.name == *name)
+                .find(|o| o.name() == *name)
                 .expect(&format!("right missing {}", name));
-            assert_series_eq(&l.values, &r.values);
+            assert_series_eq(l.values(), r.values());
         }
     }
 

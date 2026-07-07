@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use crate::indicators::sma::sma_close_store;
 use crate::series::rc_into_owned;
 
@@ -11,7 +11,7 @@ pub fn ma_cross_store(
     fast_period: usize,
     slow_period: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let fast = rc_into_owned(sma_close_store(store, fast_period, nodes));
     let slow = rc_into_owned(sma_close_store(store, slow_period, nodes));
     let histogram: Vec<f64> = fast
@@ -26,9 +26,9 @@ pub fn ma_cross_store(
         })
         .collect();
     vec![
-        IndicatorOutput { name: "fast".to_string(), values: fast },
-        IndicatorOutput { name: "slow".to_string(), values: slow },
-        IndicatorOutput { name: "histogram".to_string(), values: histogram },
+        crate::named_series("fast", fast),
+        crate::named_series("slow", slow),
+        crate::named_series("histogram", histogram),
     ]
 }
 

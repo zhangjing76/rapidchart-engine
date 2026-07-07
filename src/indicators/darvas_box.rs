@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Darvas Box Theory:
@@ -11,14 +11,14 @@ use std::collections::HashMap;
 ///
 /// Outputs: top (upper box boundary), bottom (lower box boundary)
 
-pub fn darvas_box_store(store: &CandleStore, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn darvas_box_store(store: &CandleStore, _nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut top = vec![f64::NAN; len];
     let mut bottom = vec![f64::NAN; len];
     if len < 4 {
         return vec![
-            IndicatorOutput { name: "top".to_string(), values: top },
-            IndicatorOutput { name: "bottom".to_string(), values: bottom },
+            crate::named_series("top", top),
+            crate::named_series("bottom", bottom),
         ];
     }
 
@@ -59,8 +59,8 @@ pub fn darvas_box_store(store: &CandleStore, _nodes: &mut NodeCache) -> Vec<Indi
     }
 
     vec![
-        IndicatorOutput { name: "top".to_string(), values: top },
-        IndicatorOutput { name: "bottom".to_string(), values: bottom },
+        crate::named_series("top", top),
+        crate::named_series("bottom", bottom),
     ]
 }
 

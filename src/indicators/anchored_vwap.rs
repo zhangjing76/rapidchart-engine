@@ -1,6 +1,6 @@
 use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::CandleStore;
 
 /// Anchored VWAP: VWAP starting from a user-specified bar index (anchor).
 /// Before the anchor, values are NaN.
@@ -10,11 +10,11 @@ pub fn anchored_vwap_store(
     store: &CandleStore,
     anchor: usize,
     _nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut values = vec![f64::NAN; len];
     if anchor >= len {
-        return vec![IndicatorOutput { name: "value".to_string(), values }];
+        return vec![crate::named_series("value", values)];
     }
     let mut cum_pv = 0.0;
     let mut cum_vol = 0.0;
@@ -26,7 +26,7 @@ pub fn anchored_vwap_store(
             values[i] = cum_pv / cum_vol;
         }
     }
-    vec![IndicatorOutput { name: "value".to_string(), values }]
+    vec![crate::named_series("value", values)]
 }
 
 /// For incremental update, recompute from anchor to current bar.

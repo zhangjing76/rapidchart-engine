@@ -1,9 +1,8 @@
 use crate::indicators::atr::true_range_store;
 use crate::IndicatorArena;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::{output_at, output_at_vec};
-use crate::{CandleStore, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -39,35 +38,17 @@ pub fn adx_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let key = format!("adx:ohlc:{period}");
     if let Some(values) = nodes.get(&key) {
         return adx_outputs(
-            (**values).clone(),
-            nodes
-                .get(&format!("adx:plus_di:{period}"))
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
-            nodes
-                .get(&format!("adx:minus_di:{period}"))
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
-            nodes
-                .get(&format!("adx:tr_avg:{period}"))
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
-            nodes
-                .get(&format!("adx:plus_dm_avg:{period}"))
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
-            nodes
-                .get(&format!("adx:minus_dm_avg:{period}"))
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
-            nodes
-                .get(&format!("adx:dx:{period}"))
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
+            Rc::clone(values),
+            nodes.get(&format!("adx:plus_di:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes.get(&format!("adx:minus_di:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes.get(&format!("adx:tr_avg:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes.get(&format!("adx:plus_dm_avg:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes.get(&format!("adx:minus_dm_avg:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes.get(&format!("adx:dx:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
         );
     }
     let mut values = vec![f64::NAN; store.len()];
@@ -79,13 +60,13 @@ pub fn adx_store(
     let mut dx_values = vec![f64::NAN; store.len()];
     if period == 0 || store.len() <= period {
         return adx_outputs(
-            values,
-            plus_di_values,
-            minus_di_values,
-            tr_avg_values,
-            plus_dm_avg_values,
-            minus_dm_avg_values,
-            dx_values,
+            Rc::new(values),
+            Rc::new(plus_di_values),
+            Rc::new(minus_di_values),
+            Rc::new(tr_avg_values),
+            Rc::new(plus_dm_avg_values),
+            Rc::new(minus_dm_avg_values),
+            Rc::new(dx_values),
         );
     }
     let mut tr_avg = (1..=period)
@@ -160,13 +141,13 @@ pub fn adx_store(
     );
     nodes.insert(format!("adx:dx:{period}"), Rc::new(dx_values.clone()));
     adx_outputs(
-        values,
-        plus_di_values,
-        minus_di_values,
-        tr_avg_values,
-        plus_dm_avg_values,
-        minus_dm_avg_values,
-        dx_values,
+        Rc::new(values),
+        Rc::new(plus_di_values),
+        Rc::new(minus_di_values),
+        Rc::new(tr_avg_values),
+        Rc::new(plus_dm_avg_values),
+        Rc::new(minus_dm_avg_values),
+        Rc::new(dx_values),
     )
 }
 pub fn di_value(tr_avg: f64, dm_avg: f64) -> f64 {
@@ -187,43 +168,22 @@ pub fn dx_value(tr_avg: f64, plus_dm_avg: f64, minus_dm_avg: f64) -> f64 {
     }
 }
 pub fn adx_outputs(
-    values: Series,
-    plus_di: Series,
-    minus_di: Series,
-    tr_avg: Series,
-    plus_dm_avg: Series,
-    minus_dm_avg: Series,
-    dx: Series,
-) -> Vec<IndicatorOutput> {
+    values: RcSeries,
+    plus_di: RcSeries,
+    minus_di: RcSeries,
+    tr_avg: RcSeries,
+    plus_dm_avg: RcSeries,
+    minus_dm_avg: RcSeries,
+    dx: RcSeries,
+) -> Vec<crate::NamedSeries> {
     vec![
-        IndicatorOutput {
-            name: "value".to_string(),
-            values,
-        },
-        IndicatorOutput {
-            name: "plus_di".to_string(),
-            values: plus_di,
-        },
-        IndicatorOutput {
-            name: "minus_di".to_string(),
-            values: minus_di,
-        },
-        IndicatorOutput {
-            name: "tr_avg".to_string(),
-            values: tr_avg,
-        },
-        IndicatorOutput {
-            name: "plus_dm_avg".to_string(),
-            values: plus_dm_avg,
-        },
-        IndicatorOutput {
-            name: "minus_dm_avg".to_string(),
-            values: minus_dm_avg,
-        },
-        IndicatorOutput {
-            name: "dx".to_string(),
-            values: dx,
-        },
+        crate::named_series("value", values),
+        crate::named_series("plus_di", plus_di),
+        crate::named_series("minus_di", minus_di),
+        crate::named_series("tr_avg", tr_avg),
+        crate::named_series("plus_dm_avg", plus_dm_avg),
+        crate::named_series("minus_dm_avg", minus_dm_avg),
+        crate::named_series("dx", dx),
     ]
 }
 pub fn latest_adx_store(store: &CandleStore, period: usize, outputs: &IndicatorArena) -> AdxResult {
@@ -261,7 +221,7 @@ pub fn latest_adx_store(store: &CandleStore, period: usize, outputs: &IndicatorA
             volume: store.volume[..store.len() - 1].to_vec(),
         };
         previous_outputs =
-            IndicatorArena::from_outputs(adx_store(&previous, period, &mut HashMap::new()));
+            IndicatorArena::from_named_outputs(adx_store(&previous, period, &mut HashMap::new()));
         &previous_outputs
     };
     let tr_avg = (output_at(source_outputs, "tr_avg", previous_index).unwrap_or(0.0)

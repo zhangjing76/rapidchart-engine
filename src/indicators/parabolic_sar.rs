@@ -1,5 +1,4 @@
 use crate::IndicatorArena;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::{output_at, output_at_vec};
 use crate::CandleStore;
@@ -11,35 +10,14 @@ pub fn parabolic_sar_store(
     step: f64,
     max_step: f64,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let key = format!("psar:ohlc:{step}:{max_step}");
     if let Some(values) = nodes.get(&key) {
         return vec![
-            IndicatorOutput {
-                name: "value".to_string(),
-                values: (**values).clone(),
-            },
-            IndicatorOutput {
-                name: "ep".to_string(),
-                values: nodes
-                    .get(&format!("psar:ep:{step}:{max_step}"))
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
-            IndicatorOutput {
-                name: "af".to_string(),
-                values: nodes
-                    .get(&format!("psar:af:{step}:{max_step}"))
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
-            IndicatorOutput {
-                name: "trend".to_string(),
-                values: nodes
-                    .get(&format!("psar:trend:{step}:{max_step}"))
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
+            crate::named_series("value", Rc::clone(values)),
+            crate::named_series("ep", nodes.get(&format!("psar:ep:{step}:{max_step}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
+            crate::named_series("af", nodes.get(&format!("psar:af:{step}:{max_step}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
+            crate::named_series("trend", nodes.get(&format!("psar:trend:{step}:{max_step}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
         ];
     }
     let mut values = vec![f64::NAN; store.len()];
@@ -48,22 +26,10 @@ pub fn parabolic_sar_store(
     let mut trend_values = vec![f64::NAN; store.len()];
     if store.len() < 2 {
         return vec![
-            IndicatorOutput {
-                name: "value".to_string(),
-                values,
-            },
-            IndicatorOutput {
-                name: "ep".to_string(),
-                values: ep_values,
-            },
-            IndicatorOutput {
-                name: "af".to_string(),
-                values: af_values,
-            },
-            IndicatorOutput {
-                name: "trend".to_string(),
-                values: trend_values,
-            },
+            crate::named_series("value", values),
+            crate::named_series("ep", ep_values),
+            crate::named_series("af", af_values),
+            crate::named_series("trend", trend_values),
         ];
     }
     let mut trend = if store.close[1] >= store.close[0] {
@@ -133,22 +99,10 @@ pub fn parabolic_sar_store(
         Rc::new(trend_values.clone()),
     );
     vec![
-        IndicatorOutput {
-            name: "value".to_string(),
-            values,
-        },
-        IndicatorOutput {
-            name: "ep".to_string(),
-            values: ep_values,
-        },
-        IndicatorOutput {
-            name: "af".to_string(),
-            values: af_values,
-        },
-        IndicatorOutput {
-            name: "trend".to_string(),
-            values: trend_values,
-        },
+        crate::named_series("value", values),
+        crate::named_series("ep", ep_values),
+        crate::named_series("af", af_values),
+        crate::named_series("trend", trend_values),
     ]
 }
 pub fn latest_parabolic_sar_store(

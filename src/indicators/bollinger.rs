@@ -1,6 +1,5 @@
 use crate::indicators::sma::sma_close_store;
 use crate::rc_into_owned;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::{CandleStore, Series};
 use std::rc::Rc;
@@ -10,7 +9,7 @@ pub fn bollinger_store(
     period: usize,
     multiplier: f64,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let mut upper = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
     let middle = rc_into_owned(sma_close_store(store, period, nodes));
@@ -38,25 +37,16 @@ pub fn bollinger_store(
     for output in &outputs {
         nodes.insert(
             format!("bb:{}:{}:{}", output.name, period, multiplier),
-            Rc::new(output.values.clone()),
+            Rc::clone(&output.values),
         );
     }
     outputs
 }
-pub fn bollinger_outputs(upper: Series, middle: Series, lower: Series) -> Vec<IndicatorOutput> {
+pub fn bollinger_outputs(upper: Series, middle: Series, lower: Series) -> Vec<crate::NamedSeries> {
     vec![
-        IndicatorOutput {
-            name: "upper".to_string(),
-            values: upper,
-        },
-        IndicatorOutput {
-            name: "middle".to_string(),
-            values: middle,
-        },
-        IndicatorOutput {
-            name: "lower".to_string(),
-            values: lower,
-        },
+        crate::named_series("upper", upper,),
+        crate::named_series("middle", middle,),
+        crate::named_series("lower", lower,),
     ]
 }
 pub fn latest_bollinger_store(

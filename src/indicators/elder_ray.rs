@@ -1,12 +1,12 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use crate::indicators::ema::ema_close_store;
 
 /// Elder Ray Index:
 /// Bull Power = High - EMA(close, period)
 /// Bear Power = Low - EMA(close, period)
 
-pub fn elder_ray_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn elder_ray_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let ema = ema_close_store(store, period, nodes);
     let len = store.len();
     let mut bull = vec![f64::NAN; len];
@@ -18,8 +18,8 @@ pub fn elder_ray_store(store: &CandleStore, period: usize, nodes: &mut NodeCache
         }
     }
     vec![
-        IndicatorOutput { name: "bull".to_string(), values: bull },
-        IndicatorOutput { name: "bear".to_string(), values: bear },
+        crate::named_series("bull", bull),
+        crate::named_series("bear", bear),
     ]
 }
 

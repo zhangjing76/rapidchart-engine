@@ -1,4 +1,3 @@
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::CandleStore;
 use std::rc::Rc;
@@ -11,7 +10,7 @@ type PivotPointsResult = (
     Option<f64>,
 );
 
-pub fn pivot_points_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
+pub fn pivot_points_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let mut pp = vec![f64::NAN; store.len()];
     let mut r1 = vec![f64::NAN; store.len()];
     let mut s1 = vec![f64::NAN; store.len()];
@@ -32,26 +31,11 @@ pub fn pivot_points_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<Ind
     nodes.insert("pivot:r2".to_string(), Rc::new(r2.clone()));
     nodes.insert("pivot:s2".to_string(), Rc::new(s2.clone()));
     vec![
-        IndicatorOutput {
-            name: "pp".to_string(),
-            values: pp,
-        },
-        IndicatorOutput {
-            name: "r1".to_string(),
-            values: r1,
-        },
-        IndicatorOutput {
-            name: "s1".to_string(),
-            values: s1,
-        },
-        IndicatorOutput {
-            name: "r2".to_string(),
-            values: r2,
-        },
-        IndicatorOutput {
-            name: "s2".to_string(),
-            values: s2,
-        },
+        crate::named_series("pp", pp,),
+        crate::named_series("r1", r1,),
+        crate::named_series("s1", s1,),
+        crate::named_series("r2", r2,),
+        crate::named_series("s2", s2,),
     ]
 }
 pub fn latest_pivot_points_store(store: &CandleStore) -> PivotPointsResult {

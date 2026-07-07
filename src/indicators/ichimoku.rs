@@ -1,5 +1,4 @@
 use crate::output_at_vec;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::CandleStore;
 use std::collections::HashMap;
@@ -19,45 +18,18 @@ pub fn ichimoku_store(
     kijun_period: usize,
     senkou_b_period: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let tenkan_key = format!("ichimoku:tenkan:{tenkan_period}");
     let kijun_key = format!("ichimoku:kijun:{kijun_period}");
     let senkou_a_key = format!("ichimoku:senkou_a:{tenkan_period}:{kijun_period}");
     let senkou_b_key = format!("ichimoku:senkou_b:{senkou_b_period}");
     if let Some(values) = nodes.get(&tenkan_key) {
         return vec![
-            IndicatorOutput {
-                name: "tenkan".to_string(),
-                values: (**values).clone(),
-            },
-            IndicatorOutput {
-                name: "kijun".to_string(),
-                values: nodes
-                    .get(&kijun_key)
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
-            IndicatorOutput {
-                name: "senkou_a".to_string(),
-                values: nodes
-                    .get(&senkou_a_key)
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
-            IndicatorOutput {
-                name: "senkou_b".to_string(),
-                values: nodes
-                    .get(&senkou_b_key)
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
-            IndicatorOutput {
-                name: "chikou".to_string(),
-                values: nodes
-                    .get("ichimoku:chikou")
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
+            crate::named_series("tenkan", Rc::clone(values)),
+            crate::named_series("kijun", nodes.get(&kijun_key).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
+            crate::named_series("senkou_a", nodes.get(&senkou_a_key).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
+            crate::named_series("senkou_b", nodes.get(&senkou_b_key).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
+            crate::named_series("chikou", nodes.get("ichimoku:chikou").map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
         ];
     }
     let mut tenkan = vec![f64::NAN; store.len()];
@@ -93,26 +65,11 @@ pub fn ichimoku_store(
     nodes.insert(senkou_b_key, Rc::new(senkou_b.clone()));
     nodes.insert("ichimoku:chikou".to_string(), Rc::new(chikou.clone()));
     vec![
-        IndicatorOutput {
-            name: "tenkan".to_string(),
-            values: tenkan,
-        },
-        IndicatorOutput {
-            name: "kijun".to_string(),
-            values: kijun,
-        },
-        IndicatorOutput {
-            name: "senkou_a".to_string(),
-            values: senkou_a,
-        },
-        IndicatorOutput {
-            name: "senkou_b".to_string(),
-            values: senkou_b,
-        },
-        IndicatorOutput {
-            name: "chikou".to_string(),
-            values: chikou,
-        },
+        crate::named_series("tenkan", tenkan),
+        crate::named_series("kijun", kijun),
+        crate::named_series("senkou_a", senkou_a),
+        crate::named_series("senkou_b", senkou_b),
+        crate::named_series("chikou", chikou),
     ]
 }
 pub fn latest_ichimoku_store(

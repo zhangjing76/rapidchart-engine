@@ -1,6 +1,6 @@
 use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 
 /// Fractal Chaos Bands.
 /// A fractal high occurs when a bar's high is the highest among
@@ -10,7 +10,7 @@ use crate::{CandleStore, IndicatorOutput};
 pub fn fractal_chaos_bands_store(
     store: &CandleStore,
     _nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut upper = vec![f64::NAN; len];
     let mut lower = vec![f64::NAN; len];
@@ -42,8 +42,8 @@ pub fn fractal_chaos_bands_store(
     }
 
     vec![
-        IndicatorOutput { name: "upper".to_string(), values: upper },
-        IndicatorOutput { name: "lower".to_string(), values: lower },
+        crate::named_series("upper", upper),
+        crate::named_series("lower", lower),
     ]
 }
 

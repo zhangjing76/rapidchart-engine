@@ -114,6 +114,27 @@ For zero-copy groundwork, the wrapper also exposes columnar read APIs:
 
 Those accessors still materialize typed arrays today, but they define the API shape we can later back with shared memory or zero-copy views.
 
+## Internal indicator contract
+
+Indicator store functions now use a consistent internal shape:
+
+- single-output `*_store(...)` functions return `RcSeries`
+- multi-output `*_store(...)` functions return `Vec<NamedSeries>`
+- `dispatch.rs` converts both shapes into `Vec<IndicatorOutput>` via `.into_outputs()`
+
+This keeps the cache/DAG layer shared and zero-copy-friendly while preserving the existing public output API.
+
+### Zero-copy rule
+
+Inside indicator code, series data should stay in shared `Rc<Vec<f64>>` form for as long as possible.
+
+- use `Rc::clone(...)` on cache hits
+- use `named_series(name, values)` for multi-output internal results
+- do not build `IndicatorOutput` directly inside store functions
+- only convert to owned `Vec<f64>` at the final output boundary
+
+At that boundary, `rc_into_owned(...)` moves the underlying `Vec<f64>` when the `Rc` is uniquely owned, and only clones when the series is still shared elsewhere.
+
 ### Push live updates
 
 ```ts

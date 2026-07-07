@@ -1,7 +1,6 @@
 use crate::indicators::rsi::rsi_close_store;
 use crate::indicators::stoch::{smooth_series, stochastic_k_values};
 use crate::output_at_vec;
-use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::CandleStore;
 use std::collections::HashMap;
@@ -14,24 +13,18 @@ pub fn stoch_rsi_store(
     smooth: usize,
     signal: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let rsi = rsi_close_store(store, period, nodes);
     let raw_k = stochastic_k_values(&rsi, stoch_period);
     let k = smooth_series(&raw_k, smooth);
     let d = smooth_series(&k, signal);
     let outputs = vec![
-        IndicatorOutput {
-            name: "k".to_string(),
-            values: k,
-        },
-        IndicatorOutput {
-            name: "d".to_string(),
-            values: d,
-        },
+        crate::named_series("k", k,),
+        crate::named_series("d", d,),
     ];
     nodes.insert(
         format!("stoch:rsi:{period}:{stoch_period}:{smooth}:{signal}"),
-        Rc::new(outputs[0].values.clone()),
+        Rc::clone(&outputs[0].values),
     );
     outputs
 }

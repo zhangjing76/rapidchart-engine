@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, IndicatorOutput};
+use crate::{CandleStore};
 use crate::indicators::atr::atr_store;
 use crate::indicators::ema::ema_close_store;
 use crate::series::rc_into_owned;
@@ -11,7 +11,7 @@ pub fn atr_bands_store(
     period: usize,
     multiplier: f64,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> Vec<crate::NamedSeries> {
     let middle_rc = ema_close_store(store, period, nodes);
     let atr_rc = atr_store(store, period, nodes);
     let len = store.len();
@@ -27,9 +27,9 @@ pub fn atr_bands_store(
     }
     let middle = rc_into_owned(middle_rc);
     vec![
-        IndicatorOutput { name: "upper".to_string(), values: upper },
-        IndicatorOutput { name: "middle".to_string(), values: middle },
-        IndicatorOutput { name: "lower".to_string(), values: lower },
+        crate::named_series("upper", upper),
+        crate::named_series("middle", middle),
+        crate::named_series("lower", lower),
     ]
 }
 

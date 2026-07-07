@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::series::RcSeries;
 
 pub(crate) struct Indicator {
     pub id: u32,
@@ -49,6 +50,37 @@ pub(crate) struct IndicatorOutput {
     pub values: Vec<f64>,
 }
 
+#[derive(Clone)]
+pub(crate) struct NamedSeries {
+    pub name: String,
+    pub values: RcSeries,
+}
+
+pub(crate) trait NamedOutputLike {
+    fn name(&self) -> &str;
+    fn values(&self) -> &[f64];
+}
+
+impl NamedOutputLike for IndicatorOutput {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn values(&self) -> &[f64] {
+        &self.values
+    }
+}
+
+impl NamedOutputLike for NamedSeries {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn values(&self) -> &[f64] {
+        self.values.as_slice()
+    }
+}
+
 /// Per-slot Vec storage for indicator outputs. Each slot is an independent
 /// Vec<f64> that can be appended to without copying other slots.
 pub(crate) struct IndicatorArena {
@@ -64,6 +96,16 @@ impl IndicatorArena {
         for output in outputs {
             names.push(output.name);
             values.push(output.values);
+        }
+        Self { names, values }
+    }
+
+    pub(crate) fn from_named_outputs(outputs: Vec<NamedSeries>) -> Self {
+        let mut names = Vec::with_capacity(outputs.len());
+        let mut values = Vec::with_capacity(outputs.len());
+        for output in outputs {
+            names.push(output.name);
+            values.push(crate::series::rc_into_owned(output.values));
         }
         Self { names, values }
     }

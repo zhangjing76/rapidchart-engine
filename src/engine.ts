@@ -134,6 +134,7 @@ export type OutputDescriptor = {
 export type IndicatorDescriptor = {
   kind: IndicatorKind;
   name: string;
+  category: string;
   pane: "overlay" | "separate";
   params: ParamDescriptor[];
   outputs: OutputDescriptor[];

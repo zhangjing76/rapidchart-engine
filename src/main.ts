@@ -1176,14 +1176,25 @@ function syncIndicatorForm() {
 }
 
 function renderIndicatorPicker() {
-  kindInput.replaceChildren(
-    ...descriptors.map((descriptor) => {
+  const categories = new Map<string, IndicatorDescriptor[]>();
+  for (const descriptor of descriptors) {
+    const cat = descriptor.category || "Other";
+    if (!categories.has(cat)) categories.set(cat, []);
+    categories.get(cat)!.push(descriptor);
+  }
+  const groups: (HTMLOptGroupElement | HTMLOptionElement)[] = [];
+  for (const [category, items] of categories) {
+    const group = document.createElement("optgroup");
+    group.label = category;
+    for (const descriptor of items) {
       const option = document.createElement("option");
       option.value = descriptor.kind;
       option.textContent = descriptor.name;
-      return option;
-    }),
-  );
+      group.appendChild(option);
+    }
+    groups.push(group);
+  }
+  kindInput.replaceChildren(...groups);
   syncIndicatorForm();
 }
 

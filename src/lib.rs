@@ -633,12 +633,19 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "DEMA" => {
-                    let value = latest_dema_store(&self.bars, indicator.period);
+                    let (value, ema1, ema2) =
+                        latest_dema_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "ema1", target_len, ema1);
+                    upsert_output(&mut indicator.outputs, "ema2", target_len, ema2);
                 }
                 "TEMA" => {
-                    let value = latest_tema_store(&self.bars, indicator.period);
+                    let (value, ema1, ema2, ema3) =
+                        latest_tema_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "ema1", target_len, ema1);
+                    upsert_output(&mut indicator.outputs, "ema2", target_len, ema2);
+                    upsert_output(&mut indicator.outputs, "ema3", target_len, ema3);
                 }
                 "TRIMA" => {
                     let value = latest_trima_store(&self.bars, indicator.period);
@@ -656,13 +663,25 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
                 "TRIX" => {
-                    let value = latest_trix_store(&self.bars, indicator.period);
+                    let (value, ema1, ema2, ema3) =
+                        latest_trix_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "ema1", target_len, ema1);
+                    upsert_output(&mut indicator.outputs, "ema2", target_len, ema2);
+                    upsert_output(&mut indicator.outputs, "ema3", target_len, ema3);
                 }
                 "TSI" => {
-                    let value =
-                        latest_tsi_store(&self.bars, indicator.period, indicator.stoch_period);
+                    let (value, m_ema1, m_ema2, a_ema1, a_ema2) = latest_tsi_store(
+                        &self.bars,
+                        indicator.period,
+                        indicator.stoch_period,
+                        &indicator.outputs,
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "m_ema1", target_len, m_ema1);
+                    upsert_output(&mut indicator.outputs, "m_ema2", target_len, m_ema2);
+                    upsert_output(&mut indicator.outputs, "a_ema1", target_len, a_ema1);
+                    upsert_output(&mut indicator.outputs, "a_ema2", target_len, a_ema2);
                 }
                 "KST" => {
                     let value = latest_kst_store(&self.bars);
@@ -695,12 +714,18 @@ impl ChartEngine {
                         slow: 10,
                         signal: 9,
                     });
-                    let value = latest_chaikin_oscillator_store(&self.bars, params);
+                    let (value, adl, fast_ema, slow_ema) =
+                        latest_chaikin_oscillator_store(&self.bars, params, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "adl", target_len, adl);
+                    upsert_output(&mut indicator.outputs, "fast_ema", target_len, fast_ema);
+                    upsert_output(&mut indicator.outputs, "slow_ema", target_len, slow_ema);
                 }
                 "FORCE_INDEX" => {
-                    let value = latest_force_index_store(&self.bars, indicator.period);
+                    let (value, fi_ema) =
+                        latest_force_index_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "fi_ema", target_len, fi_ema);
                 }
                 "VWMA" => {
                     let value = latest_vwma_store(&self.bars, indicator.period);
@@ -712,8 +737,10 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "CHAIKIN_VOLATILITY" => {
-                    let value = latest_chaikin_volatility_store(&self.bars, indicator.period);
+                    let (value, hl_ema) =
+                        latest_chaikin_volatility_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "hl_ema", target_len, hl_ema);
                 }
                 "PRICE_CHANNEL" => {
                     let (upper, middle, lower) =

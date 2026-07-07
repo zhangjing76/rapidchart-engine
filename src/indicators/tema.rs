@@ -1,8 +1,8 @@
 use crate::indicators::ema::{ema_close_store, ema_series};
+use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::{nan_to_none, rc_into_owned};
+use crate::rc_into_owned;
 use crate::{CandleStore, RcSeries};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
@@ -38,9 +38,47 @@ pub fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-pub fn latest_tema_store(store: &CandleStore, period: usize) -> Option<f64> {
-    tema_store(store, period, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+
+pub fn latest_tema_store(
+    store: &CandleStore,
+    period: usize,
+    outputs: &IndicatorArena,
+) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
+    let last_close = match store.last_close() {
+        Some(c) => c,
+        None => return (None, None, None, None),
+    };
+    if store.len() == 1 {
+        return (
+            Some(last_close),
+            Some(last_close),
+            Some(last_close),
+            Some(last_close),
+        );
+    }
+    let alpha = 2.0 / (period as f64 + 1.0);
+    let prev_ema1 = outputs
+        .get("ema1")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(last_close);
+    let ema1 = alpha * last_close + (1.0 - alpha) * prev_ema1;
+    let prev_ema2 = outputs
+        .get("ema2")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(ema1);
+    let ema2 = alpha * ema1 + (1.0 - alpha) * prev_ema2;
+    let prev_ema3 = outputs
+        .get("ema3")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(ema2);
+    let ema3 = alpha * ema2 + (1.0 - alpha) * prev_ema3;
+    (
+        Some(3.0 * ema1 - 3.0 * ema2 + ema3),
+        Some(ema1),
+        Some(ema2),
+        Some(ema3),
+    )
 }

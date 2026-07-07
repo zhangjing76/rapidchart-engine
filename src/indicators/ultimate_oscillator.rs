@@ -1,7 +1,5 @@
-use crate::nan_to_none;
 use crate::NodeCache;
 use crate::{CandleStore, Series};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn ultimate_oscillator_store(
@@ -51,8 +49,22 @@ pub fn latest_ultimate_oscillator_store(
     medium: usize,
     long: usize,
 ) -> Option<f64> {
-    ultimate_oscillator_store(store, short, medium, long, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+    if short == 0 || medium == 0 || long == 0 || store.len() <= long {
+        return None;
+    }
+    let i = store.len() - 1;
+    let avg = |period: usize| {
+        let start = i + 1 - period;
+        let mut bp_sum = 0.0;
+        let mut tr_sum = 0.0;
+        for j in start..=i {
+            let prev_close = store.close[j - 1];
+            let min_low = store.low[j].min(prev_close);
+            let max_high = store.high[j].max(prev_close);
+            bp_sum += store.close[j] - min_low;
+            tr_sum += max_high - min_low;
+        }
+        if tr_sum == 0.0 { 0.0 } else { bp_sum / tr_sum }
+    };
+    Some(100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0)
 }

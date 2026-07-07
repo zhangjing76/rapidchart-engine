@@ -1,7 +1,5 @@
-use crate::nan_to_none;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
@@ -33,8 +31,11 @@ pub fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -
     rc
 }
 pub fn latest_stddev_store(store: &CandleStore, period: usize) -> Option<f64> {
-    stddev_store(store, period, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+    if period == 0 || store.len() < period {
+        return None;
+    }
+    let window = &store.close[store.len() - period..];
+    let mean = window.iter().sum::<f64>() / period as f64;
+    let variance = window.iter().map(|v| { let d = v - mean; d * d }).sum::<f64>() / period as f64;
+    Some(variance.sqrt())
 }

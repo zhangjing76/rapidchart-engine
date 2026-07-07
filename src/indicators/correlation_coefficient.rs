@@ -1,6 +1,5 @@
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Correlation Coefficient (single-symbol): measures the rolling Pearson
@@ -55,8 +54,23 @@ pub fn correlation_coefficient_store(
 
 
 pub fn latest_correlation_coefficient_store(store: &CandleStore, period: usize) -> Option<f64> {
-    correlation_coefficient_store(store, period, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(|v| if v.is_nan() { None } else { Some(v) })
+    if period < 2 || store.len() < period {
+        return None;
+    }
+    let n = period as f64;
+    let sum_x: f64 = (0..period).map(|x| x as f64).sum();
+    let sum_xx: f64 = (0..period).map(|x| (x * x) as f64).sum();
+    let window = &store.close[store.len() - period..];
+    let sum_y: f64 = window.iter().sum();
+    let sum_yy: f64 = window.iter().map(|y| y * y).sum();
+    let sum_xy: f64 = window.iter().enumerate().map(|(x, y)| x as f64 * y).sum();
+    let numerator = n * sum_xy - sum_x * sum_y;
+    let denom_x = (n * sum_xx - sum_x * sum_x).sqrt();
+    let denom_y = (n * sum_yy - sum_y * sum_y).sqrt();
+    let denominator = denom_x * denom_y;
+    if denominator > 0.0 {
+        Some(numerator / denominator)
+    } else {
+        None
+    }
 }

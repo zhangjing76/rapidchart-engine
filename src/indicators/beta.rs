@@ -1,6 +1,5 @@
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Beta indicator (single-symbol): measures the rolling regression slope of
@@ -53,8 +52,22 @@ pub fn beta_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
 
 
 pub fn latest_beta_store(store: &CandleStore, period: usize) -> Option<f64> {
-    beta_store(store, period, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(|v| if v.is_nan() { None } else { Some(v) })
+    if period < 2 || store.len() < period + 1 {
+        return None;
+    }
+    let n = period as f64;
+    let start = store.len() - period;
+    let mut returns = Vec::with_capacity(period);
+    for i in start..store.len() {
+        if store.close[i - 1] != 0.0 {
+            returns.push((store.close[i] - store.close[i - 1]) / store.close[i - 1]);
+        }
+    }
+    if returns.len() < 2 {
+        return None;
+    }
+    let count = returns.len() as f64;
+    let mean = returns.iter().sum::<f64>() / count;
+    let variance = returns.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (count - 1.0);
+    Some(variance.sqrt() * n.sqrt())
 }

@@ -1,7 +1,5 @@
-use crate::nan_to_none;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Linear Regression Intercept: the y-intercept of the regression line over period bars.
@@ -48,8 +46,19 @@ pub fn linear_reg_intercept_store(
 
 
 pub fn latest_linear_reg_intercept_store(store: &CandleStore, period: usize) -> Option<f64> {
-    linear_reg_intercept_store(store, period, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+    if period == 0 || store.len() < period {
+        return None;
+    }
+    let n = period as f64;
+    let sum_x: f64 = (0..period).map(|x| x as f64).sum();
+    let sum_xx: f64 = (0..period).map(|x| (x * x) as f64).sum();
+    let denominator = n * sum_xx - sum_x * sum_x;
+    if denominator == 0.0 {
+        return None;
+    }
+    let window = &store.close[store.len() - period..];
+    let sum_y: f64 = window.iter().sum();
+    let sum_xy: f64 = window.iter().enumerate().map(|(x, y)| x as f64 * y).sum();
+    let slope = (n * sum_xy - sum_x * sum_y) / denominator;
+    Some((sum_y - slope * sum_x) / n)
 }

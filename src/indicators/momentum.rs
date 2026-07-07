@@ -1,7 +1,5 @@
-use crate::nan_to_none;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
@@ -23,8 +21,8 @@ pub fn momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache)
     rc
 }
 pub fn latest_momentum_store(store: &CandleStore, period: usize) -> Option<f64> {
-    momentum_store(store, period, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+    if period == 0 || store.len() <= period {
+        return None;
+    }
+    Some(store.close[store.len() - 1] - store.close[store.len() - 1 - period])
 }

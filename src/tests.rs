@@ -892,8 +892,15 @@ mod tests {
     fn dema_matches_latest_value() {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
         let store = store_from_bars(bars);
+        let mut nodes = HashMap::new();
+        let ema1_series = rc_into_owned(ema_close_store(&store, 5, &mut nodes));
+        let ema2_series = ema_series(&ema1_series, 5);
+        let arena = IndicatorArena::from_outputs(vec![
+            IndicatorOutput { name: "ema1".to_string(), values: ema1_series },
+            IndicatorOutput { name: "ema2".to_string(), values: ema2_series },
+        ]);
         assert_eq!(
-            latest_dema_store(&store, 5),
+            latest_dema_store(&store, 5, &arena).0,
             dema_store(&store, 5, &mut HashMap::new()).last().copied().and_then(nan_to_none)
         );
     }
@@ -902,8 +909,17 @@ mod tests {
     fn tema_matches_latest_value() {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
         let store = store_from_bars(bars);
+        let mut nodes = HashMap::new();
+        let ema1_series = rc_into_owned(ema_close_store(&store, 5, &mut nodes));
+        let ema2_series = ema_series(&ema1_series, 5);
+        let ema3_series = ema_series(&ema2_series, 5);
+        let arena = IndicatorArena::from_outputs(vec![
+            IndicatorOutput { name: "ema1".to_string(), values: ema1_series },
+            IndicatorOutput { name: "ema2".to_string(), values: ema2_series },
+            IndicatorOutput { name: "ema3".to_string(), values: ema3_series },
+        ]);
         assert_eq!(
-            latest_tema_store(&store, 5),
+            latest_tema_store(&store, 5, &arena).0,
             tema_store(&store, 5, &mut HashMap::new()).last().copied().and_then(nan_to_none)
         );
     }

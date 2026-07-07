@@ -1,7 +1,5 @@
-use crate::nan_to_none;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
@@ -24,8 +22,10 @@ pub fn bop_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     rc
 }
 pub fn latest_bop_store(store: &CandleStore) -> Option<f64> {
-    bop_store(store, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+    if store.len() == 0 {
+        return None;
+    }
+    let i = store.len() - 1;
+    let range = store.high[i] - store.low[i];
+    Some(if range == 0.0 { 0.0 } else { (store.close[i] - store.open[i]) / range })
 }

@@ -1,8 +1,7 @@
 use crate::indicators::ema::ema_series;
-use crate::nan_to_none;
+use crate::IndicatorArena;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries, Series};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn tsi_store(
@@ -39,9 +38,48 @@ pub fn tsi_store(
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-pub fn latest_tsi_store(store: &CandleStore, long: usize, short: usize) -> Option<f64> {
-    tsi_store(store, long, short, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+
+pub fn latest_tsi_store(
+    store: &CandleStore,
+    long: usize,
+    short: usize,
+    outputs: &IndicatorArena,
+) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
+    if store.len() < 2 {
+        return (None, None, None, None, None);
+    }
+    let momentum = store.close[store.len() - 1] - store.close[store.len() - 2];
+    let abs_momentum = momentum.abs();
+    let alpha_long = 2.0 / (long as f64 + 1.0);
+    let alpha_short = 2.0 / (short as f64 + 1.0);
+    let prev_m_ema1 = outputs
+        .get("m_ema1")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(momentum);
+    let m_ema1 = alpha_long * momentum + (1.0 - alpha_long) * prev_m_ema1;
+    let prev_m_ema2 = outputs
+        .get("m_ema2")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(m_ema1);
+    let m_ema2 = alpha_short * m_ema1 + (1.0 - alpha_short) * prev_m_ema2;
+    let prev_a_ema1 = outputs
+        .get("a_ema1")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(abs_momentum);
+    let a_ema1 = alpha_long * abs_momentum + (1.0 - alpha_long) * prev_a_ema1;
+    let prev_a_ema2 = outputs
+        .get("a_ema2")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(a_ema1);
+    let a_ema2 = alpha_short * a_ema1 + (1.0 - alpha_short) * prev_a_ema2;
+    let value = if a_ema2 != 0.0 {
+        Some(100.0 * m_ema2 / a_ema2)
+    } else {
+        Some(0.0)
+    };
+    (value, Some(m_ema1), Some(m_ema2), Some(a_ema1), Some(a_ema2))
 }

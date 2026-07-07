@@ -1,12 +1,16 @@
+use crate::indicators::atr::atr_store;
+use crate::indicators::sma::sma_close_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::sma::sma_close_store;
-use crate::indicators::atr::atr_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Pretty Good Oscillator: (close - SMA(close, period)) / ATR(period)
-pub fn pretty_good_oscillator_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn pretty_good_oscillator_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("pgo:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -27,8 +31,9 @@ pub fn pretty_good_oscillator_store(store: &CandleStore, period: usize, nodes: &
     rc
 }
 
-
 pub fn latest_pretty_good_oscillator_store(store: &CandleStore, period: usize) -> Option<f64> {
     pretty_good_oscillator_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

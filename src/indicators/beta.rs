@@ -50,7 +50,6 @@ pub fn beta_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
     rc
 }
 
-
 pub fn latest_beta_store(store: &CandleStore, period: usize) -> Option<f64> {
     if period < 2 || store.len() < period + 1 {
         return None;

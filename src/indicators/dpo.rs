@@ -1,6 +1,6 @@
 use crate::indicators::sma::{latest_sma_store, sma_close_store};
-use crate::NodeCache;
 use crate::rc_into_owned;
+use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 

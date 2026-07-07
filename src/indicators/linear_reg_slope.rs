@@ -4,7 +4,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Linear Regression Slope: the slope of the linear regression line over period bars.
-pub fn linear_reg_slope_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn linear_reg_slope_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("linreg_slope:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -28,8 +32,7 @@ pub fn linear_reg_slope_store(store: &CandleStore, period: usize, nodes: &mut No
     for i in period - 1..len {
         let window = &store.close[i + 1 - period..=i];
         let sum_y: f64 = window.iter().sum();
-        let sum_xy: f64 = window.iter().enumerate()
-            .map(|(x, c)| x as f64 * c).sum();
+        let sum_xy: f64 = window.iter().enumerate().map(|(x, c)| x as f64 * c).sum();
         out[i] = (n * sum_xy - sum_x * sum_y) / denom;
     }
     let rc = Rc::new(out);
@@ -37,8 +40,9 @@ pub fn linear_reg_slope_store(store: &CandleStore, period: usize, nodes: &mut No
     rc
 }
 
-
 pub fn latest_linear_reg_slope_store(store: &CandleStore, period: usize) -> Option<f64> {
     linear_reg_slope_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

@@ -7,10 +7,16 @@ use std::rc::Rc;
 /// to color the histogram green/red.
 pub fn volume_underlay_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "vol_underlay:cv".to_string();
-    if let Some(v) = nodes.get(&key) { return Rc::clone(v); }
+    if let Some(v) = nodes.get(&key) {
+        return Rc::clone(v);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
-    if len == 0 { let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc)); return rc; }
+    if len == 0 {
+        let rc = Rc::new(out);
+        nodes.insert(key, Rc::clone(&rc));
+        return rc;
+    }
     out[0] = store.volume[0]; // first bar is neutral/positive
     for i in 1..len {
         if store.close[i] >= store.close[i - 1] {
@@ -19,12 +25,18 @@ pub fn volume_underlay_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSe
             out[i] = -store.volume[i]; // negative = down bar
         }
     }
-    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc)); rc
+    let rc = Rc::new(out);
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 pub fn latest_volume_underlay_store(store: &CandleStore) -> Option<f64> {
     let len = store.len();
-    if len == 0 { return None; }
-    if len == 1 { return Some(store.volume[0]); }
+    if len == 0 {
+        return None;
+    }
+    if len == 1 {
+        return Some(store.volume[0]);
+    }
     let i = len - 1;
     if store.close[i] >= store.close[i - 1] {
         Some(store.volume[i])

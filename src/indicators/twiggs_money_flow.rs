@@ -8,9 +8,15 @@ use std::rc::Rc;
 /// TMF = EMA(ADL_change, period) / EMA(volume, period)
 /// where ADL_change = ((close - true_low) - (true_high - close)) / (true_high - true_low) * volume
 /// true_high = max(high, prev_close), true_low = min(low, prev_close)
-pub fn twiggs_money_flow_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn twiggs_money_flow_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("tmf:hlcv:{period}");
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     if len < 2 || period == 0 {
@@ -23,8 +29,8 @@ pub fn twiggs_money_flow_store(store: &CandleStore, period: usize, nodes: &mut N
     let mut ema_vol = 0.0f64;
     let mut initialized = false;
     for i in 1..len {
-        let true_high = store.high[i].max(store.close[i-1]);
-        let true_low = store.low[i].min(store.close[i-1]);
+        let true_high = store.high[i].max(store.close[i - 1]);
+        let true_low = store.low[i].min(store.close[i - 1]);
         let range = true_high - true_low;
         let adl_change = if range > 1e-10 {
             ((store.close[i] - true_low) - (true_high - store.close[i])) / range * store.volume[i]
@@ -48,8 +54,9 @@ pub fn twiggs_money_flow_store(store: &CandleStore, period: usize, nodes: &mut N
     rc
 }
 
-
 pub fn latest_twiggs_money_flow_store(store: &CandleStore, period: usize) -> Option<f64> {
     twiggs_money_flow_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

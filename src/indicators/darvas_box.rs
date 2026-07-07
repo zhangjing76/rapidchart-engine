@@ -1,5 +1,5 @@
+use crate::CandleStore;
 use crate::NodeCache;
-use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Darvas Box Theory:
@@ -66,7 +66,15 @@ pub fn darvas_box_store(store: &CandleStore, _nodes: &mut NodeCache) -> Vec<crat
 
 pub fn latest_darvas_box_store(store: &CandleStore) -> (Option<f64>, Option<f64>) {
     let outputs = darvas_box_store(store, &mut HashMap::new());
-    let t = outputs[0].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
-    let b = outputs[1].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let t = outputs[0]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let b = outputs[1]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
     (t, b)
 }

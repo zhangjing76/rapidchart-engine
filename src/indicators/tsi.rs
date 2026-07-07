@@ -44,7 +44,13 @@ pub fn latest_tsi_store(
     long: usize,
     short: usize,
     outputs: &IndicatorArena,
-) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
+) -> (
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+    Option<f64>,
+) {
     if store.len() < 2 {
         return (None, None, None, None, None);
     }
@@ -81,5 +87,11 @@ pub fn latest_tsi_store(
     } else {
         Some(0.0)
     };
-    (value, Some(m_ema1), Some(m_ema2), Some(a_ema1), Some(a_ema2))
+    (
+        value,
+        Some(m_ema1),
+        Some(m_ema2),
+        Some(a_ema1),
+        Some(a_ema2),
+    )
 }

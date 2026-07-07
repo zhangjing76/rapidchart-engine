@@ -1,6 +1,6 @@
+use crate::indicators::sma::sma_close_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::sma::sma_close_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -24,8 +24,9 @@ pub fn ma_deviation_store(store: &CandleStore, period: usize, nodes: &mut NodeCa
     rc
 }
 
-
 pub fn latest_ma_deviation_store(store: &CandleStore, period: usize) -> Option<f64> {
     ma_deviation_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

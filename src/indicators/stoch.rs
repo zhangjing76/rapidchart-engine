@@ -73,10 +73,7 @@ pub fn stochastic_store(
 ) -> Vec<crate::NamedSeries> {
     let k = stochastic_k_store(store, period);
     let d = smooth_series(&k, smooth);
-    let outputs = vec![
-        crate::named_series("k", k,),
-        crate::named_series("d", d,),
-    ];
+    let outputs = vec![crate::named_series("k", k), crate::named_series("d", d)];
     nodes.insert(
         format!("stoch:hlc:{period}:{smooth}"),
         Rc::clone(&outputs[0].values),

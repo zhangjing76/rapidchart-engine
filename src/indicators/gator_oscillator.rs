@@ -8,7 +8,10 @@ fn smma(values: &[f64], period: usize) -> Series {
     let mut out = Vec::with_capacity(values.len());
     let mut current = None::<f64>;
     for &v in values {
-        if v.is_nan() { out.push(f64::NAN); continue; }
+        if v.is_nan() {
+            out.push(f64::NAN);
+            continue;
+        }
         let next = match current {
             Some(prev) => alpha * v + (1.0 - alpha) * prev,
             None => v,
@@ -23,9 +26,16 @@ fn smma(values: &[f64], period: usize) -> Series {
 /// Upper histogram = |jaw_smma - teeth_smma| (positive)
 /// Lower histogram = -(|teeth_smma - lips_smma|) (negative)
 
-pub fn gator_oscillator_store(store: &CandleStore, _nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
-    let median: Vec<f64> = store.high.iter().zip(store.low.iter())
-        .map(|(h, l)| (h + l) / 2.0).collect();
+pub fn gator_oscillator_store(
+    store: &CandleStore,
+    _nodes: &mut NodeCache,
+) -> Vec<crate::NamedSeries> {
+    let median: Vec<f64> = store
+        .high
+        .iter()
+        .zip(store.low.iter())
+        .map(|(h, l)| (h + l) / 2.0)
+        .collect();
     let jaw = smma(&median, 13);
     let teeth = smma(&median, 8);
     let lips = smma(&median, 5);
@@ -48,7 +58,15 @@ pub fn gator_oscillator_store(store: &CandleStore, _nodes: &mut NodeCache) -> Ve
 
 pub fn latest_gator_oscillator_store(store: &CandleStore) -> (Option<f64>, Option<f64>) {
     let outputs = gator_oscillator_store(store, &mut HashMap::new());
-    let upper = outputs[0].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
-    let lower = outputs[1].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let upper = outputs[0]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let lower = outputs[1]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
     (upper, lower)
 }

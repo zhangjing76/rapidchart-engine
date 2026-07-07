@@ -7,7 +7,11 @@ use std::rc::Rc;
 /// CMO = ((sum_up - sum_down) / (sum_up + sum_down)) * 100
 /// where sum_up = sum of positive changes over period,
 ///       sum_down = sum of absolute negative changes over period.
-pub fn chande_momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn chande_momentum_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("cmo:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -42,8 +46,9 @@ pub fn chande_momentum_store(store: &CandleStore, period: usize, nodes: &mut Nod
     rc
 }
 
-
 pub fn latest_chande_momentum_store(store: &CandleStore, period: usize) -> Option<f64> {
     chande_momentum_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

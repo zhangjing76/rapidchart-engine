@@ -1,5 +1,5 @@
+use crate::CandleStore;
 use crate::NodeCache;
-use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Random Walk Index:
@@ -9,7 +9,11 @@ use std::collections::HashMap;
 /// where n ranges from 2 to period, and we take the maximum.
 /// High RWI (>1) suggests trending; low (<1) suggests random.
 
-pub fn random_walk_index_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
+pub fn random_walk_index_store(
+    store: &CandleStore,
+    period: usize,
+    _nodes: &mut NodeCache,
+) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut rw_high = vec![f64::NAN; len];
     let mut rw_low = vec![f64::NAN; len];
@@ -29,7 +33,9 @@ pub fn random_walk_index_store(store: &CandleStore, period: usize, _nodes: &mut 
         let mut max_rwi_high = 0.0f64;
         let mut max_rwi_low = 0.0f64;
         for n in 2..=period {
-            if i < n { break; }
+            if i < n {
+                break;
+            }
             let atr_n: f64 = tr[i + 1 - n..=i].iter().sum::<f64>() / n as f64;
             let denom = atr_n * (n as f64).sqrt();
             if denom > 1e-10 {
@@ -48,9 +54,20 @@ pub fn random_walk_index_store(store: &CandleStore, period: usize, _nodes: &mut 
     ]
 }
 
-pub fn latest_random_walk_index_store(store: &CandleStore, period: usize) -> (Option<f64>, Option<f64>) {
+pub fn latest_random_walk_index_store(
+    store: &CandleStore,
+    period: usize,
+) -> (Option<f64>, Option<f64>) {
     let outputs = random_walk_index_store(store, period, &mut HashMap::new());
-    let h = outputs[0].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
-    let l = outputs[1].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let h = outputs[0]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let l = outputs[1]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
     (h, l)
 }

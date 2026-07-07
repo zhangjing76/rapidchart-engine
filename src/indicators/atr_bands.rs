@@ -1,8 +1,8 @@
-use crate::NodeCache;
-use crate::{CandleStore};
 use crate::indicators::atr::atr_store;
 use crate::indicators::ema::ema_close_store;
 use crate::series::rc_into_owned;
+use crate::CandleStore;
+use crate::NodeCache;
 
 /// ATR Bands: EMA(close, period) ± multiplier * ATR(period)
 
@@ -44,16 +44,10 @@ pub fn latest_atr_bands_store(
     outputs: &crate::types::IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
     // Reuse existing EMA and ATR latest logic
-    let middle = crate::indicators::ema::latest_ema_store(
-        store,
-        period,
-        outputs.get_slot(MIDDLE_SLOT),
-    );
-    let atr_val = crate::indicators::atr::latest_atr_store(
-        store,
-        period,
-        outputs.get_slot(ATR_STATE_SLOT),
-    );
+    let middle =
+        crate::indicators::ema::latest_ema_store(store, period, outputs.get_slot(MIDDLE_SLOT));
+    let atr_val =
+        crate::indicators::atr::latest_atr_store(store, period, outputs.get_slot(ATR_STATE_SLOT));
     match (middle, atr_val) {
         (Some(m), Some(a)) => (Some(m + multiplier * a), Some(m), Some(m - multiplier * a)),
         _ => (None, None, None),

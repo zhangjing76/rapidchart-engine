@@ -1,6 +1,6 @@
+use crate::indicators::ema::ema_series;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::ema::ema_series;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -35,7 +35,10 @@ pub fn price_momentum_oscillator_store(
     // Step 2: EMA of ROC1 with period
     let smooth1 = ema_series(&roc1, period);
     // Step 3: Multiply by 10 and EMA again with smooth
-    let scaled: Vec<f64> = smooth1.iter().map(|&v| if v.is_nan() { f64::NAN } else { v * 10.0 }).collect();
+    let scaled: Vec<f64> = smooth1
+        .iter()
+        .map(|&v| if v.is_nan() { f64::NAN } else { v * 10.0 })
+        .collect();
     let pmo = ema_series(&scaled, smooth);
     out = pmo;
     let rc = Rc::new(out);
@@ -43,12 +46,13 @@ pub fn price_momentum_oscillator_store(
     rc
 }
 
-
 pub fn latest_price_momentum_oscillator_store(
     store: &CandleStore,
     period: usize,
     smooth: usize,
 ) -> Option<f64> {
     price_momentum_oscillator_store(store, period, smooth, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

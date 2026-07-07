@@ -1,6 +1,6 @@
 use crate::value_at_slice;
-use crate::NodeCache;
 use crate::CandleStore;
+use crate::NodeCache;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -26,10 +26,34 @@ pub fn ichimoku_store(
     if let Some(values) = nodes.get(&tenkan_key) {
         return vec![
             crate::named_series("tenkan", Rc::clone(values)),
-            crate::named_series("kijun", nodes.get(&kijun_key).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
-            crate::named_series("senkou_a", nodes.get(&senkou_a_key).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
-            crate::named_series("senkou_b", nodes.get(&senkou_b_key).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
-            crate::named_series("chikou", nodes.get("ichimoku:chikou").map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
+            crate::named_series(
+                "kijun",
+                nodes
+                    .get(&kijun_key)
+                    .map(Rc::clone)
+                    .unwrap_or_else(|| Rc::new(Vec::new())),
+            ),
+            crate::named_series(
+                "senkou_a",
+                nodes
+                    .get(&senkou_a_key)
+                    .map(Rc::clone)
+                    .unwrap_or_else(|| Rc::new(Vec::new())),
+            ),
+            crate::named_series(
+                "senkou_b",
+                nodes
+                    .get(&senkou_b_key)
+                    .map(Rc::clone)
+                    .unwrap_or_else(|| Rc::new(Vec::new())),
+            ),
+            crate::named_series(
+                "chikou",
+                nodes
+                    .get("ichimoku:chikou")
+                    .map(Rc::clone)
+                    .unwrap_or_else(|| Rc::new(Vec::new())),
+            ),
         ];
     }
     let mut tenkan = vec![f64::NAN; store.len()];

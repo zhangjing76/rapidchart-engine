@@ -4,7 +4,6 @@ use std::rc::Rc;
 
 /// Lowest Low Value over a rolling window of `period` bars.
 
-
 pub fn lowest_low_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("lowest_low:l:{period}");
     if let Some(values) = nodes.get(&key) {

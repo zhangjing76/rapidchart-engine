@@ -36,6 +36,13 @@ pub fn latest_stddev_store(store: &CandleStore, period: usize) -> Option<f64> {
     }
     let window = &store.close[store.len() - period..];
     let mean = window.iter().sum::<f64>() / period as f64;
-    let variance = window.iter().map(|v| { let d = v - mean; d * d }).sum::<f64>() / period as f64;
+    let variance = window
+        .iter()
+        .map(|v| {
+            let d = v - mean;
+            d * d
+        })
+        .sum::<f64>()
+        / period as f64;
     Some(variance.sqrt())
 }

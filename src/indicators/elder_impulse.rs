@@ -1,6 +1,6 @@
+use crate::indicators::ema::{ema_close_store, ema_series};
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::ema::{ema_close_store, ema_series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -11,7 +11,9 @@ use std::rc::Rc;
 ///  0 (neutral) = mixed signals
 pub fn elder_impulse_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("impulse:close:{period}");
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     if len < 2 {
@@ -38,7 +40,11 @@ pub fn elder_impulse_store(store: &CandleStore, period: usize, nodes: &mut NodeC
         }
     }
     for i in 1..len {
-        if ema[i].is_nan() || ema[i - 1].is_nan() || histogram[i].is_nan() || histogram[i - 1].is_nan() {
+        if ema[i].is_nan()
+            || ema[i - 1].is_nan()
+            || histogram[i].is_nan()
+            || histogram[i - 1].is_nan()
+        {
             continue;
         }
         let ema_rising = ema[i] > ema[i - 1];
@@ -58,8 +64,9 @@ pub fn elder_impulse_store(store: &CandleStore, period: usize, nodes: &mut NodeC
     rc
 }
 
-
 pub fn latest_elder_impulse_store(store: &CandleStore, period: usize) -> Option<f64> {
     elder_impulse_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

@@ -117,7 +117,11 @@ pub fn latest_chaikin_oscillator_store(
         .and_then(|s| s.get(store.len().wrapping_sub(2)).copied())
         .filter(|v| !v.is_nan())
         .unwrap_or(0.0);
-    let adl = if store.len() == 1 { mfv } else { prev_adl + mfv };
+    let adl = if store.len() == 1 {
+        mfv
+    } else {
+        prev_adl + mfv
+    };
     // EMA steps
     let alpha_fast = 2.0 / (params.fast as f64 + 1.0);
     let alpha_slow = 2.0 / (params.slow as f64 + 1.0);

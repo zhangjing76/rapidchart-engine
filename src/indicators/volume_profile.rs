@@ -1,6 +1,6 @@
 use crate::indicators::derived::hl2_store;
+use crate::CandleStore;
 use crate::NodeCache;
-use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Volume Profile (simplified for line chart output):
@@ -9,7 +9,11 @@ use std::collections::HashMap;
 ///
 /// Outputs: poc (price with most volume), vah (value area high), val (value area low)
 
-pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
+pub fn volume_profile_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let hl2 = hl2_store(store, nodes);
     let mut poc_out = vec![f64::NAN; len];
@@ -48,7 +52,9 @@ pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut Node
             bins[bin] += store.volume[j];
             total_vol += store.volume[j];
         }
-        let poc_bin = bins.iter().enumerate()
+        let poc_bin = bins
+            .iter()
+            .enumerate()
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
             .map(|(idx, _)| idx)
             .unwrap_or(0);
@@ -58,8 +64,16 @@ pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut Node
         let mut va_low_bin = poc_bin;
         let mut va_high_bin = poc_bin;
         while va_vol < target_vol {
-            let expand_up = if va_high_bin + 1 < num_bins { bins[va_high_bin + 1] } else { 0.0 };
-            let expand_down = if va_low_bin > 0 { bins[va_low_bin - 1] } else { 0.0 };
+            let expand_up = if va_high_bin + 1 < num_bins {
+                bins[va_high_bin + 1]
+            } else {
+                0.0
+            };
+            let expand_down = if va_low_bin > 0 {
+                bins[va_low_bin - 1]
+            } else {
+                0.0
+            };
             if expand_up >= expand_down && va_high_bin + 1 < num_bins {
                 va_high_bin += 1;
                 va_vol += bins[va_high_bin];
@@ -69,7 +83,9 @@ pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut Node
             } else if va_high_bin + 1 < num_bins {
                 va_high_bin += 1;
                 va_vol += bins[va_high_bin];
-            } else { break; }
+            } else {
+                break;
+            }
         }
         vah_out[i] = low + (va_high_bin as f64 + 1.0) * bin_size;
         val_out[i] = low + va_low_bin as f64 * bin_size;
@@ -81,10 +97,25 @@ pub fn volume_profile_store(store: &CandleStore, period: usize, nodes: &mut Node
     ]
 }
 
-pub fn latest_volume_profile_store(store: &CandleStore, period: usize) -> (Option<f64>, Option<f64>, Option<f64>) {
+pub fn latest_volume_profile_store(
+    store: &CandleStore,
+    period: usize,
+) -> (Option<f64>, Option<f64>, Option<f64>) {
     let outputs = volume_profile_store(store, period, &mut HashMap::new());
-    let poc = outputs[0].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
-    let vah = outputs[1].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
-    let val = outputs[2].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let poc = outputs[0]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let vah = outputs[1]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let val = outputs[2]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
     (poc, vah, val)
 }

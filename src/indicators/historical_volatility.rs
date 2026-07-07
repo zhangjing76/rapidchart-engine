@@ -7,9 +7,15 @@ use std::rc::Rc;
 /// HV = stddev(ln(close[i]/close[i-1]), period) * sqrt(252)
 /// (252 for daily bars; for other timeframes the annualization factor stays the same
 /// as a convention, since users interpret it relative to their timeframe.)
-pub fn historical_volatility_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn historical_volatility_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("hv:close:{period}");
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     if period < 2 || len < period + 1 {
@@ -29,7 +35,9 @@ pub fn historical_volatility_store(store: &CandleStore, period: usize, nodes: &m
     for i in period..len {
         let window = &log_returns[i + 1 - period..=i];
         let valid: Vec<f64> = window.iter().filter(|v| !v.is_nan()).copied().collect();
-        if valid.len() < 2 { continue; }
+        if valid.len() < 2 {
+            continue;
+        }
         let n = valid.len() as f64;
         let mean = valid.iter().sum::<f64>() / n;
         let variance = valid.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (n - 1.0);
@@ -40,8 +48,9 @@ pub fn historical_volatility_store(store: &CandleStore, period: usize, nodes: &m
     rc
 }
 
-
 pub fn latest_historical_volatility_store(store: &CandleStore, period: usize) -> Option<f64> {
     historical_volatility_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

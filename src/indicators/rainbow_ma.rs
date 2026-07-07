@@ -44,7 +44,6 @@ fn sma_of_series(values: &[f64], period: usize) -> Series {
     out
 }
 
-
 pub fn rainbow_ma_store(
     store: &CandleStore,
     period: usize,
@@ -76,9 +75,10 @@ pub fn latest_rainbow_ma_store(store: &CandleStore, period: usize) -> Vec<(Strin
         .iter()
         .enumerate()
         .map(|(i, values)| {
-            let last = values.last().copied().and_then(|v| {
-                if v.is_nan() { None } else { Some(v) }
-            });
+            let last = values
+                .last()
+                .copied()
+                .and_then(|v| if v.is_nan() { None } else { Some(v) });
             (format!("r{}", i + 1), last)
         })
         .collect()

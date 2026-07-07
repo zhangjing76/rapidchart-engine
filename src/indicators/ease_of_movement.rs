@@ -8,7 +8,11 @@ use std::rc::Rc;
 /// Distance Moved = ((high + low)/2 - (prev_high + prev_low)/2)
 /// Box Ratio = volume / (high - low)
 /// EMV = Distance Moved / Box Ratio (then smoothed with SMA of period)
-pub fn ease_of_movement_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn ease_of_movement_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("emv:hlv:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -42,8 +46,9 @@ pub fn ease_of_movement_store(store: &CandleStore, period: usize, nodes: &mut No
     rc
 }
 
-
 pub fn latest_ease_of_movement_store(store: &CandleStore, period: usize) -> Option<f64> {
     ease_of_movement_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

@@ -6,7 +6,9 @@ use std::rc::Rc;
 /// SMA of a series
 fn sma_of(values: &[f64], period: usize) -> Series {
     let mut out = vec![f64::NAN; values.len()];
-    if period == 0 || values.len() < period { return out; }
+    if period == 0 || values.len() < period {
+        return out;
+    }
     let mut sum: f64 = values[..period].iter().sum();
     out[period - 1] = sum / period as f64;
     for i in period..values.len() {
@@ -18,7 +20,11 @@ fn sma_of(values: &[f64], period: usize) -> Series {
 
 /// Rainbow Oscillator: (close - average of 10 rainbow MAs) / (highest - lowest rainbow) * 100
 /// Uses 10 nested SMAs from rainbow_ma concept.
-pub fn rainbow_oscillator_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn rainbow_oscillator_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("rainbow_osc:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -37,8 +43,14 @@ pub fn rainbow_oscillator_store(store: &CandleStore, period: usize, nodes: &mut 
         layers.push(sma_of(&layers[i - 1], period));
     }
     for i in 0..len {
-        let vals: Vec<f64> = layers.iter().map(|l| l[i]).filter(|v| !v.is_nan()).collect();
-        if vals.is_empty() { continue; }
+        let vals: Vec<f64> = layers
+            .iter()
+            .map(|l| l[i])
+            .filter(|v| !v.is_nan())
+            .collect();
+        if vals.is_empty() {
+            continue;
+        }
         let avg = vals.iter().sum::<f64>() / vals.len() as f64;
         let max = vals.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
         let min = vals.iter().fold(f64::INFINITY, |a, &b| a.min(b));
@@ -54,8 +66,9 @@ pub fn rainbow_oscillator_store(store: &CandleStore, period: usize, nodes: &mut 
     rc
 }
 
-
 pub fn latest_rainbow_oscillator_store(store: &CandleStore, period: usize) -> Option<f64> {
     rainbow_oscillator_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

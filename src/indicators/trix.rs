@@ -1,7 +1,7 @@
 use crate::indicators::ema::{ema_close_store, ema_series};
+use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::rc_into_owned;
 use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 

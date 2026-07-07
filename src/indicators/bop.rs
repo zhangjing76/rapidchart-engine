@@ -27,5 +27,9 @@ pub fn latest_bop_store(store: &CandleStore) -> Option<f64> {
     }
     let i = store.len() - 1;
     let range = store.high[i] - store.low[i];
-    Some(if range == 0.0 { 0.0 } else { (store.close[i] - store.open[i]) / range })
+    Some(if range == 0.0 {
+        0.0
+    } else {
+        (store.close[i] - store.open[i]) / range
+    })
 }

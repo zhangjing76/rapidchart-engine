@@ -1,6 +1,6 @@
+use crate::indicators::ema::ema_close_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries, Series};
-use crate::indicators::ema::ema_close_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -18,7 +18,9 @@ pub fn schaff_trend_cycle_store(
     nodes: &mut NodeCache,
 ) -> RcSeries {
     let key = format!("stc:{}:{}:{}", fast, slow, stoch_period);
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let ema_fast = ema_close_store(store, fast, nodes);
     let ema_slow = ema_close_store(store, slow, nodes);
     let len = store.len();
@@ -42,16 +44,19 @@ pub fn schaff_trend_cycle_store(
     rc
 }
 
-
 /// Rolling stochastic: (value - min) / (max - min) * 100
 fn stochastic_of(values: &[f64], period: usize) -> Series {
     let len = values.len();
     let mut out = vec![f64::NAN; len];
-    if period == 0 { return out; }
+    if period == 0 {
+        return out;
+    }
     for i in period - 1..len {
         let window = &values[i + 1 - period..=i];
         let valid: Vec<f64> = window.iter().filter(|v| !v.is_nan()).copied().collect();
-        if valid.is_empty() { continue; }
+        if valid.is_empty() {
+            continue;
+        }
         let max = valid.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
         let min = valid.iter().fold(f64::INFINITY, |a, &b| a.min(b));
         let range = max - min;
@@ -70,7 +75,10 @@ fn ema_factor(values: &[f64], factor: f64) -> Series {
     let mut out = Vec::with_capacity(values.len());
     let mut prev = None::<f64>;
     for &v in values {
-        if v.is_nan() { out.push(f64::NAN); continue; }
+        if v.is_nan() {
+            out.push(f64::NAN);
+            continue;
+        }
         let next = match prev {
             Some(p) => factor * v + (1.0 - factor) * p,
             None => v,
@@ -82,8 +90,13 @@ fn ema_factor(values: &[f64], factor: f64) -> Series {
 }
 
 pub fn latest_schaff_trend_cycle_store(
-    store: &CandleStore, fast: usize, slow: usize, stoch_period: usize,
+    store: &CandleStore,
+    fast: usize,
+    slow: usize,
+    stoch_period: usize,
 ) -> Option<f64> {
     schaff_trend_cycle_store(store, fast, slow, stoch_period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

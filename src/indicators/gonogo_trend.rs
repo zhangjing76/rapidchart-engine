@@ -1,6 +1,6 @@
+use crate::indicators::ema::ema_series;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::ema::ema_series;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -13,7 +13,9 @@ use std::rc::Rc;
 /// 0 = neutral
 pub fn gonogo_trend_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("gonogo:close:{period}");
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     if period == 0 || len < period + 1 {
@@ -26,7 +28,9 @@ pub fn gonogo_trend_store(store: &CandleStore, period: usize, nodes: &mut NodeCa
     // Momentum: ROC over period/2
     let mom_period = (period / 2).max(1);
     for i in mom_period..len {
-        if ema[i].is_nan() { continue; }
+        if ema[i].is_nan() {
+            continue;
+        }
         let close = store.close[i];
         let prev_close = store.close[i - mom_period];
         let above_ema = close > ema[i];
@@ -50,8 +54,9 @@ pub fn gonogo_trend_store(store: &CandleStore, period: usize, nodes: &mut NodeCa
     rc
 }
 
-
 pub fn latest_gonogo_trend_store(store: &CandleStore, period: usize) -> Option<f64> {
     gonogo_trend_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

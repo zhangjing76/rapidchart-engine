@@ -47,7 +47,6 @@ pub fn linear_reg_forecast_store(
     rc
 }
 
-
 pub fn latest_linear_reg_forecast_store(store: &CandleStore, period: usize) -> Option<f64> {
     if period == 0 || store.len() < period {
         return None;

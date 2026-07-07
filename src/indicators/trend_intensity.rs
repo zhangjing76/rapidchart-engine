@@ -1,6 +1,6 @@
+use crate::indicators::sma::sma_close_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::sma::sma_close_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -8,25 +8,36 @@ use std::rc::Rc;
 /// Counts bars above SMA vs below SMA over period.
 /// TII = (bars_above - bars_below) / period * 100
 /// Range: -100 (all below) to +100 (all above)
-pub fn trend_intensity_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn trend_intensity_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("tii:close:{period}");
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let sma = sma_close_store(store, period, nodes);
     let len = store.len();
     let mut out = vec![f64::NAN; len];
-    if period == 0 || len < period { 
+    if period == 0 || len < period {
         let rc = Rc::new(out);
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
     for i in period - 1..len {
         let sma_val = sma[i];
-        if sma_val.is_nan() { continue; }
+        if sma_val.is_nan() {
+            continue;
+        }
         let mut above = 0i32;
         let mut below = 0i32;
         for j in i + 1 - period..=i {
-            if store.close[j] > sma_val { above += 1; }
-            else { below += 1; }
+            if store.close[j] > sma_val {
+                above += 1;
+            } else {
+                below += 1;
+            }
         }
         out[i] = ((above - below) as f64 / period as f64) * 100.0;
     }
@@ -35,8 +46,9 @@ pub fn trend_intensity_store(store: &CandleStore, period: usize, nodes: &mut Nod
     rc
 }
 
-
 pub fn latest_trend_intensity_store(store: &CandleStore, period: usize) -> Option<f64> {
     trend_intensity_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

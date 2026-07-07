@@ -44,9 +44,9 @@ pub fn bollinger_store(
 }
 pub fn bollinger_outputs(upper: Series, middle: Series, lower: Series) -> Vec<crate::NamedSeries> {
     vec![
-        crate::named_series("upper", upper,),
-        crate::named_series("middle", middle,),
-        crate::named_series("lower", lower,),
+        crate::named_series("upper", upper),
+        crate::named_series("middle", middle),
+        crate::named_series("lower", lower),
     ]
 }
 pub fn latest_bollinger_store(

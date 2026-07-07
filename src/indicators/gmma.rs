@@ -1,6 +1,6 @@
-use crate::NodeCache;
-use crate::CandleStore;
 use crate::indicators::ema::{ema_close_store, latest_ema_store};
+use crate::CandleStore;
+use crate::NodeCache;
 
 /// GMMA periods: short-term group and long-term group.
 const SHORT_PERIODS: [usize; 6] = [3, 5, 8, 10, 12, 15];
@@ -43,10 +43,16 @@ fn output_name(prefix: &str, period: usize) -> String {
 pub fn gmma_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let mut outputs = Vec::with_capacity(12);
     for &p in &SHORT_PERIODS {
-        outputs.push(crate::named_series(output_name("short", p), ema_close_store(store, p, nodes)));
+        outputs.push(crate::named_series(
+            output_name("short", p),
+            ema_close_store(store, p, nodes),
+        ));
     }
     for &p in &LONG_PERIODS {
-        outputs.push(crate::named_series(output_name("long", p), ema_close_store(store, p, nodes)));
+        outputs.push(crate::named_series(
+            output_name("long", p),
+            ema_close_store(store, p, nodes),
+        ));
     }
     outputs
 }

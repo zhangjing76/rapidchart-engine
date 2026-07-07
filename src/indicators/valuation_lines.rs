@@ -1,7 +1,7 @@
-use crate::NodeCache;
-use crate::{CandleStore};
 use crate::indicators::sma::sma_close_store;
 use crate::series::rc_into_owned;
+use crate::CandleStore;
+use crate::NodeCache;
 
 /// Valuation Lines: A moving average with percentage offset lines above and below.
 /// Outputs: upper (MA * (1 + pct/100)), middle (MA), lower (MA * (1 - pct/100)).
@@ -16,11 +16,23 @@ pub fn valuation_lines_store(
     let pct = multiplier / 100.0;
     let upper: Vec<f64> = middle
         .iter()
-        .map(|&m| if m.is_nan() { f64::NAN } else { m * (1.0 + pct) })
+        .map(|&m| {
+            if m.is_nan() {
+                f64::NAN
+            } else {
+                m * (1.0 + pct)
+            }
+        })
         .collect();
     let lower: Vec<f64> = middle
         .iter()
-        .map(|&m| if m.is_nan() { f64::NAN } else { m * (1.0 - pct) })
+        .map(|&m| {
+            if m.is_nan() {
+                f64::NAN
+            } else {
+                m * (1.0 - pct)
+            }
+        })
         .collect();
     vec![
         crate::named_series("upper", upper),

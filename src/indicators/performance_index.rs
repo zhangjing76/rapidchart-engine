@@ -25,7 +25,6 @@ pub fn performance_index_store(store: &CandleStore, nodes: &mut NodeCache) -> Rc
     rc
 }
 
-
 pub fn latest_performance_index_store(store: &CandleStore) -> Option<f64> {
     if store.len() == 0 || store.close[0] == 0.0 {
         return None;

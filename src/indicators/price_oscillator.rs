@@ -1,7 +1,7 @@
-use crate::NodeCache;
-use crate::{CandleStore, RcSeries};
 use crate::indicators::ema::ema_close_store;
 use crate::types::MacdParams;
+use crate::NodeCache;
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -32,8 +32,9 @@ pub fn price_oscillator_store(
     rc
 }
 
-
 pub fn latest_price_oscillator_store(store: &CandleStore, params: MacdParams) -> Option<f64> {
     price_oscillator_store(store, params, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

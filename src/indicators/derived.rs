@@ -46,4 +46,3 @@ pub fn hlc3_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
 pub fn latest_hlc3(store: &CandleStore) -> Option<f64> {
     Some((*store.high.last()? + *store.low.last()? + *store.close.last()?) / 3.0)
 }
-

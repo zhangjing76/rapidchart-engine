@@ -9,7 +9,9 @@ use std::rc::Rc;
 /// Range: 0 (no fit) to 1 (perfect linear fit).
 pub fn linear_reg_r2_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("linreg_r2:close:{period}");
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     if period < 2 || len < period {
@@ -37,10 +39,14 @@ pub fn linear_reg_r2_store(store: &CandleStore, period: usize, nodes: &mut NodeC
         let mean_y = sum_y / n;
         let ss_tot = sum_yy - n * mean_y * mean_y;
         // SS_res = sum((y - predicted)²)
-        let ss_res: f64 = window.iter().enumerate().map(|(x, &y)| {
-            let predicted = intercept + slope * x as f64;
-            (y - predicted).powi(2)
-        }).sum();
+        let ss_res: f64 = window
+            .iter()
+            .enumerate()
+            .map(|(x, &y)| {
+                let predicted = intercept + slope * x as f64;
+                (y - predicted).powi(2)
+            })
+            .sum();
         if ss_tot > 1e-10 {
             out[i] = 1.0 - ss_res / ss_tot;
         } else {
@@ -52,8 +58,9 @@ pub fn linear_reg_r2_store(store: &CandleStore, period: usize, nodes: &mut NodeC
     rc
 }
 
-
 pub fn latest_linear_reg_r2_store(store: &CandleStore, period: usize) -> Option<f64> {
     linear_reg_r2_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

@@ -24,20 +24,33 @@ pub fn awesome_oscillator_store(store: &CandleStore, nodes: &mut NodeCache) -> R
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let midpoints: Vec<f64> = store.high.iter().zip(store.low.iter())
-        .map(|(h, l)| (h + l) / 2.0).collect();
+    let midpoints: Vec<f64> = store
+        .high
+        .iter()
+        .zip(store.low.iter())
+        .map(|(h, l)| (h + l) / 2.0)
+        .collect();
     let sma5 = sma_of(&midpoints, 5);
     let sma34 = sma_of(&midpoints, 34);
-    let out: Vec<f64> = sma5.iter().zip(sma34.iter())
-        .map(|(a, b)| if a.is_nan() || b.is_nan() { f64::NAN } else { a - b })
+    let out: Vec<f64> = sma5
+        .iter()
+        .zip(sma34.iter())
+        .map(|(a, b)| {
+            if a.is_nan() || b.is_nan() {
+                f64::NAN
+            } else {
+                a - b
+            }
+        })
         .collect();
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
 
-
 pub fn latest_awesome_oscillator_store(store: &CandleStore) -> Option<f64> {
     awesome_oscillator_store(store, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

@@ -1,6 +1,6 @@
+use crate::indicators::ema::ema_series;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::ema::ema_series;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -14,7 +14,9 @@ pub fn stochastic_momentum_store(
     nodes: &mut NodeCache,
 ) -> RcSeries {
     let key = format!("smi:hlc:{}:{}", period, smooth);
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     if period == 0 || len < period {
@@ -25,8 +27,12 @@ pub fn stochastic_momentum_store(
     let mut d_series = vec![f64::NAN; len];
     let mut hl_series = vec![f64::NAN; len];
     for i in period - 1..len {
-        let hh = store.high[i+1-period..=i].iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        let ll = store.low[i+1-period..=i].iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let hh = store.high[i + 1 - period..=i]
+            .iter()
+            .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let ll = store.low[i + 1 - period..=i]
+            .iter()
+            .fold(f64::INFINITY, |a, &b| a.min(b));
         d_series[i] = store.close[i] - (hh + ll) / 2.0;
         hl_series[i] = (hh - ll) / 2.0;
     }
@@ -46,8 +52,13 @@ pub fn stochastic_momentum_store(
     rc
 }
 
-
-pub fn latest_stochastic_momentum_store(store: &CandleStore, period: usize, smooth: usize) -> Option<f64> {
+pub fn latest_stochastic_momentum_store(
+    store: &CandleStore,
+    period: usize,
+    smooth: usize,
+) -> Option<f64> {
     stochastic_momentum_store(store, period, smooth, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

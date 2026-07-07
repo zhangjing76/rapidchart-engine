@@ -50,7 +50,6 @@ pub fn projected_volume_at_time_store(
     rc
 }
 
-
 pub fn latest_projected_volume_at_time_store(store: &CandleStore, period: usize) -> Option<f64> {
     if store.len() == 0 || period == 0 {
         return None;

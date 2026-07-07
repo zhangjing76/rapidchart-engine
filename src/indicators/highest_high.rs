@@ -4,7 +4,6 @@ use std::rc::Rc;
 
 /// Highest High Value over a rolling window of `period` bars.
 
-
 pub fn highest_high_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("highest_high:h:{period}");
     if let Some(values) = nodes.get(&key) {

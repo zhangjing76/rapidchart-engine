@@ -1,7 +1,7 @@
 use crate::indicators::atr::true_range_store;
+use crate::value_at_slice;
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::value_at_slice;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -51,12 +51,30 @@ pub fn adx_store(
     if let Some(values) = nodes.get(&key) {
         return adx_outputs(
             Rc::clone(values),
-            nodes.get(&format!("adx:plus_di:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
-            nodes.get(&format!("adx:minus_di:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
-            nodes.get(&format!("adx:tr_avg:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
-            nodes.get(&format!("adx:plus_dm_avg:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
-            nodes.get(&format!("adx:minus_dm_avg:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
-            nodes.get(&format!("adx:dx:{period}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes
+                .get(&format!("adx:plus_di:{period}"))
+                .map(Rc::clone)
+                .unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes
+                .get(&format!("adx:minus_di:{period}"))
+                .map(Rc::clone)
+                .unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes
+                .get(&format!("adx:tr_avg:{period}"))
+                .map(Rc::clone)
+                .unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes
+                .get(&format!("adx:plus_dm_avg:{period}"))
+                .map(Rc::clone)
+                .unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes
+                .get(&format!("adx:minus_dm_avg:{period}"))
+                .map(Rc::clone)
+                .unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes
+                .get(&format!("adx:dx:{period}"))
+                .map(Rc::clone)
+                .unwrap_or_else(|| Rc::new(Vec::new())),
         );
     }
     let mut values = vec![f64::NAN; store.len()];

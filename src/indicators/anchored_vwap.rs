@@ -1,6 +1,6 @@
 use crate::nan_to_none;
-use crate::NodeCache;
 use crate::CandleStore;
+use crate::NodeCache;
 
 /// Anchored VWAP: VWAP starting from a user-specified bar index (anchor).
 /// Before the anchor, values are NaN.

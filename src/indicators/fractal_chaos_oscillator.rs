@@ -42,8 +42,9 @@ pub fn fractal_chaos_oscillator_store(store: &CandleStore, _nodes: &mut NodeCach
     rc
 }
 
-
 pub fn latest_fractal_chaos_oscillator_store(store: &CandleStore) -> Option<f64> {
     fractal_chaos_oscillator_store(store, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

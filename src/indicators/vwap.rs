@@ -11,8 +11,14 @@ pub fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::Name
     if let Some(values) = nodes.get("vwap:hlcv") {
         return vwap_outputs(
             Rc::clone(values),
-            nodes.get("vwap:cumulative_pv").map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
-            nodes.get("vwap:cumulative_volume").map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes
+                .get("vwap:cumulative_pv")
+                .map(Rc::clone)
+                .unwrap_or_else(|| Rc::new(Vec::new())),
+            nodes
+                .get("vwap:cumulative_volume")
+                .map(Rc::clone)
+                .unwrap_or_else(|| Rc::new(Vec::new())),
         );
     }
     let mut values = Vec::with_capacity(store.len());
@@ -46,7 +52,11 @@ pub fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::Name
         "vwap:cumulative_volume".to_string(),
         Rc::new(cumulative_volume_values.clone()),
     );
-    vwap_outputs(Rc::new(values), Rc::new(cumulative_pv_values), Rc::new(cumulative_volume_values))
+    vwap_outputs(
+        Rc::new(values),
+        Rc::new(cumulative_pv_values),
+        Rc::new(cumulative_volume_values),
+    )
 }
 pub fn vwap_outputs(
     values: RcSeries,
@@ -71,9 +81,7 @@ pub fn latest_vwap_store(
         .and_then(|previous_index| outputs.value_at_slot(CUMULATIVE_PV_SLOT, previous_index))
         .unwrap_or(0.0);
     let previous_volume = previous_index
-        .and_then(|previous_index| {
-            outputs.value_at_slot(CUMULATIVE_VOLUME_SLOT, previous_index)
-        })
+        .and_then(|previous_index| outputs.value_at_slot(CUMULATIVE_VOLUME_SLOT, previous_index))
         .unwrap_or(0.0);
     let cumulative_pv = previous_pv
         + typical_price_parts(store.high[index], store.low[index], store.close[index])

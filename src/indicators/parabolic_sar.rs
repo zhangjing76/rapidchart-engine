@@ -1,7 +1,7 @@
-use crate::IndicatorArena;
-use crate::NodeCache;
 use crate::value_at_slice;
 use crate::CandleStore;
+use crate::IndicatorArena;
+use crate::NodeCache;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -20,9 +20,27 @@ pub fn parabolic_sar_store(
     if let Some(values) = nodes.get(&key) {
         return vec![
             crate::named_series("value", Rc::clone(values)),
-            crate::named_series("ep", nodes.get(&format!("psar:ep:{step}:{max_step}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
-            crate::named_series("af", nodes.get(&format!("psar:af:{step}:{max_step}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
-            crate::named_series("trend", nodes.get(&format!("psar:trend:{step}:{max_step}")).map(Rc::clone).unwrap_or_else(|| Rc::new(Vec::new()))),
+            crate::named_series(
+                "ep",
+                nodes
+                    .get(&format!("psar:ep:{step}:{max_step}"))
+                    .map(Rc::clone)
+                    .unwrap_or_else(|| Rc::new(Vec::new())),
+            ),
+            crate::named_series(
+                "af",
+                nodes
+                    .get(&format!("psar:af:{step}:{max_step}"))
+                    .map(Rc::clone)
+                    .unwrap_or_else(|| Rc::new(Vec::new())),
+            ),
+            crate::named_series(
+                "trend",
+                nodes
+                    .get(&format!("psar:trend:{step}:{max_step}"))
+                    .map(Rc::clone)
+                    .unwrap_or_else(|| Rc::new(Vec::new())),
+            ),
         ];
     }
     let mut values = vec![f64::NAN; store.len()];
@@ -133,25 +151,27 @@ pub fn latest_parabolic_sar_store(
     let previous_sar = outputs
         .value_at_slot(VALUE_SLOT, previous_index)
         .unwrap_or_else(|| {
-        parabolic_sar_store(
-            &CandleStore {
-                time: store.time[..store.len() - 1].to_vec(),
-                open: store.open[..store.len() - 1].to_vec(),
-                high: store.high[..store.len() - 1].to_vec(),
-                low: store.low[..store.len() - 1].to_vec(),
-                close: store.close[..store.len() - 1].to_vec(),
-                volume: store.volume[..store.len() - 1].to_vec(),
-            },
-            step,
-            max_step,
-            &mut HashMap::new(),
-        )[VALUE_SLOT]
-        .values[previous_index]
-    });
+            parabolic_sar_store(
+                &CandleStore {
+                    time: store.time[..store.len() - 1].to_vec(),
+                    open: store.open[..store.len() - 1].to_vec(),
+                    high: store.high[..store.len() - 1].to_vec(),
+                    low: store.low[..store.len() - 1].to_vec(),
+                    close: store.close[..store.len() - 1].to_vec(),
+                    volume: store.volume[..store.len() - 1].to_vec(),
+                },
+                step,
+                max_step,
+                &mut HashMap::new(),
+            )[VALUE_SLOT]
+                .values[previous_index]
+        });
     let previous_ep = outputs
         .value_at_slot(EP_SLOT, previous_index)
         .unwrap_or(previous_sar);
-    let previous_af = outputs.value_at_slot(AF_SLOT, previous_index).unwrap_or(step);
+    let previous_af = outputs
+        .value_at_slot(AF_SLOT, previous_index)
+        .unwrap_or(step);
     let previous_trend = outputs
         .value_at_slot(TREND_SLOT, previous_index)
         .unwrap_or(1.0);

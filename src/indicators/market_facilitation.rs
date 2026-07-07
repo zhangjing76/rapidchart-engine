@@ -6,7 +6,9 @@ use std::rc::Rc;
 /// Measures price movement efficiency relative to volume.
 pub fn market_facilitation_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "mfi_bw:hlv".to_string();
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     for i in 0..len {
@@ -19,9 +21,14 @@ pub fn market_facilitation_store(store: &CandleStore, nodes: &mut NodeCache) -> 
     rc
 }
 
-
 pub fn latest_market_facilitation_store(store: &CandleStore) -> Option<f64> {
-    if store.len() == 0 { return None; }
+    if store.len() == 0 {
+        return None;
+    }
     let i = store.len() - 1;
-    if store.volume[i] > 0.0 { Some((store.high[i] - store.low[i]) / store.volume[i]) } else { None }
+    if store.volume[i] > 0.0 {
+        Some((store.high[i] - store.low[i]) / store.volume[i])
+    } else {
+        None
+    }
 }

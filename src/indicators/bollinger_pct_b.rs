@@ -1,6 +1,6 @@
+use crate::indicators::bollinger::bollinger_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::bollinger::bollinger_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -36,12 +36,13 @@ pub fn bollinger_pct_b_store(
     rc
 }
 
-
 pub fn latest_bollinger_pct_b_store(
     store: &CandleStore,
     period: usize,
     multiplier: f64,
 ) -> Option<f64> {
     bollinger_pct_b_store(store, period, multiplier, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

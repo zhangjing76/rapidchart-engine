@@ -1,6 +1,6 @@
 use crate::nan_to_none;
+use crate::CandleStore;
 use crate::NodeCache;
-use crate::{CandleStore};
 
 /// Fractal Chaos Bands.
 /// A fractal high occurs when a bar's high is the highest among
@@ -74,5 +74,8 @@ pub fn latest_fractal_chaos_bands_store(store: &CandleStore) -> (Option<f64>, Op
         }
     }
 
-    (nan_to_none(last_fractal_high), nan_to_none(last_fractal_low))
+    (
+        nan_to_none(last_fractal_high),
+        nan_to_none(last_fractal_low),
+    )
 }

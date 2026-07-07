@@ -33,8 +33,8 @@ use crate::indicators::donchian_width::donchian_width_store;
 use crate::indicators::dpo::dpo_store;
 use crate::indicators::ease_of_movement::ease_of_movement_store;
 use crate::indicators::ehler_fisher::ehler_fisher_store;
-use crate::indicators::elder_ray::elder_ray_store;
 use crate::indicators::elder_impulse::elder_impulse_store;
+use crate::indicators::elder_ray::elder_ray_store;
 use crate::indicators::ema::ema_close_store;
 use crate::indicators::envelope::envelope_store;
 use crate::indicators::force_index::force_index_store;
@@ -187,18 +187,50 @@ pub(crate) fn compute_indicator_store(
         "STOCHASTIC" => stochastic_store(store, period, smooth, nodes).into_outputs(),
         "BB" => bollinger_store(store, period, multiplier, nodes).into_outputs(),
         "DONCHIAN" => donchian_store(store, period, nodes).into_outputs(),
-        "PARABOLIC_SAR" => parabolic_sar_store(store, psar_step, psar_max_step, nodes).into_outputs(),
-        "ICHIMOKU" => ichimoku_store(store, tenkan_period, kijun_period, senkou_b_period, nodes).into_outputs(),
+        "PARABOLIC_SAR" => {
+            parabolic_sar_store(store, psar_step, psar_max_step, nodes).into_outputs()
+        }
+        "ICHIMOKU" => ichimoku_store(store, tenkan_period, kijun_period, senkou_b_period, nodes)
+            .into_outputs(),
         "PIVOT_POINTS" => pivot_points_store(store, nodes).into_outputs(),
         "AROON" => aroon_store(store, period, nodes).into_outputs(),
-        "ULTIMATE_OSCILLATOR" => ultimate_oscillator_store(store, period, stoch_period, smooth, nodes).into_outputs(),
+        "ULTIMATE_OSCILLATOR" => {
+            ultimate_oscillator_store(store, period, stoch_period, smooth, nodes).into_outputs()
+        }
         "CHAIKIN_VOLATILITY" => chaikin_volatility_store(store, period, nodes).into_outputs(),
-        "STOCH_RSI" => stoch_rsi_store(store, period, stoch_period, smooth, signal, nodes).into_outputs(),
+        "STOCH_RSI" => {
+            stoch_rsi_store(store, period, stoch_period, smooth, signal, nodes).into_outputs()
+        }
         "CHAIKIN_OSCILLATOR" => chaikin_oscillator_store(
-            store, macd_params.unwrap_or(MacdParams { fast: 3, slow: 10, signal: 9 }), nodes,
-        ).into_outputs(),
-        "MACD" => macd_store(store, macd_params.unwrap_or(MacdParams { fast: 12, slow: 26, signal: 9 }), nodes).into_outputs(),
-        "PPO" => ppo_store(store, macd_params.unwrap_or(MacdParams { fast: 12, slow: 26, signal: 9 }), nodes).into_outputs(),
+            store,
+            macd_params.unwrap_or(MacdParams {
+                fast: 3,
+                slow: 10,
+                signal: 9,
+            }),
+            nodes,
+        )
+        .into_outputs(),
+        "MACD" => macd_store(
+            store,
+            macd_params.unwrap_or(MacdParams {
+                fast: 12,
+                slow: 26,
+                signal: 9,
+            }),
+            nodes,
+        )
+        .into_outputs(),
+        "PPO" => ppo_store(
+            store,
+            macd_params.unwrap_or(MacdParams {
+                fast: 12,
+                slow: 26,
+                signal: 9,
+            }),
+            nodes,
+        )
+        .into_outputs(),
         "MEDIAN_PRICE" => median_price_store(store, nodes).into_outputs(),
         "HIGHEST_HIGH" => highest_high_store(store, period, nodes).into_outputs(),
         "LOWEST_LOW" => lowest_low_store(store, period, nodes).into_outputs(),
@@ -210,13 +242,21 @@ pub(crate) fn compute_indicator_store(
         "ANCHORED_VWAP" => anchored_vwap_store(store, anchor, nodes).into_outputs(),
         "TYPICAL_PRICE" => typical_price_store(store, nodes).into_outputs(),
         "WEIGHTED_CLOSE" => weighted_close_store(store, nodes).into_outputs(),
-        "MA_CROSS" => ma_cross_store(store, macd_params.map_or(period, |m| m.fast), macd_params.map_or(stoch_period, |m| m.slow), nodes).into_outputs(),
+        "MA_CROSS" => ma_cross_store(
+            store,
+            macd_params.map_or(period, |m| m.fast),
+            macd_params.map_or(stoch_period, |m| m.slow),
+            nodes,
+        )
+        .into_outputs(),
         "RAINBOW_MA" => rainbow_ma_store(store, period, nodes).into_outputs(),
         "PRIME_NUMBER_BANDS" => prime_number_bands_store(store, nodes).into_outputs(),
         "TIME_SERIES_FORECAST" => linear_reg_forecast_store(store, period, nodes).into_outputs(),
         "VALUATION_LINES" => valuation_lines_store(store, period, multiplier, nodes).into_outputs(),
         "BETA" => beta_store(store, period, nodes).into_outputs(),
-        "CORRELATION_COEFFICIENT" => correlation_coefficient_store(store, period, nodes).into_outputs(),
+        "CORRELATION_COEFFICIENT" => {
+            correlation_coefficient_store(store, period, nodes).into_outputs()
+        }
         "PERFORMANCE_INDEX" => performance_index_store(store, nodes).into_outputs(),
         "PRICE_RELATIVE" => price_relative_store(store, period, nodes).into_outputs(),
         "AWESOME_OSCILLATOR" => awesome_oscillator_store(store, nodes).into_outputs(),
@@ -234,17 +274,48 @@ pub(crate) fn compute_indicator_store(
         "INTRADAY_MOMENTUM" => intraday_momentum_store(store, period, nodes).into_outputs(),
         "LINEAR_REG_SLOPE" => linear_reg_slope_store(store, period, nodes).into_outputs(),
         "MA_DEVIATION" => ma_deviation_store(store, period, nodes).into_outputs(),
-        "PRETTY_GOOD_OSCILLATOR" => pretty_good_oscillator_store(store, period, nodes).into_outputs(),
-        "PRICE_MOMENTUM_OSCILLATOR" => price_momentum_oscillator_store(store, period, smooth, nodes).into_outputs(),
-        "PRICE_OSCILLATOR" => price_oscillator_store(store, macd_params.unwrap_or(MacdParams { fast: 12, slow: 26, signal: 9 }), nodes).into_outputs(),
+        "PRETTY_GOOD_OSCILLATOR" => {
+            pretty_good_oscillator_store(store, period, nodes).into_outputs()
+        }
+        "PRICE_MOMENTUM_OSCILLATOR" => {
+            price_momentum_oscillator_store(store, period, smooth, nodes).into_outputs()
+        }
+        "PRICE_OSCILLATOR" => price_oscillator_store(
+            store,
+            macd_params.unwrap_or(MacdParams {
+                fast: 12,
+                slow: 26,
+                signal: 9,
+            }),
+            nodes,
+        )
+        .into_outputs(),
         "RAINBOW_OSCILLATOR" => rainbow_oscillator_store(store, period, nodes).into_outputs(),
         "RAVI" => ravi_store(store, period, stoch_period, nodes).into_outputs(),
         "RELATIVE_VIGOR" => relative_vigor_store(store, period, nodes).into_outputs(),
-        "SCHAFF_TREND_CYCLE" => schaff_trend_cycle_store(store, macd_params.map_or(12, |m| m.fast), macd_params.map_or(26, |m| m.slow), stoch_period, nodes).into_outputs(),
-        "STOCHASTIC_MOMENTUM" => stochastic_momentum_store(store, period, smooth, nodes).into_outputs(),
+        "SCHAFF_TREND_CYCLE" => schaff_trend_cycle_store(
+            store,
+            macd_params.map_or(12, |m| m.fast),
+            macd_params.map_or(26, |m| m.slow),
+            stoch_period,
+            nodes,
+        )
+        .into_outputs(),
+        "STOCHASTIC_MOMENTUM" => {
+            stochastic_momentum_store(store, period, smooth, nodes).into_outputs()
+        }
         "SWING_INDEX" => swing_index_store(store, nodes).into_outputs(),
         "TREND_INTENSITY" => trend_intensity_store(store, period, nodes).into_outputs(),
-        "VOLUME_OSCILLATOR" => volume_oscillator_store(store, macd_params.unwrap_or(MacdParams { fast: 5, slow: 10, signal: 9 }), nodes).into_outputs(),
+        "VOLUME_OSCILLATOR" => volume_oscillator_store(
+            store,
+            macd_params.unwrap_or(MacdParams {
+                fast: 5,
+                slow: 10,
+                signal: 9,
+            }),
+            nodes,
+        )
+        .into_outputs(),
         "KLINGER_VOLUME" => klinger_volume_store(store, nodes).into_outputs(),
         "MARKET_FACILITATION" => market_facilitation_store(store, nodes).into_outputs(),
         "NEGATIVE_VOLUME_INDEX" => negative_volume_index_store(store, nodes).into_outputs(),
@@ -252,8 +323,12 @@ pub(crate) fn compute_indicator_store(
         "PRICE_VOLUME_TREND" => price_volume_trend_store(store, nodes).into_outputs(),
         "TRADE_VOLUME_INDEX" => trade_volume_index_store(store, nodes).into_outputs(),
         "TWIGGS_MONEY_FLOW" => twiggs_money_flow_store(store, period, nodes).into_outputs(),
-        "PROJECTED_AGGREGATE_VOLUME" => projected_aggregate_volume_store(store, period, nodes).into_outputs(),
-        "PROJECTED_VOLUME_AT_TIME" => projected_volume_at_time_store(store, period, nodes).into_outputs(),
+        "PROJECTED_AGGREGATE_VOLUME" => {
+            projected_aggregate_volume_store(store, period, nodes).into_outputs()
+        }
+        "PROJECTED_VOLUME_AT_TIME" => {
+            projected_volume_at_time_store(store, period, nodes).into_outputs()
+        }
         "HISTORICAL_VOLATILITY" => historical_volatility_store(store, period, nodes).into_outputs(),
         "LINEAR_REG_R2" => linear_reg_r2_store(store, period, nodes).into_outputs(),
         "PRIME_NUMBER_OSCILLATOR" => prime_number_oscillator_store(store, nodes).into_outputs(),
@@ -267,10 +342,14 @@ pub(crate) fn compute_indicator_store(
         "QSTICK" => qstick_store(store, period, nodes).into_outputs(),
         "SHINOHARA_INTENSITY" => shinohara_intensity_store(store, period, nodes).into_outputs(),
         "ULCER_INDEX" => ulcer_index_store(store, period, nodes).into_outputs(),
-        "VERTICAL_HORIZONTAL_FILTER" => vertical_horizontal_filter_store(store, period, nodes).into_outputs(),
+        "VERTICAL_HORIZONTAL_FILTER" => {
+            vertical_horizontal_filter_store(store, period, nodes).into_outputs()
+        }
         "VORTEX_INDICATOR" => vortex_indicator_store(store, period, nodes).into_outputs(),
         "ZIGZAG" => zigzag_store(store, multiplier, nodes).into_outputs(),
-        "BOLLINGER_BANDWIDTH" => bollinger_bandwidth_store(store, period, multiplier, nodes).into_outputs(),
+        "BOLLINGER_BANDWIDTH" => {
+            bollinger_bandwidth_store(store, period, multiplier, nodes).into_outputs()
+        }
         "DONCHIAN_WIDTH" => donchian_width_store(store, period, nodes).into_outputs(),
         "GOPALAKRISHNAN_RANGE" => gopalakrishnan_range_store(store, period, nodes).into_outputs(),
         "HIGH_MINUS_LOW" => high_minus_low_store(store, nodes).into_outputs(),

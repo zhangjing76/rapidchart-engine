@@ -1,6 +1,6 @@
 use crate::indicators::derived::hl2_store;
+use crate::CandleStore;
 use crate::NodeCache;
-use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Ehlers Fisher Transform:
@@ -8,7 +8,11 @@ use std::collections::HashMap;
 /// 2. Apply Fisher Transform: fisher = 0.5 * ln((1+x)/(1-x))
 /// 3. Outputs: fisher line and trigger (previous fisher value)
 
-pub fn ehler_fisher_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
+pub fn ehler_fisher_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let hl2 = hl2_store(store, nodes);
     let mut fisher_out = vec![f64::NAN; len];
@@ -22,8 +26,12 @@ pub fn ehler_fisher_store(store: &CandleStore, period: usize, nodes: &mut NodeCa
     let mut prev_value = 0.0f64;
     let mut prev_fisher = 0.0f64;
     for i in period - 1..len {
-        let max_high = store.high[i + 1 - period..=i].iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        let min_low = store.low[i + 1 - period..=i].iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let max_high = store.high[i + 1 - period..=i]
+            .iter()
+            .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let min_low = store.low[i + 1 - period..=i]
+            .iter()
+            .fold(f64::INFINITY, |a, &b| a.min(b));
         let mid = hl2[i];
         let range = max_high - min_low;
         let normalized = if range > 1e-10 {
@@ -46,7 +54,17 @@ pub fn ehler_fisher_store(store: &CandleStore, period: usize, nodes: &mut NodeCa
 
 pub fn latest_ehler_fisher_store(store: &CandleStore, period: usize) -> (Option<f64>, Option<f64>) {
     let outputs = ehler_fisher_store(store, period, &mut HashMap::new());
-    let fisher = outputs[0].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
-    let trigger = outputs[1].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let fisher =
+        outputs[0]
+            .values
+            .last()
+            .copied()
+            .and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let trigger =
+        outputs[1]
+            .values
+            .last()
+            .copied()
+            .and_then(|v| if v.is_nan() { None } else { Some(v) });
     (fisher, trigger)
 }

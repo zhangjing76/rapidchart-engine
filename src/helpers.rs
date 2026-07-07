@@ -1,7 +1,7 @@
 use js_sys::Object;
 use js_sys::Reflect;
-use wasm_bindgen::prelude::*;
 use std::rc::Rc;
+use wasm_bindgen::prelude::*;
 
 use crate::bar::{Bar, CandleStore};
 use crate::series::{rc_into_owned, RcSeries, Series};

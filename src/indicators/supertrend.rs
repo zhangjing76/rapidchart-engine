@@ -1,9 +1,9 @@
 use crate::indicators::atr::{atr_store, latest_atr_store};
 use crate::indicators::derived::{hl2_store, latest_hl2};
 use crate::rc_into_owned;
+use crate::value_at_slice;
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::value_at_slice;
 use crate::{CandleStore, Series};
 use std::collections::HashMap;
 use std::rc::Rc;

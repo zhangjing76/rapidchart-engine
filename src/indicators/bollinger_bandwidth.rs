@@ -1,6 +1,6 @@
+use crate::indicators::bollinger::bollinger_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::bollinger::bollinger_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -9,9 +9,16 @@ const UPPER_SLOT: usize = 0;
 const MIDDLE_SLOT: usize = 1;
 const LOWER_SLOT: usize = 2;
 
-pub fn bollinger_bandwidth_store(store: &CandleStore, period: usize, multiplier: f64, nodes: &mut NodeCache) -> RcSeries {
+pub fn bollinger_bandwidth_store(
+    store: &CandleStore,
+    period: usize,
+    multiplier: f64,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("bb_bw:{}:{}", period, multiplier);
-    if let Some(v) = nodes.get(&key) { return Rc::clone(v); }
+    if let Some(v) = nodes.get(&key) {
+        return Rc::clone(v);
+    }
     let bb = bollinger_store(store, period, multiplier, nodes);
     let upper = &bb[UPPER_SLOT].values;
     let middle = &bb[MIDDLE_SLOT].values;
@@ -27,9 +34,17 @@ pub fn bollinger_bandwidth_store(store: &CandleStore, period: usize, multiplier:
             out[i] = ((upper[i] - lower[i]) / middle[i]) * 100.0;
         }
     }
-    let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc)); rc
+    let rc = Rc::new(out);
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
-pub fn latest_bollinger_bandwidth_store(store: &CandleStore, period: usize, multiplier: f64) -> Option<f64> {
+pub fn latest_bollinger_bandwidth_store(
+    store: &CandleStore,
+    period: usize,
+    multiplier: f64,
+) -> Option<f64> {
     bollinger_bandwidth_store(store, period, multiplier, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

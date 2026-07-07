@@ -4,7 +4,6 @@ use std::rc::Rc;
 
 /// Weighted Close = (High + Low + 2*Close) / 4
 
-
 pub fn weighted_close_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "weighted_close:hlc".to_string();
     if let Some(values) = nodes.get(&key) {

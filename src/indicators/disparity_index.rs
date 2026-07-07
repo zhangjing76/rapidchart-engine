@@ -1,12 +1,16 @@
+use crate::indicators::ema::ema_close_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::ema::ema_close_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Disparity Index: ((close - EMA(close, period)) / EMA(close, period)) * 100
 /// Measures percentage distance of close from its moving average.
-pub fn disparity_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn disparity_index_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("disparity:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -25,8 +29,9 @@ pub fn disparity_index_store(store: &CandleStore, period: usize, nodes: &mut Nod
     rc
 }
 
-
 pub fn latest_disparity_index_store(store: &CandleStore, period: usize) -> Option<f64> {
     disparity_index_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

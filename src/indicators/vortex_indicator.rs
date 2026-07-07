@@ -1,5 +1,5 @@
+use crate::CandleStore;
 use crate::NodeCache;
-use crate::{CandleStore};
 use std::collections::HashMap;
 
 /// Vortex Indicator:
@@ -7,7 +7,11 @@ use std::collections::HashMap;
 /// TR = max(H-L, |H-PC|, |L-PC|)
 /// VI+ = SUM(VM+, period) / SUM(TR, period)
 /// VI- = SUM(VM-, period) / SUM(TR, period)
-pub fn vortex_indicator_store(store: &CandleStore, period: usize, _nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
+pub fn vortex_indicator_store(
+    store: &CandleStore,
+    period: usize,
+    _nodes: &mut NodeCache,
+) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut vi_plus = vec![f64::NAN; len];
     let mut vi_minus = vec![f64::NAN; len];
@@ -41,9 +45,20 @@ pub fn vortex_indicator_store(store: &CandleStore, period: usize, _nodes: &mut N
         crate::named_series("minus", vi_minus),
     ]
 }
-pub fn latest_vortex_indicator_store(store: &CandleStore, period: usize) -> (Option<f64>, Option<f64>) {
+pub fn latest_vortex_indicator_store(
+    store: &CandleStore,
+    period: usize,
+) -> (Option<f64>, Option<f64>) {
     let o = vortex_indicator_store(store, period, &mut HashMap::new());
-    let p = o[0].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
-    let m = o[1].values.last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let p = o[0]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
+    let m = o[1]
+        .values
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) });
     (p, m)
 }

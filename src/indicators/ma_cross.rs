@@ -1,7 +1,7 @@
-use crate::NodeCache;
-use crate::{CandleStore};
 use crate::indicators::sma::sma_close_store;
 use crate::series::rc_into_owned;
+use crate::CandleStore;
+use crate::NodeCache;
 
 /// Moving Average Cross: Two SMAs (fast and slow) with a difference histogram.
 /// Outputs: fast, slow, histogram (fast - slow).

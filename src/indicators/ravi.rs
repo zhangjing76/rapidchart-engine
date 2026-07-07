@@ -1,14 +1,21 @@
+use crate::indicators::sma::sma_close_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::sma::sma_close_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 /// RAVI (Range Action Verification Index):
 /// |SMA(short) - SMA(long)| / SMA(long) * 100
-pub fn ravi_store(store: &CandleStore, short: usize, long: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn ravi_store(
+    store: &CandleStore,
+    short: usize,
+    long: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("ravi:close:{}:{}", short, long);
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let sma_short = sma_close_store(store, short, nodes);
     let sma_long = sma_close_store(store, long, nodes);
     let len = store.len();
@@ -25,8 +32,9 @@ pub fn ravi_store(store: &CandleStore, short: usize, long: usize, nodes: &mut No
     rc
 }
 
-
 pub fn latest_ravi_store(store: &CandleStore, short: usize, long: usize) -> Option<f64> {
     ravi_store(store, short, long, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

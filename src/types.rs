@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::series::RcSeries;
+use serde::{Deserialize, Serialize};
 
 pub(crate) struct Indicator {
     pub id: u32,

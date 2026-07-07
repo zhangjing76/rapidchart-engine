@@ -41,7 +41,6 @@ pub fn projected_aggregate_volume_store(
     rc
 }
 
-
 pub fn latest_projected_aggregate_volume_store(store: &CandleStore, period: usize) -> Option<f64> {
     if store.len() == 0 || period == 0 {
         return None;

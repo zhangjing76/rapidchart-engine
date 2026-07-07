@@ -1,7 +1,7 @@
 use crate::indicators::sma::{latest_sma_store, sma_close_store};
 use crate::rc_into_owned;
-use crate::NodeCache;
 use crate::CandleStore;
+use crate::NodeCache;
 use std::rc::Rc;
 
 pub fn envelope_store(
@@ -21,9 +21,9 @@ pub fn envelope_store(
         nodes.get(&lower_key),
     ) {
         return vec![
-            crate::named_series("upper", (**upper).clone(),),
-            crate::named_series("middle", (**middle).clone(),),
-            crate::named_series("lower", (**lower).clone(),),
+            crate::named_series("upper", (**upper).clone()),
+            crate::named_series("middle", (**middle).clone()),
+            crate::named_series("lower", (**lower).clone()),
         ];
     }
     let upper: Vec<_> = middle
@@ -51,9 +51,9 @@ pub fn envelope_store(
     nodes.insert(lower_key, Rc::new(lower.clone()));
     nodes.insert(key_base, Rc::new(middle.clone()));
     vec![
-        crate::named_series("upper", upper,),
-        crate::named_series("middle", middle,),
-        crate::named_series("lower", lower,),
+        crate::named_series("upper", upper),
+        crate::named_series("middle", middle),
+        crate::named_series("lower", lower),
     ]
 }
 pub fn latest_envelope_store(

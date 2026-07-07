@@ -46,11 +46,11 @@ pub fn macd_store(
         nodes.get(&slow_key),
     ) {
         return vec![
-            crate::named_series("macd", (**macd).clone(),),
-            crate::named_series("signal", (**signal).clone(),),
-            crate::named_series("histogram", (**histogram).clone(),),
-            crate::named_series("fast_ema", (**fast_ema).clone(),),
-            crate::named_series("slow_ema", (**slow_ema).clone(),),
+            crate::named_series("macd", (**macd).clone()),
+            crate::named_series("signal", (**signal).clone()),
+            crate::named_series("histogram", (**histogram).clone()),
+            crate::named_series("fast_ema", (**fast_ema).clone()),
+            crate::named_series("slow_ema", (**slow_ema).clone()),
         ];
     }
     let fast_ema = rc_into_owned(ema_close_store(store, params.fast, nodes));
@@ -76,11 +76,11 @@ pub fn macd_store(
     nodes.insert(signal_key, Rc::new(signal.clone()));
     nodes.insert(histogram_key, Rc::new(histogram.clone()));
     vec![
-        crate::named_series("macd", macd,),
-        crate::named_series("signal", signal,),
-        crate::named_series("histogram", histogram,),
-        crate::named_series("fast_ema", fast_ema,),
-        crate::named_series("slow_ema", slow_ema,),
+        crate::named_series("macd", macd),
+        crate::named_series("signal", signal),
+        crate::named_series("histogram", histogram),
+        crate::named_series("fast_ema", fast_ema),
+        crate::named_series("slow_ema", slow_ema),
     ]
 }
 pub fn latest_macd_store(

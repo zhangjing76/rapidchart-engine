@@ -5,11 +5,7 @@ use std::rc::Rc;
 /// Price Relative: ratio of current close to close N bars ago.
 /// value[i] = close[i] / close[i - period]
 /// This shows relative strength over the lookback period.
-pub fn price_relative_store(
-    store: &CandleStore,
-    period: usize,
-    nodes: &mut NodeCache,
-) -> RcSeries {
+pub fn price_relative_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("price_relative:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -31,7 +27,6 @@ pub fn price_relative_store(
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-
 
 pub fn latest_price_relative_store(store: &CandleStore, period: usize) -> Option<f64> {
     if period == 0 || store.len() <= period {

@@ -1,6 +1,6 @@
-use crate::NodeCache;
-use crate::{CandleStore};
 use crate::indicators::ema::ema_close_store;
+use crate::CandleStore;
+use crate::NodeCache;
 
 /// Elder Ray Index:
 /// Bull Power = High - EMA(close, period)
@@ -8,7 +8,11 @@ use crate::indicators::ema::ema_close_store;
 
 const EMA_STATE_SLOT: usize = 2;
 
-pub fn elder_ray_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
+pub fn elder_ray_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> Vec<crate::NamedSeries> {
     let ema = ema_close_store(store, period, nodes);
     let len = store.len();
     let mut bull = vec![f64::NAN; len];
@@ -31,9 +35,8 @@ pub fn latest_elder_ray_store(
     period: usize,
     outputs: &crate::types::IndicatorArena,
 ) -> (Option<f64>, Option<f64>) {
-    let ema_val = crate::indicators::ema::latest_ema_store(
-        store, period, outputs.get_slot(EMA_STATE_SLOT),
-    );
+    let ema_val =
+        crate::indicators::ema::latest_ema_store(store, period, outputs.get_slot(EMA_STATE_SLOT));
     match ema_val {
         Some(e) => {
             let i = store.len() - 1;

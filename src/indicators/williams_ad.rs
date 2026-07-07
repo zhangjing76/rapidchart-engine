@@ -1,6 +1,6 @@
 use crate::nan_to_none;
-use crate::NodeCache;
 use crate::CandleStore;
+use crate::NodeCache;
 use crate::RcSeries;
 use std::rc::Rc;
 

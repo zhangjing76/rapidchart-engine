@@ -66,7 +66,11 @@ pub fn latest_ultimate_oscillator_store(
             bp_sum += store.close[j] - min_low;
             tr_sum += max_high - min_low;
         }
-        if tr_sum == 0.0 { 0.0 } else { bp_sum / tr_sum }
+        if tr_sum == 0.0 {
+            0.0
+        } else {
+            bp_sum / tr_sum
+        }
     };
     Some(100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0)
 }

@@ -6,7 +6,11 @@ use std::rc::Rc;
 /// Chande Forecast Oscillator: ((close - linreg_forecast) / close) * 100
 /// Measures percentage difference between actual close and the linear regression
 /// forecast value at each bar.
-pub fn chande_forecast_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn chande_forecast_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("cfo:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -30,8 +34,7 @@ pub fn chande_forecast_store(store: &CandleStore, period: usize, nodes: &mut Nod
     for i in period - 1..len {
         let window = &store.close[i + 1 - period..=i];
         let sum_y: f64 = window.iter().sum();
-        let sum_xy: f64 = window.iter().enumerate()
-            .map(|(x, c)| x as f64 * c).sum();
+        let sum_xy: f64 = window.iter().enumerate().map(|(x, c)| x as f64 * c).sum();
         let slope = (n * sum_xy - sum_x * sum_y) / denom;
         let intercept = (sum_y - slope * sum_x) / n;
         let forecast = intercept + slope * (period - 1) as f64;
@@ -45,8 +48,9 @@ pub fn chande_forecast_store(store: &CandleStore, period: usize, nodes: &mut Nod
     rc
 }
 
-
 pub fn latest_chande_forecast_store(store: &CandleStore, period: usize) -> Option<f64> {
     chande_forecast_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

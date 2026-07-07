@@ -1,6 +1,6 @@
+use crate::value_at_slice;
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::value_at_slice;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -99,8 +99,12 @@ pub fn latest_rsi_store(
     }
     let previous_index = store.len() - 2;
     let previous_outputs;
-    let source_outputs = if outputs.value_at_slot(AVG_GAIN_SLOT, previous_index).is_some()
-        && outputs.value_at_slot(AVG_LOSS_SLOT, previous_index).is_some()
+    let source_outputs = if outputs
+        .value_at_slot(AVG_GAIN_SLOT, previous_index)
+        .is_some()
+        && outputs
+            .value_at_slot(AVG_LOSS_SLOT, previous_index)
+            .is_some()
     {
         outputs
     } else {
@@ -112,7 +116,11 @@ pub fn latest_rsi_store(
             close: store.close[..store.len() - 1].to_vec(),
             volume: store.volume[..store.len() - 1].to_vec(),
         };
-        previous_outputs = IndicatorArena::from_named_outputs(rsi_outputs_store(&previous, period, &mut HashMap::new()));
+        previous_outputs = IndicatorArena::from_named_outputs(rsi_outputs_store(
+            &previous,
+            period,
+            &mut HashMap::new(),
+        ));
         &previous_outputs
     };
     let previous_gain = source_outputs

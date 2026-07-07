@@ -1,6 +1,6 @@
 use crate::value_at_slice;
-use crate::NodeCache;
 use crate::CandleStore;
+use crate::NodeCache;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -15,13 +15,15 @@ pub fn aroon_store(
             crate::named_series("up", Rc::clone(values)),
             crate::named_series(
                 "down",
-                nodes.get(&format!("aroon:down:{period}"))
+                nodes
+                    .get(&format!("aroon:down:{period}"))
                     .map(Rc::clone)
                     .unwrap_or_else(|| Rc::new(Vec::new())),
             ),
             crate::named_series(
                 "oscillator",
-                nodes.get(&format!("aroon:oscillator:{period}"))
+                nodes
+                    .get(&format!("aroon:oscillator:{period}"))
                     .map(Rc::clone)
                     .unwrap_or_else(|| Rc::new(Vec::new())),
             ),

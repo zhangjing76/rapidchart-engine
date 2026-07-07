@@ -3,9 +3,9 @@ use crate::indicators::bollinger::bollinger_outputs;
 use crate::indicators::ema::{ema_close_store, latest_ema_store};
 use crate::indicators::sma::{latest_sma_store, sma_close_store};
 use crate::rc_into_owned;
+use crate::CandleStore;
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::CandleStore;
 use std::rc::Rc;
 
 const MIDDLE_SLOT: usize = 1;
@@ -33,10 +33,10 @@ pub fn keltner_store(
         *lower_val = mid - multiplier * atr_value;
     }
     let outputs = vec![
-        crate::named_series("upper", upper,),
-        crate::named_series("middle", middle,),
-        crate::named_series("lower", lower,),
-        crate::named_series("atr_state", atr,),
+        crate::named_series("upper", upper),
+        crate::named_series("middle", middle),
+        crate::named_series("lower", lower),
+        crate::named_series("atr_state", atr),
     ];
     for output in &outputs {
         nodes.insert(

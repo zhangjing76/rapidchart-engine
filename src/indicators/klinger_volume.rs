@@ -1,6 +1,6 @@
+use crate::indicators::ema::ema_series;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use crate::indicators::ema::ema_series;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -11,7 +11,9 @@ use std::rc::Rc;
 /// KVO = EMA(34, VF) - EMA(55, VF)
 pub fn klinger_volume_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "klinger:hlcv".to_string();
-    if let Some(values) = nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     if len < 2 {
@@ -24,7 +26,7 @@ pub fn klinger_volume_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSer
     let mut prev_trend = 1i8;
     for i in 1..len {
         let hlc = store.high[i] + store.low[i] + store.close[i];
-        let prev_hlc = store.high[i-1] + store.low[i-1] + store.close[i-1];
+        let prev_hlc = store.high[i - 1] + store.low[i - 1] + store.close[i - 1];
         let trend: i8 = if hlc > prev_hlc { 1 } else { -1 };
         let dm = store.high[i] - store.low[i];
         if trend == prev_trend {
@@ -32,7 +34,11 @@ pub fn klinger_volume_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSer
         } else {
             cm = dm;
         }
-        let ratio = if cm.abs() > 1e-10 { (2.0 * dm / cm) - 1.0 } else { 0.0 };
+        let ratio = if cm.abs() > 1e-10 {
+            (2.0 * dm / cm) - 1.0
+        } else {
+            0.0
+        };
         vf[i] = store.volume[i] * ratio.abs() * trend as f64 * 100.0;
         prev_trend = trend;
     }
@@ -48,8 +54,9 @@ pub fn klinger_volume_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSer
     rc
 }
 
-
 pub fn latest_klinger_volume_store(store: &CandleStore) -> Option<f64> {
     klinger_volume_store(store, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

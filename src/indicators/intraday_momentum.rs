@@ -7,7 +7,11 @@ use std::rc::Rc;
 /// IMI = (sum of gains / (sum of gains + sum of losses)) * 100
 /// where gain = close - open when close > open, loss = open - close when close < open
 /// Computed over a rolling window of `period` bars.
-pub fn intraday_momentum_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+pub fn intraday_momentum_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
     let key = format!("imi:oc:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -24,19 +28,27 @@ pub fn intraday_momentum_store(store: &CandleStore, period: usize, nodes: &mut N
         let mut losses = 0.0;
         for j in i + 1 - period..=i {
             let diff = store.close[j] - store.open[j];
-            if diff > 0.0 { gains += diff; }
-            else { losses += -diff; }
+            if diff > 0.0 {
+                gains += diff;
+            } else {
+                losses += -diff;
+            }
         }
         let total = gains + losses;
-        out[i] = if total > 0.0 { (gains / total) * 100.0 } else { 50.0 };
+        out[i] = if total > 0.0 {
+            (gains / total) * 100.0
+        } else {
+            50.0
+        };
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
 
-
 pub fn latest_intraday_momentum_store(store: &CandleStore, period: usize) -> Option<f64> {
     intraday_momentum_store(store, period, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

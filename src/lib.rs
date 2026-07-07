@@ -245,7 +245,14 @@ impl ChartEngine {
                 kind
             )));
         }
-        let macd = if kind == "MACD" || kind == "PPO" || kind == "CHAIKIN_OSCILLATOR" || kind == "MA_CROSS" || kind == "PRICE_OSCILLATOR" || kind == "VOLUME_OSCILLATOR" || kind == "SCHAFF_TREND_CYCLE" {
+        let macd = if kind == "MACD"
+            || kind == "PPO"
+            || kind == "CHAIKIN_OSCILLATOR"
+            || kind == "MA_CROSS"
+            || kind == "PRICE_OSCILLATOR"
+            || kind == "VOLUME_OSCILLATOR"
+            || kind == "SCHAFF_TREND_CYCLE"
+        {
             Some(MacdParams {
                 fast: config.fast.unwrap_or(if kind == "CHAIKIN_OSCILLATOR" {
                     3
@@ -455,11 +462,17 @@ impl ChartEngine {
                 .extend(indicator_edges(indicator, &indicator_node));
         }
         // Add derived series (hl2, hlc3) as DAG nodes if any indicator used them.
-        for (key, sources) in [("hl2", &["high", "low"][..]), ("hlc3", &["high", "low", "close"][..])] {
+        for (key, sources) in [
+            ("hl2", &["high", "low"][..]),
+            ("hlc3", &["high", "low", "close"][..]),
+        ] {
             if nodes.contains_key(key) && !dag.nodes.contains(&key.to_string()) {
                 dag.nodes.push(key.to_string());
                 for src in sources {
-                    dag.edges.push(DagEdge { from: src.to_string(), to: key.to_string() });
+                    dag.edges.push(DagEdge {
+                        from: src.to_string(),
+                        to: key.to_string(),
+                    });
                 }
             }
         }
@@ -741,13 +754,15 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "WILLIAMS_AD" => {
-                    let value =
-                        latest_williams_ad_store(&self.bars, indicator.outputs.get_slot(0));
+                    let value = latest_williams_ad_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "CHAIKIN_VOLATILITY" => {
-                    let (value, hl_ema) =
-                        latest_chaikin_volatility_store(&self.bars, indicator.period, &indicator.outputs);
+                    let (value, hl_ema) = latest_chaikin_volatility_store(
+                        &self.bars,
+                        indicator.period,
+                        &indicator.outputs,
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                     upsert_output(&mut indicator.outputs, "hl_ema", target_len, hl_ema);
                 }
@@ -931,8 +946,11 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "VALUATION_LINES" => {
-                    let (upper, middle, lower) =
-                        latest_valuation_lines_store(&self.bars, indicator.period, indicator.multiplier);
+                    let (upper, middle, lower) = latest_valuation_lines_store(
+                        &self.bars,
+                        indicator.period,
+                        indicator.multiplier,
+                    );
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
@@ -958,7 +976,11 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "BOLLINGER_PCT_B" => {
-                    let value = latest_bollinger_pct_b_store(&self.bars, indicator.period, indicator.multiplier);
+                    let value = latest_bollinger_pct_b_store(
+                        &self.bars,
+                        indicator.period,
+                        indicator.multiplier,
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "CENTER_OF_GRAVITY" => {
@@ -991,8 +1013,8 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "trigger", target_len, trigger);
                 }
                 "ELDER_RAY" => {
-                    let (bull, bear) = latest_elder_ray_store(
-                        &self.bars, indicator.period, &indicator.outputs);
+                    let (bull, bear) =
+                        latest_elder_ray_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "bull", target_len, bull);
                     upsert_output(&mut indicator.outputs, "bear", target_len, bear);
                 }
@@ -1023,12 +1045,17 @@ impl ChartEngine {
                 }
                 "PRICE_MOMENTUM_OSCILLATOR" => {
                     let value = latest_price_momentum_oscillator_store(
-                        &self.bars, indicator.period, indicator.smooth);
+                        &self.bars,
+                        indicator.period,
+                        indicator.smooth,
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "PRICE_OSCILLATOR" => {
                     let params = indicator.macd.unwrap_or(MacdParams {
-                        fast: 12, slow: 26, signal: 9,
+                        fast: 12,
+                        slow: 26,
+                        signal: 9,
                     });
                     let value = latest_price_oscillator_store(&self.bars, params);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
@@ -1038,7 +1065,8 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "RAVI" => {
-                    let value = latest_ravi_store(&self.bars, indicator.period, indicator.stoch_period);
+                    let value =
+                        latest_ravi_store(&self.bars, indicator.period, indicator.stoch_period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "RELATIVE_VIGOR" => {
@@ -1047,14 +1075,25 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "signal", target_len, signal);
                 }
                 "SCHAFF_TREND_CYCLE" => {
-                    let params = indicator.macd.unwrap_or(MacdParams { fast: 12, slow: 26, signal: 9 });
+                    let params = indicator.macd.unwrap_or(MacdParams {
+                        fast: 12,
+                        slow: 26,
+                        signal: 9,
+                    });
                     let value = latest_schaff_trend_cycle_store(
-                        &self.bars, params.fast, params.slow, indicator.stoch_period);
+                        &self.bars,
+                        params.fast,
+                        params.slow,
+                        indicator.stoch_period,
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "STOCHASTIC_MOMENTUM" => {
                     let value = latest_stochastic_momentum_store(
-                        &self.bars, indicator.period, indicator.smooth);
+                        &self.bars,
+                        indicator.period,
+                        indicator.smooth,
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "SWING_INDEX" => {
@@ -1066,7 +1105,11 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "VOLUME_OSCILLATOR" => {
-                    let params = indicator.macd.unwrap_or(MacdParams { fast: 5, slow: 10, signal: 9 });
+                    let params = indicator.macd.unwrap_or(MacdParams {
+                        fast: 5,
+                        slow: 10,
+                        signal: 9,
+                    });
                     let value = latest_volume_oscillator_store(&self.bars, params);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
@@ -1080,22 +1123,26 @@ impl ChartEngine {
                 }
                 "NEGATIVE_VOLUME_INDEX" => {
                     let value = latest_negative_volume_index_store(
-                        &self.bars, indicator.outputs.get_slot(0));
+                        &self.bars,
+                        indicator.outputs.get_slot(0),
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "POSITIVE_VOLUME_INDEX" => {
                     let value = latest_positive_volume_index_store(
-                        &self.bars, indicator.outputs.get_slot(0));
+                        &self.bars,
+                        indicator.outputs.get_slot(0),
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "PRICE_VOLUME_TREND" => {
-                    let value = latest_price_volume_trend_store(
-                        &self.bars, indicator.outputs.get_slot(0));
+                    let value =
+                        latest_price_volume_trend_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "TRADE_VOLUME_INDEX" => {
-                    let value = latest_trade_volume_index_store(
-                        &self.bars, indicator.outputs.get_slot(0));
+                    let value =
+                        latest_trade_volume_index_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "TWIGGS_MONEY_FLOW" => {
@@ -1103,7 +1150,8 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "PROJECTED_AGGREGATE_VOLUME" => {
-                    let value = latest_projected_aggregate_volume_store(&self.bars, indicator.period);
+                    let value =
+                        latest_projected_aggregate_volume_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "PROJECTED_VOLUME_AT_TIME" => {
@@ -1159,7 +1207,8 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "SHINOHARA_INTENSITY" => {
-                    let (strong, weak) = latest_shinohara_intensity_store(&self.bars, indicator.period);
+                    let (strong, weak) =
+                        latest_shinohara_intensity_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "strong", target_len, strong);
                     upsert_output(&mut indicator.outputs, "weak", target_len, weak);
                 }
@@ -1168,7 +1217,8 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "VERTICAL_HORIZONTAL_FILTER" => {
-                    let value = latest_vertical_horizontal_filter_store(&self.bars, indicator.period);
+                    let value =
+                        latest_vertical_horizontal_filter_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "VORTEX_INDICATOR" => {
@@ -1181,7 +1231,11 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "BOLLINGER_BANDWIDTH" => {
-                    let value = latest_bollinger_bandwidth_store(&self.bars, indicator.period, indicator.multiplier);
+                    let value = latest_bollinger_bandwidth_store(
+                        &self.bars,
+                        indicator.period,
+                        indicator.multiplier,
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "DONCHIAN_WIDTH" => {

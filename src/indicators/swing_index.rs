@@ -9,10 +9,12 @@ use std::rc::Rc;
 /// where T is the limit move (we use ATR as proxy), R is the largest of several ranges.
 pub fn swing_index_store(store: &CandleStore, _nodes: &mut NodeCache) -> RcSeries {
     let key = "swing_index:ohlc".to_string();
-    if let Some(values) = _nodes.get(&key) { return Rc::clone(values); }
+    if let Some(values) = _nodes.get(&key) {
+        return Rc::clone(values);
+    }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
-    if len < 2 { 
+    if len < 2 {
         let rc = Rc::new(out);
         _nodes.insert(key, Rc::clone(&rc));
         return rc;
@@ -20,19 +22,22 @@ pub fn swing_index_store(store: &CandleStore, _nodes: &mut NodeCache) -> RcSerie
     let mut cumulative = 0.0;
     for i in 1..len {
         let c = store.close[i];
-        let cy = store.close[i-1];
+        let cy = store.close[i - 1];
         let o = store.open[i];
-        let oy = store.open[i-1];
+        let oy = store.open[i - 1];
         let h = store.high[i];
         let l = store.low[i];
-        let _hy = store.high[i-1];
-        let _ly = store.low[i-1];
-        
+        let _hy = store.high[i - 1];
+        let _ly = store.low[i - 1];
+
         let k = (h - cy).abs().max((l - cy).abs());
         let tr = (h - l).max((h - cy).abs()).max((l - cy).abs());
-        
-        if tr < 1e-10 { out[i] = cumulative; continue; }
-        
+
+        if tr < 1e-10 {
+            out[i] = cumulative;
+            continue;
+        }
+
         let er = if (h - cy).abs() >= (l - cy).abs() && (h - cy).abs() >= (h - l) {
             (h - cy).abs() + 0.5 * (l - cy).abs() + 0.25 * (cy - oy).abs()
         } else if (l - cy).abs() >= (h - cy).abs() && (l - cy).abs() >= (h - l) {
@@ -40,9 +45,12 @@ pub fn swing_index_store(store: &CandleStore, _nodes: &mut NodeCache) -> RcSerie
         } else {
             (h - l) + 0.25 * (cy - oy).abs()
         };
-        
-        if er.abs() < 1e-10 { out[i] = cumulative; continue; }
-        
+
+        if er.abs() < 1e-10 {
+            out[i] = cumulative;
+            continue;
+        }
+
         let si = 50.0 * ((cy - c) + 0.5 * (cy - oy) + 0.25 * (c - o)) * k / (er * tr);
         cumulative += si;
         out[i] = cumulative;
@@ -52,8 +60,9 @@ pub fn swing_index_store(store: &CandleStore, _nodes: &mut NodeCache) -> RcSerie
     rc
 }
 
-
 pub fn latest_swing_index_store(store: &CandleStore) -> Option<f64> {
     swing_index_store(store, &mut HashMap::new())
-        .last().copied().and_then(|v| if v.is_nan() { None } else { Some(v) })
+        .last()
+        .copied()
+        .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }

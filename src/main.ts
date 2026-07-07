@@ -1320,6 +1320,9 @@ function applySelectedPreset() {
   indicators = preset.indicators.map(indicatorFromConfig);
   const attachStart = performance.now();
   attachIndicators();
+  // Refresh cached column views — engine reallocation during indicator
+  // computation can invalidate old TypedArray views into WASM memory.
+  currentColumns = engine.candleColumns();
   const attachMs = performance.now() - attachStart;
   const listStart = performance.now();
   renderIndicatorList();

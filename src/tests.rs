@@ -153,11 +153,8 @@ mod tests {
         let store = store_from_bars(bars(&[10.0, 12.0, 14.0]));
         assert_eq!(*ema_close_store(&store, 3, &mut HashMap::new()), vec![10.0, 11.0, 12.5]);
     }
-
     #[test]
-    #[test]
-    #[test]
-    fn store_sma_matches_row_sma() {
+fn store_sma_matches_row_sma() {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0, 5.0]);
         let store = store_from_bars(bars.clone());
 
@@ -196,10 +193,8 @@ mod tests {
         assert_eq!(values[3], 75.0);
         assert!((values[4] - 54.54545454545455).abs() < 0.000001);
     }
-
     #[test]
-    #[test]
-    fn hidden_state_outputs_are_not_visible() {
+fn hidden_state_outputs_are_not_visible() {
         assert!(is_visible_output("value"));
         assert!(is_visible_output("histogram"));
         assert!(!is_visible_output("avg_gain"));
@@ -246,24 +241,8 @@ mod tests {
 
         assert_eq!(indicator_nodes(&indicator), vec!["rsi:close:14"]);
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn wma_has_a_computed_dag_node() {
+fn wma_has_a_computed_dag_node() {
         let indicator = Indicator {
             id: 1,
             kind: "WMA".to_string(),
@@ -310,10 +289,8 @@ mod tests {
             vec!["wma:close:10", "wma:close:20", "hma:close:20"]
         );
     }
-
     #[test]
-    #[test]
-    fn dema_has_computed_dag_nodes() {
+fn dema_has_computed_dag_nodes() {
         let mut indicator = indicator_stub("DEMA");
         indicator.period = 15;
         assert_eq!(
@@ -346,31 +323,8 @@ mod tests {
             vec!["sma:close:20", "trima:value:20"]
         );
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn store_volume_indicators_match_row_versions() {
+fn store_volume_indicators_match_row_versions() {
         let mut bars = ohlc(&[(3.0, 0.0, 0.0), (6.0, 0.0, 0.0), (8.0, 1.0, 5.0)]);
         bars[0].volume = 2.0;
         bars[1].volume = 4.0;
@@ -685,13 +639,8 @@ mod tests {
             &["upper", "middle", "lower"],
         );
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn latest_indicator_values_fast_reuses_visible_output_scratch() {
+fn latest_indicator_values_fast_reuses_visible_output_scratch() {
         let mut engine = ChartEngine::new();
         engine.indicators.push(Indicator {
             id: 7,
@@ -777,25 +726,8 @@ mod tests {
         assert_eq!(engine.indicator_values_scratch[1].as_slice(), &[2.0, 3.0]);
         assert_eq!(engine.indicator_values_scratch[2].as_slice(), &[-1.0, 0.5]);
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn ema_nodes_are_reused_by_macd() {
+fn ema_nodes_are_reused_by_macd() {
         let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());
         let store = store_from_bars(bars);
         let mut nodes: NodeCache = HashMap::new();
@@ -847,27 +779,8 @@ mod tests {
         assert_vec_eq!(*nodes["rsi:close:3"], *rsi);
         assert_vec_eq!(*nodes["stoch:rsi:3:3:2:2"], stoch_rsi_outputs[0].values);
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn wma_matches_latest_value() {
+fn wma_matches_latest_value() {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0]);
         let store = store_from_bars(bars);
         assert_eq!(
@@ -886,10 +799,8 @@ mod tests {
             outputs.last().copied().and_then(nan_to_none)
         );
     }
-
     #[test]
-    #[test]
-    fn dema_matches_latest_value() {
+fn dema_matches_latest_value() {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
         let store = store_from_bars(bars);
         let mut nodes = HashMap::new();
@@ -933,21 +844,8 @@ mod tests {
             trima_store(&store, 5, &mut HashMap::new()).last().copied().and_then(nan_to_none)
         );
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn remove_indicator_reports_if_it_removed_one() {
+fn remove_indicator_reports_if_it_removed_one() {
         let mut engine = ChartEngine::new();
         let id = engine
             .add_indicator_from_config(IndicatorConfig {
@@ -970,10 +868,8 @@ mod tests {
         assert!(engine.remove_indicator(id));
         assert!(!engine.remove_indicator(id));
     }
-
     #[test]
-    #[test]
-    fn upsert_candle_store_replaces_latest_or_appends_next() {
+fn upsert_candle_store_replaces_latest_or_appends_next() {
         let mut store = store_from_bars(bars(&[1.0, 2.0]));
         upsert_candle_store(
             &mut store,

@@ -150,6 +150,7 @@ impl IndicatorArena {
 
     /// Resolve a slot name to its index. Returns None if the slot doesn't exist.
     #[inline]
+    #[allow(dead_code)]
     pub(crate) fn slot_index(&self, name: &str) -> Option<usize> {
         self.slots.iter().position(|s| s == name)
     }
@@ -165,6 +166,7 @@ impl IndicatorArena {
     /// Set the last value for a slot by its pre-resolved index. No string lookup.
     /// Caller must call ensure_len first.
     #[inline]
+    #[allow(dead_code)]
     pub(crate) fn upsert_last_at(&mut self, slot_idx: usize, target_len: usize, value: f64) {
         if target_len != self.slot_len {
             self.resize_all(target_len);

@@ -1,31 +1,10 @@
-use crate::indicators::ema::{ema_close, ema_close_store, ema_series};
+use crate::indicators::ema::{ema_close_store, ema_series};
 use crate::NodeCache;
 use crate::{nan_to_none, rc_into_owned};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[allow(dead_code)]
-pub fn trix(bars: &[Bar], period: usize) -> Series {
-    let ema1 = ema_close(bars, period, &mut HashMap::new());
-    let ema2 = ema_series(&ema1, period);
-    let ema3 = ema_series(&ema2, period);
-    let mut out = vec![f64::NAN; bars.len()];
-    for index in 1..bars.len() {
-        {
-            let previous = ema3[index - 1];
-            let current = ema3[index];
-            if !previous.is_nan() && !current.is_nan() {
-                out[index] = if previous != 0.0 {
-                    100.0 * (current / previous - 1.0)
-                } else {
-                    0.0
-                };
-            }
-        }
-    }
-    out
-}
 pub fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("trix:value:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -56,10 +35,6 @@ pub fn trix_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-#[allow(dead_code)]
-pub fn latest_trix(bars: &[Bar], period: usize) -> Option<f64> {
-    trix(bars, period).last().copied().and_then(nan_to_none)
 }
 pub fn latest_trix_store(store: &CandleStore, period: usize) -> Option<f64> {
     trix_store(store, period, &mut HashMap::new())

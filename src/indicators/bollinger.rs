@@ -2,7 +2,7 @@ use crate::indicators::sma::sma_close_store;
 use crate::rc_into_owned;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, Series};
+use crate::{CandleStore, Series};
 use std::rc::Rc;
 
 pub fn bollinger_store(
@@ -58,28 +58,6 @@ pub fn bollinger_outputs(upper: Series, middle: Series, lower: Series) -> Vec<In
             values: lower,
         },
     ]
-}
-#[allow(dead_code)]
-pub fn latest_bollinger(
-    bars: &[Bar],
-    period: usize,
-    multiplier: f64,
-) -> (Option<f64>, Option<f64>, Option<f64>) {
-    if period == 0 || bars.len() < period {
-        return (None, None, None);
-    }
-    let window = &bars[bars.len() - period..];
-    let mean = window.iter().map(|bar| bar.close).sum::<f64>() / period as f64;
-    let variance = window
-        .iter()
-        .map(|bar| {
-            let diff = bar.close - mean;
-            diff * diff
-        })
-        .sum::<f64>()
-        / period as f64;
-    let band = variance.sqrt() * multiplier;
-    (Some(mean + band), Some(mean), Some(mean - band))
 }
 pub fn latest_bollinger_store(
     store: &CandleStore,

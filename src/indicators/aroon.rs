@@ -1,96 +1,10 @@
 use crate::output_at_vec;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{Bar, CandleStore};
+use crate::CandleStore;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn aroon(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let key = format!("aroon:hl:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return vec![
-            IndicatorOutput {
-                name: "up".to_string(),
-                values: (**values).clone(),
-            },
-            IndicatorOutput {
-                name: "down".to_string(),
-                values: nodes
-                    .get(&format!("aroon:down:{period}"))
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
-            IndicatorOutput {
-                name: "oscillator".to_string(),
-                values: nodes
-                    .get(&format!("aroon:oscillator:{period}"))
-                    .map(|rc| (**rc).clone())
-                    .unwrap_or_default(),
-            },
-        ];
-    }
-    let mut up = vec![f64::NAN; bars.len()];
-    let mut down = vec![f64::NAN; bars.len()];
-    let mut oscillator = vec![f64::NAN; bars.len()];
-    if period == 0 || bars.len() < period {
-        return vec![
-            IndicatorOutput {
-                name: "up".to_string(),
-                values: up,
-            },
-            IndicatorOutput {
-                name: "down".to_string(),
-                values: down,
-            },
-            IndicatorOutput {
-                name: "oscillator".to_string(),
-                values: oscillator,
-            },
-        ];
-    }
-    for index in period - 1..bars.len() {
-        let window = &bars[index + 1 - period..=index];
-        let highest_index = window
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.high.total_cmp(&b.high))
-            .map(|(offset, _)| offset)
-            .unwrap_or(0);
-        let lowest_index = window
-            .iter()
-            .enumerate()
-            .min_by(|(_, a), (_, b)| a.low.total_cmp(&b.low))
-            .map(|(offset, _)| offset)
-            .unwrap_or(0);
-        let periods_since_high = period - 1 - highest_index;
-        let periods_since_low = period - 1 - lowest_index;
-        let up_value = 100.0 * (period - periods_since_high) as f64 / period as f64;
-        let down_value = 100.0 * (period - periods_since_low) as f64 / period as f64;
-        up[index] = up_value;
-        down[index] = down_value;
-        oscillator[index] = up_value - down_value;
-    }
-    nodes.insert(key, Rc::new(up.clone()));
-    nodes.insert(format!("aroon:down:{period}"), Rc::new(down.clone()));
-    nodes.insert(
-        format!("aroon:oscillator:{period}"),
-        Rc::new(oscillator.clone()),
-    );
-    vec![
-        IndicatorOutput {
-            name: "up".to_string(),
-            values: up,
-        },
-        IndicatorOutput {
-            name: "down".to_string(),
-            values: down,
-        },
-        IndicatorOutput {
-            name: "oscillator".to_string(),
-            values: oscillator,
-        },
-    ]
-}
 pub fn aroon_store(
     store: &CandleStore,
     period: usize,
@@ -182,16 +96,6 @@ pub fn aroon_store(
             values: oscillator,
         },
     ]
-}
-#[allow(dead_code)]
-pub fn latest_aroon(bars: &[Bar], period: usize) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let outputs = aroon(bars, period, &mut HashMap::new());
-    let index = bars.len().saturating_sub(1);
-    (
-        output_at_vec(&outputs, "up", index),
-        output_at_vec(&outputs, "down", index),
-        output_at_vec(&outputs, "oscillator", index),
-    )
 }
 pub fn latest_aroon_store(
     store: &CandleStore,

@@ -2,74 +2,10 @@ use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
 use crate::{output_at, output_at_vec};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[allow(dead_code)]
-pub fn rsi(bars: &[Bar], period: usize) -> Series {
-    rsi_outputs(bars, period).remove(0).values
-}
-pub fn rsi_outputs(bars: &[Bar], period: usize) -> Vec<IndicatorOutput> {
-    let mut values = vec![f64::NAN; bars.len()];
-    let mut avg_gains = vec![f64::NAN; bars.len()];
-    let mut avg_losses = vec![f64::NAN; bars.len()];
-    if bars.len() <= period {
-        return vec![
-            IndicatorOutput {
-                name: "value".to_string(),
-                values,
-            },
-            IndicatorOutput {
-                name: "avg_gain".to_string(),
-                values: avg_gains,
-            },
-            IndicatorOutput {
-                name: "avg_loss".to_string(),
-                values: avg_losses,
-            },
-        ];
-    }
-    let mut avg_gain = 0.0;
-    let mut avg_loss = 0.0;
-    for i in 1..=period {
-        let change = bars[i].close - bars[i - 1].close;
-        if change >= 0.0 {
-            avg_gain += change;
-        } else {
-            avg_loss -= change;
-        }
-    }
-    avg_gain /= period as f64;
-    avg_loss /= period as f64;
-    values[period] = rsi_value(avg_gain, avg_loss);
-    avg_gains[period] = avg_gain;
-    avg_losses[period] = avg_loss;
-    for i in period + 1..bars.len() {
-        let change = bars[i].close - bars[i - 1].close;
-        let gain = change.max(0.0);
-        let loss = (-change).max(0.0);
-        avg_gain = (avg_gain * (period - 1) as f64 + gain) / period as f64;
-        avg_loss = (avg_loss * (period - 1) as f64 + loss) / period as f64;
-        values[i] = rsi_value(avg_gain, avg_loss);
-        avg_gains[i] = avg_gain;
-        avg_losses[i] = avg_loss;
-    }
-    vec![
-        IndicatorOutput {
-            name: "value".to_string(),
-            values,
-        },
-        IndicatorOutput {
-            name: "avg_gain".to_string(),
-            values: avg_gains,
-        },
-        IndicatorOutput {
-            name: "avg_loss".to_string(),
-            values: avg_losses,
-        },
-    ]
-}
 pub fn rsi_outputs_store(
     store: &CandleStore,
     period: usize,
@@ -168,48 +104,6 @@ pub fn rsi_value(avg_gain: f64, avg_loss: f64) -> f64 {
         100.0 - 100.0 / (1.0 + avg_gain / avg_loss)
     }
 }
-#[allow(dead_code)]
-pub fn latest_rsi(
-    bars: &[Bar],
-    period: usize,
-    outputs: &IndicatorArena,
-) -> (Option<f64>, Option<f64>, Option<f64>) {
-    if period == 0 || bars.len() <= period {
-        return (None, None, None);
-    }
-    if bars.len() == period + 1 {
-        let outputs = rsi_outputs(bars, period);
-        let index = bars.len() - 1;
-        return (
-            output_at_vec(&outputs, "value", index),
-            output_at_vec(&outputs, "avg_gain", index),
-            output_at_vec(&outputs, "avg_loss", index),
-        );
-    }
-    let previous_index = bars.len() - 2;
-    let previous_outputs;
-    let source_outputs = if output_at(outputs, "avg_gain", previous_index).is_some()
-        && output_at(outputs, "avg_loss", previous_index).is_some()
-    {
-        outputs
-    } else {
-        previous_outputs =
-            IndicatorArena::from_outputs(rsi_outputs(&bars[..bars.len() - 1], period));
-        &previous_outputs
-    };
-    let previous_gain = output_at(source_outputs, "avg_gain", previous_index).unwrap_or(0.0);
-    let previous_loss = output_at(source_outputs, "avg_loss", previous_index).unwrap_or(0.0);
-    let change = bars.last().expect("checked non-empty").close - bars[previous_index].close;
-    let gain = change.max(0.0);
-    let loss = (-change).max(0.0);
-    let avg_gain = (previous_gain * (period - 1) as f64 + gain) / period as f64;
-    let avg_loss = (previous_loss * (period - 1) as f64 + loss) / period as f64;
-    (
-        Some(rsi_value(avg_gain, avg_loss)),
-        Some(avg_gain),
-        Some(avg_loss),
-    )
-}
 pub fn latest_rsi_store(
     store: &CandleStore,
     period: usize,
@@ -258,15 +152,6 @@ pub fn latest_rsi_store(
         Some(avg_gain),
         Some(avg_loss),
     )
-}
-pub fn rsi_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("rsi:close:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = rsi_outputs(bars, period).remove(0).values;
-    nodes.insert(key, Rc::new(values.clone()));
-    values
 }
 pub fn rsi_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("rsi:close:{period}");

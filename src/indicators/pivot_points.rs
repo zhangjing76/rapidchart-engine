@@ -1,9 +1,8 @@
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{Bar, CandleStore};
+use crate::CandleStore;
 use std::rc::Rc;
 
-#[allow(dead_code)]
 type PivotPointsResult = (
     Option<f64>,
     Option<f64>,
@@ -54,22 +53,6 @@ pub fn pivot_points_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<Ind
             values: s2,
         },
     ]
-}
-#[allow(dead_code)]
-pub fn latest_pivot_points(bars: &[Bar]) -> PivotPointsResult {
-    let previous = match bars.iter().nth_back(1) {
-        Some(previous) => previous,
-        None => return (None, None, None, None, None),
-    };
-    let pivot = (previous.high + previous.low + previous.close) / 3.0;
-    let range = previous.high - previous.low;
-    (
-        Some(pivot),
-        Some(2.0 * pivot - previous.low),
-        Some(2.0 * pivot - previous.high),
-        Some(pivot + range),
-        Some(pivot - range),
-    )
 }
 pub fn latest_pivot_points_store(store: &CandleStore) -> PivotPointsResult {
     if store.len() < 2 {

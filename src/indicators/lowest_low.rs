@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Lowest Low Value over a rolling window of `period` bars.
@@ -22,18 +22,6 @@ pub fn lowest_low_store(store: &CandleStore, period: usize, nodes: &mut NodeCach
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-
-#[allow(dead_code)]
-pub fn latest_lowest_low(bars: &[Bar], period: usize) -> Option<f64> {
-    if period == 0 || bars.len() < period {
-        return None;
-    }
-    let min = bars[bars.len() - period..]
-        .iter()
-        .map(|b| b.low)
-        .fold(f64::INFINITY, f64::min);
-    Some(min)
 }
 
 pub fn latest_lowest_low_store(store: &CandleStore, period: usize) -> Option<f64> {

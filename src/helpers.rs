@@ -48,25 +48,6 @@ pub(crate) fn output_at_vec(
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
-#[allow(dead_code)]
-pub(crate) fn upsert_bar(bars: &mut Vec<Bar>, bar: Bar) -> bool {
-    match bars.last_mut() {
-        Some(last) if last.time == bar.time => {
-            *last = bar;
-            true
-        }
-        Some(last) if last.time < bar.time => {
-            bars.push(bar);
-            true
-        }
-        None => {
-            bars.push(bar);
-            true
-        }
-        _ => false,
-    }
-}
-
 pub(crate) fn upsert_candle_store(bars: &mut CandleStore, bar: Bar) -> bool {
     match bars.last_time() {
         Some(time) if time == bar.time => {

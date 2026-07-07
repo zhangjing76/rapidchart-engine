@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Median Price = (High + Low) / 2
@@ -19,12 +19,6 @@ pub fn median_price_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSerie
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-
-#[allow(dead_code)]
-pub fn latest_median_price(bars: &[Bar]) -> Option<f64> {
-    let bar = bars.last()?;
-    Some((bar.high + bar.low) / 2.0)
 }
 
 pub fn latest_median_price_store(store: &CandleStore) -> Option<f64> {

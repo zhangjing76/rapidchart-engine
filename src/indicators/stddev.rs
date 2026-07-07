@@ -1,6 +1,6 @@
 use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -31,41 +31,6 @@ pub fn stddev_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-#[allow(dead_code)]
-pub fn stddev(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![f64::NAN; bars.len()];
-    if period == 0 || bars.len() < period {
-        return out;
-    }
-    for (index, item) in out.iter_mut().enumerate().skip(period - 1) {
-        let window = &bars[index + 1 - period..=index];
-        let mean = window.iter().map(|bar| bar.close).sum::<f64>() / period as f64;
-        let variance = window
-            .iter()
-            .map(|bar| {
-                let diff = bar.close - mean;
-                diff * diff
-            })
-            .sum::<f64>()
-            / period as f64;
-        *item = variance.sqrt();
-    }
-    out
-}
-#[allow(dead_code)]
-pub fn stddev_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("stddev:close:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = stddev(bars, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
-#[allow(dead_code)]
-pub fn latest_stddev(bars: &[Bar], period: usize) -> Option<f64> {
-    stddev(bars, period).last().copied().and_then(nan_to_none)
 }
 pub fn latest_stddev_store(store: &CandleStore, period: usize) -> Option<f64> {
     stddev_store(store, period, &mut HashMap::new())

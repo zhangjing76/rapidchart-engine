@@ -1,46 +1,10 @@
-use crate::indicators::ema::{ema_close, ema_close_store, ema_series};
+use crate::indicators::ema::{ema_close_store, ema_series};
 use crate::NodeCache;
 use crate::{nan_to_none, rc_into_owned};
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[allow(dead_code)]
-pub fn dema(bars: &[Bar], period: usize) -> Series {
-    let ema1 = ema_close(bars, period, &mut HashMap::new());
-    let ema2 = ema_series(&ema1, period);
-    ema1.iter()
-        .zip(ema2.iter())
-        .map(|(first, second)| match (first, second) {
-            (first, second) if !first.is_nan() && !second.is_nan() => 2.0 * *first - *second,
-            _ => f64::NAN,
-        })
-        .collect()
-}
-#[allow(dead_code)]
-pub fn dema_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("dema:value:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let ema1 = ema_close(bars, period, nodes);
-    let ema2_key = format!("dema:ema2:{period}");
-    let ema2 = nodes
-        .get(&ema2_key)
-        .map(|rc| (**rc).clone())
-        .unwrap_or_else(|| ema_series(&ema1, period));
-    nodes.insert(ema2_key, Rc::new(ema2.clone()));
-    let values: Vec<_> = ema1
-        .iter()
-        .zip(ema2.iter())
-        .map(|(first, second)| match (first, second) {
-            (first, second) if !first.is_nan() && !second.is_nan() => 2.0 * *first - *second,
-            _ => f64::NAN,
-        })
-        .collect();
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("dema:value:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -64,10 +28,6 @@ pub fn dema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
     let rc = Rc::new(values);
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-#[allow(dead_code)]
-pub fn latest_dema(bars: &[Bar], period: usize) -> Option<f64> {
-    dema(bars, period).last().copied().and_then(nan_to_none)
 }
 pub fn latest_dema_store(store: &CandleStore, period: usize) -> Option<f64> {
     dema_store(store, period, &mut HashMap::new())

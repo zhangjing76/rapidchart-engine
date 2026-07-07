@@ -1,12 +1,12 @@
-use crate::indicators::atr::{atr_store, latest_atr, latest_atr_store};
+use crate::indicators::atr::{atr_store, latest_atr_store};
 use crate::indicators::bollinger::bollinger_outputs;
-use crate::indicators::ema::{ema_close_store, latest_ema, latest_ema_store};
-use crate::indicators::sma::{latest_sma, latest_sma_store, sma_close_store};
+use crate::indicators::ema::{ema_close_store, latest_ema_store};
+use crate::indicators::sma::{latest_sma_store, sma_close_store};
 use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{Bar, CandleStore};
+use crate::CandleStore;
 use std::rc::Rc;
 
 pub fn keltner_store(
@@ -51,24 +51,6 @@ pub fn keltner_store(
         );
     }
     outputs
-}
-#[allow(dead_code)]
-pub fn latest_keltner(
-    bars: &[Bar],
-    period: usize,
-    multiplier: f64,
-    outputs: &IndicatorArena,
-) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let middle = latest_ema(bars, period, outputs.get("middle"));
-    let atr = latest_atr(bars, period, None);
-    match (middle, atr) {
-        (Some(middle), Some(atr)) => (
-            Some(middle + multiplier * atr),
-            Some(middle),
-            Some(middle - multiplier * atr),
-        ),
-        _ => (None, middle, None),
-    }
 }
 pub fn latest_keltner_store(
     store: &CandleStore,
@@ -116,23 +98,6 @@ pub fn starc_store(
         );
     }
     outputs
-}
-#[allow(dead_code)]
-pub fn latest_starc(
-    bars: &[Bar],
-    period: usize,
-    multiplier: f64,
-) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let middle = latest_sma(bars, period);
-    let atr = latest_atr(bars, period, None);
-    match (middle, atr) {
-        (Some(middle), Some(atr)) => (
-            Some(middle + multiplier * atr),
-            Some(middle),
-            Some(middle - multiplier * atr),
-        ),
-        _ => (None, middle, None),
-    }
 }
 pub fn latest_starc_store(
     store: &CandleStore,

@@ -1,11 +1,9 @@
 use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries};
+use crate::CandleStore;
+use crate::RcSeries;
 use std::rc::Rc;
 
-pub fn williams_ad_step(previous_close: f64, bar: &Bar) -> f64 {
-    williams_ad_step_parts(previous_close, bar.high, bar.low, bar.close)
-}
 pub fn williams_ad_step_parts(previous_close: f64, high: f64, low: f64, close: f64) -> f64 {
     if close > previous_close {
         close - previous_close.min(low)
@@ -36,24 +34,6 @@ pub fn williams_ad_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-#[allow(dead_code)]
-pub fn latest_williams_ad(bars: &[Bar], output: Option<&[f64]>) -> Option<f64> {
-    let last = bars.last()?;
-    if bars.len() == 1 {
-        return Some(0.0);
-    }
-    let previous = bars
-        .len()
-        .checked_sub(2)
-        .and_then(|index| {
-            output
-                .and_then(|values| values.get(index))
-                .copied()
-                .and_then(nan_to_none)
-        })
-        .unwrap_or(0.0);
-    Some(previous + williams_ad_step(bars[bars.len() - 2].close, last))
 }
 pub fn latest_williams_ad_store(store: &CandleStore, output: Option<&[f64]>) -> Option<f64> {
     let index = store.len().checked_sub(1)?;

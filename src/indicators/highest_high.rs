@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Highest High Value over a rolling window of `period` bars.
@@ -22,18 +22,6 @@ pub fn highest_high_store(store: &CandleStore, period: usize, nodes: &mut NodeCa
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-
-#[allow(dead_code)]
-pub fn latest_highest_high(bars: &[Bar], period: usize) -> Option<f64> {
-    if period == 0 || bars.len() < period {
-        return None;
-    }
-    let max = bars[bars.len() - period..]
-        .iter()
-        .map(|b| b.high)
-        .fold(f64::NEG_INFINITY, f64::max);
-    Some(max)
 }
 
 pub fn latest_highest_high_store(store: &CandleStore, period: usize) -> Option<f64> {

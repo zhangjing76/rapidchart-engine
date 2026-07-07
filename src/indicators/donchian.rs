@@ -1,7 +1,7 @@
 use crate::indicators::bollinger::bollinger_outputs;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{Bar, CandleStore};
+use crate::CandleStore;
 use std::rc::Rc;
 
 pub fn donchian_store(
@@ -36,22 +36,6 @@ pub fn donchian_store(
         );
     }
     outputs
-}
-#[allow(dead_code)]
-pub fn latest_donchian(bars: &[Bar], period: usize) -> (Option<f64>, Option<f64>, Option<f64>) {
-    if period == 0 || bars.len() < period {
-        return (None, None, None);
-    }
-    let window = &bars[bars.len() - period..];
-    let high = window
-        .iter()
-        .map(|bar| bar.high)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let low = window
-        .iter()
-        .map(|bar| bar.low)
-        .fold(f64::INFINITY, f64::min);
-    (Some(high), Some((high + low) / 2.0), Some(low))
 }
 pub fn latest_donchian_store(
     store: &CandleStore,
@@ -102,13 +86,6 @@ pub fn price_channel_store(
         );
     }
     outputs
-}
-#[allow(dead_code)]
-pub fn latest_price_channel(
-    bars: &[Bar],
-    period: usize,
-) -> (Option<f64>, Option<f64>, Option<f64>) {
-    latest_donchian(bars, period)
 }
 pub fn latest_price_channel_store(
     store: &CandleStore,

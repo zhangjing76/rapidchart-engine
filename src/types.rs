@@ -129,6 +129,7 @@ impl IndicatorArena {
     }
 
     /// Set the last value for a named output. If the slot doesn't exist, create it.
+    #[inline]
     pub(crate) fn upsert_last(&mut self, name: &str, target_len: usize, value: f64) {
         if target_len != self.slot_len {
             self.resize_all(target_len);
@@ -145,6 +146,31 @@ impl IndicatorArena {
                 self.data[start + self.slot_len - 1] = value;
             }
         }
+    }
+
+    /// Resolve a slot name to its index. Returns None if the slot doesn't exist.
+    #[inline]
+    pub(crate) fn slot_index(&self, name: &str) -> Option<usize> {
+        self.slots.iter().position(|s| s == name)
+    }
+
+    /// Ensure arena slot_len matches target. Call once per tick before upsert_last_at.
+    #[inline]
+    pub(crate) fn ensure_len(&mut self, target_len: usize) {
+        if target_len != self.slot_len {
+            self.resize_all(target_len);
+        }
+    }
+
+    /// Set the last value for a slot by its pre-resolved index. No string lookup.
+    /// Caller must call ensure_len first.
+    #[inline]
+    pub(crate) fn upsert_last_at(&mut self, slot_idx: usize, target_len: usize, value: f64) {
+        if target_len != self.slot_len {
+            self.resize_all(target_len);
+        }
+        let offset = slot_idx * self.slot_len + self.slot_len - 1;
+        self.data[offset] = value;
     }
 
     /// Number of output slots.

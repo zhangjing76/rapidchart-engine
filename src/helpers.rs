@@ -20,6 +20,8 @@ pub(crate) fn rc_one_output(rc: RcSeries) -> Vec<crate::types::IndicatorOutput> 
     }]
 }
 
+/// Fast-path upsert for the incremental hot path. Resolves slot by name (1-7 slots typical).
+#[inline]
 pub(crate) fn upsert_output(
     outputs: &mut IndicatorArena,
     name: &str,

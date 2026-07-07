@@ -458,15 +458,9 @@ impl ChartEngine {
     }
 
     fn update_indicators_incremental(&mut self) -> bool {
-        if !self
-            .indicators
-            .iter()
-            .all(|indicator| is_valid_kind(indicator.kind.as_str()))
-        {
-            return false;
-        }
         let target_len = self.bars.len();
         for indicator in &mut self.indicators {
+            indicator.outputs.ensure_len(target_len);
             match indicator.kind.as_str() {
                 "SMA" => upsert_output(
                     &mut indicator.outputs,

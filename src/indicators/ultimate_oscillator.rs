@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{CandleStore, Series};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 pub fn ultimate_oscillator_store(
@@ -8,15 +8,16 @@ pub fn ultimate_oscillator_store(
     medium: usize,
     long: usize,
     nodes: &mut NodeCache,
-) -> Series {
+) -> RcSeries {
     let key = format!("uo:{short}:{medium}:{long}");
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let mut out = vec![f64::NAN; store.len()];
     if short == 0 || medium == 0 || long == 0 || store.len() <= long {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
+        let rc = Rc::new(out);
+        nodes.insert(key, Rc::clone(&rc));
+        return rc;
     }
     let mut bp = vec![0.0; store.len()];
     let mut tr = vec![0.0; store.len()];
@@ -40,8 +41,9 @@ pub fn ultimate_oscillator_store(
         };
         out[index] = 100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0;
     }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
+    let rc = Rc::new(out);
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 pub fn latest_ultimate_oscillator_store(
     store: &CandleStore,

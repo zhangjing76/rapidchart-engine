@@ -3,17 +3,17 @@ use crate::indicators::ema::ema_series;
 use crate::IndicatorArena;
 use crate::MacdParams;
 use crate::NodeCache;
-use crate::{CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 pub fn chaikin_oscillator_store(
     store: &CandleStore,
     params: MacdParams,
     nodes: &mut NodeCache,
-) -> Series {
+) -> RcSeries {
     let key = format!("chaikin:{}:{}", params.fast, params.slow);
     if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
+        return Rc::clone(values);
     }
     let adl_values = adl_store(store, nodes);
     let fast = ema_series(&adl_values, params.fast);
@@ -26,8 +26,9 @@ pub fn chaikin_oscillator_store(
             _ => f64::NAN,
         })
         .collect();
-    nodes.insert(key, Rc::new(values.clone()));
-    values
+    let rc = Rc::new(values);
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 pub fn chaikin_volatility_store(
     store: &CandleStore,

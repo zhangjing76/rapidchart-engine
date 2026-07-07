@@ -1,6 +1,6 @@
 use crate::bar::CandleStore;
-use crate::helpers::{one_output, rc_one_output};
-use crate::series::{rc_into_owned, NodeCache};
+use crate::helpers::rc_one_output;
+use crate::series::NodeCache;
 use crate::types::{IndicatorOutput, MacdParams};
 
 use crate::indicators::adl::adl_store;
@@ -148,33 +148,33 @@ pub(crate) fn compute_indicator_store(
     nodes: &mut NodeCache,
 ) -> Vec<IndicatorOutput> {
     match kind {
-        "SMA" => one_output(rc_into_owned(sma_close_store(store, period, nodes))),
-        "EMA" => one_output(rc_into_owned(ema_close_store(store, period, nodes))),
+        "SMA" => rc_one_output(sma_close_store(store, period, nodes)),
+        "EMA" => rc_one_output(ema_close_store(store, period, nodes)),
         "RSI" => rsi_outputs_store(store, period, nodes),
         "ROC" => rc_one_output(roc_store(store, period, nodes)),
         "CCI" => rc_one_output(cci_store(store, period, nodes)),
         "MFI" => rc_one_output(mfi_store(store, period, nodes)),
         "CMF" => rc_one_output(cmf_store(store, period, nodes)),
         "WILLIAMS_R" => rc_one_output(williams_r_store(store, period, nodes)),
-        "OBV" => one_output(rc_into_owned(obv_store(store, nodes))),
-        "ADL" => one_output(rc_into_owned(adl_store(store, nodes))),
+        "OBV" => rc_one_output(obv_store(store, nodes)),
+        "ADL" => rc_one_output(adl_store(store, nodes)),
         "VWAP" => vwap_store(store, nodes),
         "VWMA" => rc_one_output(vwma_store(store, period, nodes)),
         "WILLIAMS_AD" => rc_one_output(williams_ad_store(store, nodes)),
-        "ATR" => one_output(rc_into_owned(atr_store(store, period, nodes))),
+        "ATR" => rc_one_output(atr_store(store, period, nodes)),
         "ADX" => adx_store(store, period, nodes),
         "SUPERTREND" => supertrend_store(store, period, multiplier, nodes),
         "KELTNER" => keltner_store(store, period, multiplier, nodes),
         "STARC" => starc_store(store, period, multiplier, nodes),
-        "WMA" => one_output(rc_into_owned(wma_store(store, period, nodes))),
-        "HMA" => one_output(rc_into_owned(hma_store(store, period, nodes))),
+        "WMA" => rc_one_output(wma_store(store, period, nodes)),
+        "HMA" => rc_one_output(hma_store(store, period, nodes)),
         "LINEAR_REGRESSION" => rc_one_output(linear_regression_store(store, period, nodes)),
         "LINEAR_REG_FORECAST" => rc_one_output(linear_reg_forecast_store(store, period, nodes)),
         "LINEAR_REG_INTERCEPT" => rc_one_output(linear_reg_intercept_store(store, period, nodes)),
         "DEMA" => rc_one_output(dema_store(store, period, nodes)),
         "TEMA" => rc_one_output(tema_store(store, period, nodes)),
         "TRIMA" => rc_one_output(trima_store(store, period, nodes)),
-        "STDDEV" => one_output(rc_into_owned(stddev_store(store, period, nodes))),
+        "STDDEV" => rc_one_output(stddev_store(store, period, nodes)),
         "ENVELOPE" => envelope_store(store, period, multiplier, nodes),
         "TRIX" => rc_one_output(trix_store(store, period, nodes)),
         "TSI" => rc_one_output(tsi_store(store, period, stoch_period, nodes)),
@@ -191,10 +191,10 @@ pub(crate) fn compute_indicator_store(
         "ICHIMOKU" => ichimoku_store(store, tenkan_period, kijun_period, senkou_b_period, nodes),
         "PIVOT_POINTS" => pivot_points_store(store, nodes),
         "AROON" => aroon_store(store, period, nodes),
-        "ULTIMATE_OSCILLATOR" => one_output(ultimate_oscillator_store(store, period, stoch_period, smooth, nodes)),
+        "ULTIMATE_OSCILLATOR" => rc_one_output(ultimate_oscillator_store(store, period, stoch_period, smooth, nodes)),
         "CHAIKIN_VOLATILITY" => rc_one_output(chaikin_volatility_store(store, period, nodes)),
         "STOCH_RSI" => stoch_rsi_store(store, period, stoch_period, smooth, signal, nodes),
-        "CHAIKIN_OSCILLATOR" => one_output(chaikin_oscillator_store(
+        "CHAIKIN_OSCILLATOR" => rc_one_output(chaikin_oscillator_store(
             store, macd_params.unwrap_or(MacdParams { fast: 3, slow: 10, signal: 9 }), nodes,
         )),
         "MACD" => macd_store(store, macd_params.unwrap_or(MacdParams { fast: 12, slow: 26, signal: 9 }), nodes),

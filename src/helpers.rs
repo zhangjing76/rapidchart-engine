@@ -6,13 +6,6 @@ use crate::bar::{Bar, CandleStore};
 use crate::series::RcSeries;
 use crate::types::IndicatorArena;
 
-pub(crate) fn one_output(values: Vec<f64>) -> Vec<crate::types::IndicatorOutput> {
-    vec![crate::types::IndicatorOutput {
-        name: "value".to_string(),
-        values,
-    }]
-}
-
 pub(crate) fn rc_one_output(rc: RcSeries) -> Vec<crate::types::IndicatorOutput> {
     vec![crate::types::IndicatorOutput {
         name: "value".to_string(),

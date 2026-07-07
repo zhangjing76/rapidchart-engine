@@ -554,8 +554,8 @@ fn store_volume_indicators_match_row_versions() {
         }
 
         assert_vec_eq!(
-            ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new()),
-            ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new())
+            *ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new()),
+            &ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new())
         );
         assert_vec_eq!(
             *chaikin_volatility_store(&store, 3, &mut HashMap::new()),
@@ -612,7 +612,7 @@ fn store_volume_indicators_match_row_versions() {
         assert_vec_eq!(*kst_store(&store, &mut HashMap::new()), &kst_store(&store, &mut HashMap::new()));
         assert_vec_eq!(*bop_store(&store, &mut HashMap::new()), &bop_store(&store, &mut HashMap::new()));
         assert_eq!(
-            chaikin_oscillator_store(
+            *chaikin_oscillator_store(
                 &store,
                 MacdParams {
                     fast: 3,
@@ -621,7 +621,7 @@ fn store_volume_indicators_match_row_versions() {
                 },
                 &mut HashMap::new()
             ),
-            chaikin_oscillator_store(
+            *chaikin_oscillator_store(
                 &store,
                 MacdParams {
                     fast: 3,

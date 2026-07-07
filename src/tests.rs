@@ -212,7 +212,7 @@ mod tests {
     fn all_exposed_indicators_support_incremental_updates() {
         for descriptor in indicator_descriptors() {
             assert!(
-                supports_incremental(descriptor.kind),
+                is_valid_kind(descriptor.kind),
                 "{} must be handled incrementally or intentionally hidden",
                 descriptor.kind
             );
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn unknown_indicator_does_not_support_incremental_updates() {
-        assert!(!supports_incremental("UNKNOWN"));
+        assert!(!is_valid_kind("UNKNOWN"));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::types::{DagEdge, Indicator, MacdParams};
 
-pub(crate) fn supports_incremental(kind: &str) -> bool {
+pub(crate) fn is_valid_kind(kind: &str) -> bool {
     matches!(
         kind,
         "SMA"

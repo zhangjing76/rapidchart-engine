@@ -239,7 +239,7 @@ impl ChartEngine {
 
     fn add_indicator_from_config(&mut self, config: IndicatorConfig) -> Result<u32, JsValue> {
         let kind = config.kind.to_uppercase();
-        if !supports_incremental(&kind) {
+        if !is_valid_kind(&kind) {
             return Err(JsValue::from_str(&format!(
                 "unsupported indicator kind: {}",
                 kind
@@ -461,7 +461,7 @@ impl ChartEngine {
         if !self
             .indicators
             .iter()
-            .all(|indicator| supports_incremental(indicator.kind.as_str()))
+            .all(|indicator| is_valid_kind(indicator.kind.as_str()))
         {
             return false;
         }

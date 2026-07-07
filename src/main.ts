@@ -1425,7 +1425,8 @@ function setConfigParam(config: IndicatorConfig, name: string, value: number) {
     name === "kijun_period" ||
     name === "senkou_b_period" ||
     name === "psar_step" ||
-    name === "psar_max_step"
+    name === "psar_max_step" ||
+    name === "anchor"
   ) {
     config[name] = value;
   }

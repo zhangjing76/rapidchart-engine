@@ -1,42 +1,9 @@
 use crate::indicators::ema::ema_series;
-use crate::nan_to_none;
+use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
-#[allow(dead_code)]
-pub fn tsi(bars: &[Bar], long: usize, short: usize) -> Series {
-    let mut momentum = vec![f64::NAN; bars.len()];
-    let mut abs_momentum = vec![f64::NAN; bars.len()];
-    for index in 1..bars.len() {
-        let value = bars[index].close - bars[index - 1].close;
-        momentum[index] = value;
-        abs_momentum[index] = value.abs();
-    }
-    let ema1 = ema_series(&momentum, long);
-    let ema2 = ema_series(&ema1, short);
-    let abs_ema1 = ema_series(&abs_momentum, long);
-    let abs_ema2 = ema_series(&abs_ema1, short);
-    ema2.iter()
-        .zip(abs_ema2.iter())
-        .map(|(num, den)| match (num, den) {
-            (num, den) if !num.is_nan() && !den.is_nan() && *den != 0.0 => 100.0 * *num / *den,
-            (a, b) if !a.is_nan() && !b.is_nan() => 0.0,
-            _ => f64::NAN,
-        })
-        .collect()
-}
-#[allow(dead_code)]
-pub fn tsi_node(bars: &[Bar], long: usize, short: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("tsi:{long}:{short}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = tsi(bars, long, short);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn tsi_store(
     store: &CandleStore,
     long: usize,
@@ -71,13 +38,48 @@ pub fn tsi_store(
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-#[allow(dead_code)]
-pub fn latest_tsi(bars: &[Bar], long: usize, short: usize) -> Option<f64> {
-    tsi(bars, long, short).last().copied().and_then(nan_to_none)
-}
-pub fn latest_tsi_store(store: &CandleStore, long: usize, short: usize) -> Option<f64> {
-    tsi_store(store, long, short, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+
+pub fn latest_tsi_store(
+    store: &CandleStore,
+    long: usize,
+    short: usize,
+    outputs: &IndicatorArena,
+) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
+    if store.len() < 2 {
+        return (None, None, None, None, None);
+    }
+    let momentum = store.close[store.len() - 1] - store.close[store.len() - 2];
+    let abs_momentum = momentum.abs();
+    let alpha_long = 2.0 / (long as f64 + 1.0);
+    let alpha_short = 2.0 / (short as f64 + 1.0);
+    let prev_m_ema1 = outputs
+        .get("m_ema1")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(momentum);
+    let m_ema1 = alpha_long * momentum + (1.0 - alpha_long) * prev_m_ema1;
+    let prev_m_ema2 = outputs
+        .get("m_ema2")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(m_ema1);
+    let m_ema2 = alpha_short * m_ema1 + (1.0 - alpha_short) * prev_m_ema2;
+    let prev_a_ema1 = outputs
+        .get("a_ema1")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(abs_momentum);
+    let a_ema1 = alpha_long * abs_momentum + (1.0 - alpha_long) * prev_a_ema1;
+    let prev_a_ema2 = outputs
+        .get("a_ema2")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(a_ema1);
+    let a_ema2 = alpha_short * a_ema1 + (1.0 - alpha_short) * prev_a_ema2;
+    let value = if a_ema2 != 0.0 {
+        Some(100.0 * m_ema2 / a_ema2)
+    } else {
+        Some(0.0)
+    };
+    (value, Some(m_ema1), Some(m_ema2), Some(a_ema1), Some(a_ema2))
 }

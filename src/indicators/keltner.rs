@@ -1,57 +1,14 @@
-use crate::indicators::atr::{atr_node, atr_store, latest_atr, latest_atr_store};
+use crate::indicators::atr::{atr_store, latest_atr_store};
 use crate::indicators::bollinger::bollinger_outputs;
-use crate::indicators::ema::{ema_close, ema_close_store, latest_ema, latest_ema_store};
-use crate::indicators::sma::{latest_sma, latest_sma_store, sma_close, sma_close_store};
+use crate::indicators::ema::{ema_close_store, latest_ema_store};
+use crate::indicators::sma::{latest_sma_store, sma_close_store};
 use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{Bar, CandleStore};
+use crate::CandleStore;
 use std::rc::Rc;
 
-pub fn keltner(
-    bars: &[Bar],
-    period: usize,
-    multiplier: f64,
-    nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
-    let middle = ema_close(bars, period, nodes);
-    let atr = atr_node(bars, period, nodes);
-    let mut upper = vec![f64::NAN; bars.len()];
-    let mut lower = vec![f64::NAN; bars.len()];
-    for ((upper_val, lower_val), (&mid, &atr_value)) in upper
-        .iter_mut()
-        .zip(lower.iter_mut())
-        .zip(middle.iter().zip(atr.iter()))
-    {
-        if mid.is_nan() || atr_value.is_nan() {
-            continue;
-        };
-        *upper_val = mid + multiplier * atr_value;
-        *lower_val = mid - multiplier * atr_value;
-    }
-    let outputs = vec![
-        IndicatorOutput {
-            name: "upper".to_string(),
-            values: upper,
-        },
-        IndicatorOutput {
-            name: "middle".to_string(),
-            values: middle,
-        },
-        IndicatorOutput {
-            name: "lower".to_string(),
-            values: lower,
-        },
-    ];
-    for output in &outputs {
-        nodes.insert(
-            format!("keltner:{}:{}:{}", output.name, period, multiplier),
-            Rc::new(output.values.clone()),
-        );
-    }
-    outputs
-}
 pub fn keltner_store(
     store: &CandleStore,
     period: usize,
@@ -95,24 +52,6 @@ pub fn keltner_store(
     }
     outputs
 }
-#[allow(dead_code)]
-pub fn latest_keltner(
-    bars: &[Bar],
-    period: usize,
-    multiplier: f64,
-    outputs: &IndicatorArena,
-) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let middle = latest_ema(bars, period, outputs.get("middle"));
-    let atr = latest_atr(bars, period, None);
-    match (middle, atr) {
-        (Some(middle), Some(atr)) => (
-            Some(middle + multiplier * atr),
-            Some(middle),
-            Some(middle - multiplier * atr),
-        ),
-        _ => (None, middle, None),
-    }
-}
 pub fn latest_keltner_store(
     store: &CandleStore,
     period: usize,
@@ -129,36 +68,6 @@ pub fn latest_keltner_store(
         ),
         _ => (None, middle, None),
     }
-}
-pub fn starc(
-    bars: &[Bar],
-    period: usize,
-    multiplier: f64,
-    nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
-    let middle = sma_close(bars, period, nodes);
-    let atr = atr_node(bars, period, nodes);
-    let mut upper = vec![f64::NAN; bars.len()];
-    let mut lower = vec![f64::NAN; bars.len()];
-    for ((upper_val, lower_val), (&mid, &atr_value)) in upper
-        .iter_mut()
-        .zip(lower.iter_mut())
-        .zip(middle.iter().zip(atr.iter()))
-    {
-        if mid.is_nan() || atr_value.is_nan() {
-            continue;
-        };
-        *upper_val = mid + multiplier * atr_value;
-        *lower_val = mid - multiplier * atr_value;
-    }
-    let outputs = bollinger_outputs(upper, middle, lower);
-    for output in &outputs {
-        nodes.insert(
-            format!("starc:{}:{}:{}", output.name, period, multiplier),
-            Rc::new(output.values.clone()),
-        );
-    }
-    outputs
 }
 pub fn starc_store(
     store: &CandleStore,
@@ -189,23 +98,6 @@ pub fn starc_store(
         );
     }
     outputs
-}
-#[allow(dead_code)]
-pub fn latest_starc(
-    bars: &[Bar],
-    period: usize,
-    multiplier: f64,
-) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let middle = latest_sma(bars, period);
-    let atr = latest_atr(bars, period, None);
-    match (middle, atr) {
-        (Some(middle), Some(atr)) => (
-            Some(middle + multiplier * atr),
-            Some(middle),
-            Some(middle - multiplier * atr),
-        ),
-        _ => (None, middle, None),
-    }
 }
 pub fn latest_starc_store(
     store: &CandleStore,

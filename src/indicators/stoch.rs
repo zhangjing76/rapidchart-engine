@@ -2,52 +2,9 @@ use crate::output_at;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, Series};
+use crate::{CandleStore, Series};
 use std::rc::Rc;
 
-#[allow(dead_code)]
-pub fn stochastic(
-    bars: &[Bar],
-    period: usize,
-    smooth: usize,
-    nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
-    let k = stochastic_k(bars, period);
-    let d = smooth_series(&k, smooth);
-    let outputs = vec![
-        IndicatorOutput {
-            name: "k".to_string(),
-            values: k,
-        },
-        IndicatorOutput {
-            name: "d".to_string(),
-            values: d,
-        },
-    ];
-    nodes.insert(
-        format!("stoch:hlc:{period}:{smooth}"),
-        Rc::new(outputs[0].values.clone()),
-    );
-    outputs
-}
-pub fn stochastic_k(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![f64::NAN; bars.len()];
-    if period == 0 || bars.len() < period {
-        return out;
-    }
-    for index in period - 1..bars.len() {
-        let window = &bars[index + 1 - period..=index];
-        let highest_high = window.iter().map(|bar| bar.high).fold(f64::MIN, f64::max);
-        let lowest_low = window.iter().map(|bar| bar.low).fold(f64::MAX, f64::min);
-        let range = highest_high - lowest_low;
-        out[index] = if range == 0.0 {
-            0.0
-        } else {
-            100.0 * (bars[index].close - lowest_low) / range
-        };
-    }
-    out
-}
 pub fn stochastic_k_values(values: &[f64], period: usize) -> Series {
     let mut out = vec![f64::NAN; values.len()];
     if period == 0 || values.len() < period {
@@ -131,41 +88,6 @@ pub fn stochastic_store(
         Rc::new(outputs[0].values.clone()),
     );
     outputs
-}
-#[allow(dead_code)]
-pub fn latest_stochastic(
-    bars: &[Bar],
-    period: usize,
-    smooth: usize,
-    outputs: &IndicatorArena,
-) -> (Option<f64>, Option<f64>) {
-    let Some(last) = bars.last() else {
-        return (None, None);
-    };
-    if period == 0 || bars.len() < period {
-        return (None, None);
-    }
-    let window = &bars[bars.len() - period..];
-    let highest_high = window.iter().map(|bar| bar.high).fold(f64::MIN, f64::max);
-    let lowest_low = window.iter().map(|bar| bar.low).fold(f64::MAX, f64::min);
-    let range = highest_high - lowest_low;
-    let k = if range == 0.0 {
-        0.0
-    } else {
-        100.0 * (last.close - lowest_low) / range
-    };
-    if smooth == 0 || bars.len() < period + smooth - 1 {
-        return (Some(k), None);
-    }
-    let mut values = Vec::with_capacity(smooth);
-    for index in bars.len() - smooth..bars.len() - 1 {
-        let Some(value) = output_at(outputs, "k", index) else {
-            return (Some(k), None);
-        };
-        values.push(value);
-    }
-    values.push(k);
-    (Some(k), Some(values.iter().sum::<f64>() / smooth as f64))
 }
 pub fn latest_stochastic_store(
     store: &CandleStore,

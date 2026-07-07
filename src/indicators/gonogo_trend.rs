@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use crate::indicators::ema::ema_series;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -50,35 +50,6 @@ pub fn gonogo_trend_store(store: &CandleStore, period: usize, nodes: &mut NodeCa
     rc
 }
 
-pub fn gonogo_trend_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("gonogo:close:{period}");
-    if let Some(values) = nodes.get(&key) { return (**values).clone(); }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if period == 0 || len < period + 1 {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    let close: Vec<f64> = bars.iter().map(|b| b.close).collect();
-    let ema = ema_series(&close, period);
-    let mom_period = (period / 2).max(1);
-    for i in mom_period..len {
-        if ema[i].is_nan() { continue; }
-        let c = bars[i].close;
-        let prev = bars[i - mom_period].close;
-        let above = c > ema[i];
-        let below = c < ema[i];
-        let mom_pos = prev > 0.0 && c > prev;
-        let mom_neg = prev > 0.0 && c < prev;
-        if above && mom_pos { out[i] = 1.0; }
-        else if above { out[i] = 0.5; }
-        else if below && mom_neg { out[i] = -1.0; }
-        else if below { out[i] = -0.5; }
-        else { out[i] = 0.0; }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_gonogo_trend_store(store: &CandleStore, period: usize) -> Option<f64> {
     gonogo_trend_store(store, period, &mut HashMap::new())

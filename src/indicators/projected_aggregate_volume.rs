@@ -1,6 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Projected Aggregate Volume:
@@ -42,33 +41,6 @@ pub fn projected_aggregate_volume_store(
     rc
 }
 
-pub fn projected_aggregate_volume_node(
-    bars: &[Bar],
-    period: usize,
-    nodes: &mut NodeCache,
-) -> Series {
-    let key = format!("pav:v:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if period == 0 || len == 0 {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    for i in 0..len {
-        let session_start = if i >= period { i + 1 - period } else { 0 };
-        let bars_elapsed = i - session_start + 1;
-        let cum_vol: f64 = bars[session_start..=i].iter().map(|b| b.volume).sum();
-        let session_len = period.min(i + 1);
-        if bars_elapsed > 0 {
-            out[i] = cum_vol / bars_elapsed as f64 * session_len as f64;
-        }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_projected_aggregate_volume_store(store: &CandleStore, period: usize) -> Option<f64> {
     if store.len() == 0 || period == 0 {

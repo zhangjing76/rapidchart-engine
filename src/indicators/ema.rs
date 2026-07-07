@@ -1,21 +1,8 @@
 use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
-#[allow(dead_code)]
-pub fn ema(bars: &[Bar], period: usize) -> Series {
-    ema_values(bars.iter().map(|bar| bar.close), period)
-}
-pub fn ema_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("ema:close:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = ema(bars, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn ema_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("ema:close:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -56,20 +43,6 @@ pub fn ema_series(values: &[f64], period: usize) -> Series {
         }
     }
     out
-}
-#[allow(dead_code)]
-pub fn latest_ema(bars: &[Bar], period: usize, output: Option<&[f64]>) -> Option<f64> {
-    let last = bars.last()?;
-    if period == 0 || bars.len() == 1 {
-        return Some(last.close);
-    }
-    let previous = output
-        .and_then(|values| values.get(bars.len() - 2))
-        .copied()
-        .and_then(nan_to_none)
-        .unwrap_or(bars[bars.len() - 2].close);
-    let alpha = 2.0 / (period as f64 + 1.0);
-    Some(alpha * last.close + (1.0 - alpha) * previous)
 }
 pub fn latest_ema_store(store: &CandleStore, period: usize, output: Option<&[f64]>) -> Option<f64> {
     let last = store.last_close()?;

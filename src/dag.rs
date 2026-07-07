@@ -1,6 +1,6 @@
 use crate::types::{DagEdge, Indicator, MacdParams};
 
-pub(crate) fn supports_incremental(kind: &str) -> bool {
+pub(crate) fn is_valid_kind(kind: &str) -> bool {
     matches!(
         kind,
         "SMA"
@@ -155,6 +155,16 @@ pub(crate) fn is_visible_output(name: &str) -> bool {
             | "cumulative_pv"
             | "cumulative_volume"
             | "atr_state"
+            | "ema1"
+            | "ema2"
+            | "ema3"
+            | "m_ema1"
+            | "m_ema2"
+            | "a_ema1"
+            | "a_ema2"
+            | "fi_ema"
+            | "adl"
+            | "hl_ema"
     )
 }
 

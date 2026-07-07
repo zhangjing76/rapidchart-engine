@@ -1,6 +1,6 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use crate::indicators::ema::{ema_close_store, ema_close};
+use crate::{CandleStore, RcSeries};
+use crate::indicators::ema::ema_close_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -25,23 +25,6 @@ pub fn disparity_index_store(store: &CandleStore, period: usize, nodes: &mut Nod
     rc
 }
 
-pub fn disparity_index_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("disparity:close:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let ema = ema_close(bars, period, nodes);
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    for i in 0..len {
-        let e = ema[i];
-        if !e.is_nan() && e.abs() > 1e-10 {
-            out[i] = ((bars[i].close - e) / e) * 100.0;
-        }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_disparity_index_store(store: &CandleStore, period: usize) -> Option<f64> {
     disparity_index_store(store, period, &mut HashMap::new())

@@ -1,6 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Volume Underlay: outputs volume value, signed positive for up bars (close >= prev close)
@@ -21,22 +20,6 @@ pub fn volume_underlay_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSe
         }
     }
     let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc)); rc
-}
-pub fn volume_underlay_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "vol_underlay:cv".to_string();
-    if let Some(v) = nodes.get(&key) { return (**v).clone(); }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if len == 0 { nodes.insert(key, Rc::new(out.clone())); return out; }
-    out[0] = bars[0].volume;
-    for i in 1..len {
-        if bars[i].close >= bars[i - 1].close {
-            out[i] = bars[i].volume;
-        } else {
-            out[i] = -bars[i].volume;
-        }
-    }
-    nodes.insert(key, Rc::new(out.clone())); out
 }
 pub fn latest_volume_underlay_store(store: &CandleStore) -> Option<f64> {
     let len = store.len();

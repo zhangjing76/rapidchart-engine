@@ -1,34 +1,9 @@
 use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn atr(bars: &[Bar], period: usize) -> Series {
-    let mut out = vec![f64::NAN; bars.len()];
-    if period == 0 || bars.len() <= period {
-        return out;
-    }
-    let mut current = (1..=period)
-        .map(|index| true_range(bars, index))
-        .sum::<f64>()
-        / period as f64;
-    out[period] = current;
-    for (index, item) in out.iter_mut().enumerate().skip(period + 1) {
-        current = (current * (period - 1) as f64 + true_range(bars, index)) / period as f64;
-        *item = current;
-    }
-    out
-}
-pub fn true_range(bars: &[Bar], index: usize) -> f64 {
-    if index == 0 {
-        return bars[0].high - bars[0].low;
-    }
-    let previous_close = bars[index - 1].close;
-    (bars[index].high - bars[index].low)
-        .max((bars[index].high - previous_close).abs())
-        .max((bars[index].low - previous_close).abs())
-}
 pub fn true_range_store(store: &CandleStore, index: usize) -> f64 {
     if index == 0 {
         return store.high[0] - store.low[0];
@@ -37,15 +12,6 @@ pub fn true_range_store(store: &CandleStore, index: usize) -> f64 {
     (store.high[index] - store.low[index])
         .max((store.high[index] - previous_close).abs())
         .max((store.low[index] - previous_close).abs())
-}
-pub fn atr_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("atr:ohlc:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = atr(bars, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
 }
 pub fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("atr:ohlc:{period}");
@@ -70,22 +36,6 @@ pub fn atr_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-#[allow(dead_code)]
-pub fn latest_atr(bars: &[Bar], period: usize, output: Option<&[f64]>) -> Option<f64> {
-    if period == 0 || bars.len() <= period {
-        return None;
-    }
-    if bars.len() == period + 1 {
-        return atr(bars, period).last().copied().and_then(nan_to_none);
-    }
-    let previous_index = bars.len() - 2;
-    let previous = output
-        .and_then(|values| values.get(previous_index))
-        .copied()
-        .and_then(nan_to_none)
-        .unwrap_or_else(|| atr(&bars[..bars.len() - 1], period)[previous_index]);
-    Some((previous * (period - 1) as f64 + true_range(bars, bars.len() - 1)) / period as f64)
 }
 pub fn latest_atr_store(store: &CandleStore, period: usize, output: Option<&[f64]>) -> Option<f64> {
     if period == 0 || store.len() <= period {

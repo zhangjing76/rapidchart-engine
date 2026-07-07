@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -36,20 +36,6 @@ pub fn awesome_oscillator_store(store: &CandleStore, nodes: &mut NodeCache) -> R
     rc
 }
 
-pub fn awesome_oscillator_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "ao:hl".to_string();
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let midpoints: Vec<f64> = bars.iter().map(|b| (b.high + b.low) / 2.0).collect();
-    let sma5 = sma_of(&midpoints, 5);
-    let sma34 = sma_of(&midpoints, 34);
-    let out: Vec<f64> = sma5.iter().zip(sma34.iter())
-        .map(|(a, b)| if a.is_nan() || b.is_nan() { f64::NAN } else { a - b })
-        .collect();
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_awesome_oscillator_store(store: &CandleStore) -> Option<f64> {
     awesome_oscillator_store(store, &mut HashMap::new())

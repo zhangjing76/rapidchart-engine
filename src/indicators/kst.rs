@@ -1,61 +1,8 @@
-use crate::indicators::roc::{roc, roc_node, roc_store};
-use crate::nan_to_none;
+use crate::indicators::roc::roc_store;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
-#[allow(dead_code)]
-pub fn kst(bars: &[Bar]) -> Series {
-    let roc1 = roc(bars, 10);
-    let roc2 = roc(bars, 15);
-    let roc3 = roc(bars, 20);
-    let roc4 = roc(bars, 30);
-    let sma1 = sma_from_series(&roc1, 10);
-    let sma2 = sma_from_series(&roc2, 10);
-    let sma3 = sma_from_series(&roc3, 10);
-    let sma4 = sma_from_series(&roc4, 15);
-    sma1.iter()
-        .zip(sma2.iter())
-        .zip(sma3.iter())
-        .zip(sma4.iter())
-        .map(|(((a, b), c), d)| match (a, b, c, d) {
-            (a, b, c, d) if !a.is_nan() && !b.is_nan() && !c.is_nan() && !d.is_nan() => {
-                *a + 2.0 * *b + 3.0 * *c + 4.0 * *d
-            }
-            _ => f64::NAN,
-        })
-        .collect()
-}
-#[allow(dead_code)]
-pub fn kst_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "kst:value".to_string();
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let roc1 = roc_node(bars, 10, nodes);
-    let roc2 = roc_node(bars, 15, nodes);
-    let roc3 = roc_node(bars, 20, nodes);
-    let roc4 = roc_node(bars, 30, nodes);
-    let sma1 = sma_from_series(&roc1, 10);
-    let sma2 = sma_from_series(&roc2, 10);
-    let sma3 = sma_from_series(&roc3, 10);
-    let sma4 = sma_from_series(&roc4, 15);
-    let values: Vec<_> = sma1
-        .iter()
-        .zip(sma2.iter())
-        .zip(sma3.iter())
-        .zip(sma4.iter())
-        .map(|(((a, b), c), d)| match (a, b, c, d) {
-            (a, b, c, d) if !a.is_nan() && !b.is_nan() && !c.is_nan() && !d.is_nan() => {
-                *a + 2.0 * *b + 3.0 * *c + 4.0 * *d
-            }
-            _ => f64::NAN,
-        })
-        .collect();
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "kst:value".to_string();
     if let Some(values) = nodes.get(&key) {
@@ -85,15 +32,36 @@ pub fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-#[allow(dead_code)]
-pub fn latest_kst(bars: &[Bar]) -> Option<f64> {
-    kst(bars).last().copied().and_then(nan_to_none)
-}
 pub fn latest_kst_store(store: &CandleStore) -> Option<f64> {
-    kst_store(store, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+    // Need at least 30 + 15 = 45 bars for the last value
+    if store.len() < 45 {
+        return None;
+    }
+    let roc_at = |index: usize, period: usize| -> f64 {
+        if index < period || store.close[index - period] == 0.0 {
+            f64::NAN
+        } else {
+            100.0 * (store.close[index] - store.close[index - period]) / store.close[index - period]
+        }
+    };
+    let sma_roc = |roc_period: usize, sma_period: usize| -> Option<f64> {
+        let end = store.len() - 1;
+        let start = end + 1 - sma_period;
+        let mut sum = 0.0;
+        for i in start..=end {
+            let v = roc_at(i, roc_period);
+            if v.is_nan() {
+                return None;
+            }
+            sum += v;
+        }
+        Some(sum / sma_period as f64)
+    };
+    let s1 = sma_roc(10, 10)?;
+    let s2 = sma_roc(15, 10)?;
+    let s3 = sma_roc(20, 10)?;
+    let s4 = sma_roc(30, 15)?;
+    Some(s1 + 2.0 * s2 + 3.0 * s3 + 4.0 * s4)
 }
 pub fn sma_from_series(values: &[f64], period: usize) -> Series {
     let mut out = vec![f64::NAN; values.len()];

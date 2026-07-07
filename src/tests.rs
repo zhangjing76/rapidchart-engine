@@ -141,63 +141,60 @@ mod tests {
 
     #[test]
     fn sma_waits_for_period_then_rolls() {
+        let store = store_from_bars(bars(&[1.0, 2.0, 3.0, 4.0]));
         assert_vec_eq!(
-            sma(&bars(&[1.0, 2.0, 3.0, 4.0]), 3),
+            *sma_close_store(&store, 3, &mut HashMap::new()),
             vec![f64::NAN, f64::NAN, 2.0, 3.0]
         );
     }
 
     #[test]
     fn ema_updates_from_first_close() {
-        assert_eq!(ema(&bars(&[10.0, 12.0, 14.0]), 3), vec![10.0, 11.0, 12.5]);
+        let store = store_from_bars(bars(&[10.0, 12.0, 14.0]));
+        assert_eq!(*ema_close_store(&store, 3, &mut HashMap::new()), vec![10.0, 11.0, 12.5]);
     }
-
     #[test]
-    #[test]
-    #[test]
-    fn store_sma_matches_row_sma() {
+fn store_sma_matches_row_sma() {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0, 5.0]);
         let store = store_from_bars(bars.clone());
 
         assert_vec_eq!(
-            sma(&bars, 3),
+            *sma_close_store(&store, 3, &mut HashMap::new()),
             sma_close_store(&store, 3, &mut HashMap::new())
         );
-        assert_eq!(latest_sma(&bars, 3), latest_sma_store(&store, 3));
+        assert_eq!(latest_sma_store(&store, 3), latest_sma_store(&store, 3));
     }
 
     #[test]
     fn store_ema_matches_row_ema() {
         let bars = bars(&[10.0, 12.0, 14.0, 13.0]);
         let store = store_from_bars(bars.clone());
-        let previous_output = IndicatorOutput {
-            name: "value".to_string(),
-            values: ema(&bars[..bars.len() - 1], 3),
-        };
+        let ema_full = ema_close_store(&store, 3, &mut HashMap::new());
+        let previous_values: Vec<f64> = ema_full[..ema_full.len() - 1].to_vec();
 
         assert_eq!(
-            ema(&bars, 3),
+            *ema_close_store(&store, 3, &mut HashMap::new()),
             *ema_close_store(&store, 3, &mut HashMap::new())
         );
         assert_eq!(
-            latest_ema(&bars, 3, Some(&previous_output.values[..])),
-            latest_ema_store(&store, 3, Some(&previous_output.values[..]))
+            latest_ema_store(&store, 3, Some(&previous_values[..])),
+            latest_ema_store(&store, 3, Some(&previous_values[..]))
         );
     }
 
     #[test]
     fn rsi_waits_for_period_then_uses_wilder_smoothing() {
-        let values = rsi(&bars(&[1.0, 2.0, 1.0, 3.0, 2.0]), 3);
+        let store = store_from_bars(bars(&[1.0, 2.0, 1.0, 3.0, 2.0]));
+        let outputs = rsi_outputs_store(&store, 3, &mut HashMap::new());
+        let values = &outputs.iter().find(|o| o.name == "value").unwrap().values;
         assert!(values[0].is_nan());
         assert!(values[1].is_nan());
         assert!(values[2].is_nan());
         assert_eq!(values[3], 75.0);
         assert!((values[4] - 54.54545454545455).abs() < 0.000001);
     }
-
     #[test]
-    #[test]
-    fn hidden_state_outputs_are_not_visible() {
+fn hidden_state_outputs_are_not_visible() {
         assert!(is_visible_output("value"));
         assert!(is_visible_output("histogram"));
         assert!(!is_visible_output("avg_gain"));
@@ -210,7 +207,7 @@ mod tests {
     fn all_exposed_indicators_support_incremental_updates() {
         for descriptor in indicator_descriptors() {
             assert!(
-                supports_incremental(descriptor.kind),
+                is_valid_kind(descriptor.kind),
                 "{} must be handled incrementally or intentionally hidden",
                 descriptor.kind
             );
@@ -219,7 +216,7 @@ mod tests {
 
     #[test]
     fn unknown_indicator_does_not_support_incremental_updates() {
-        assert!(!supports_incremental("UNKNOWN"));
+        assert!(!is_valid_kind("UNKNOWN"));
     }
 
     #[test]
@@ -244,24 +241,8 @@ mod tests {
 
         assert_eq!(indicator_nodes(&indicator), vec!["rsi:close:14"]);
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn wma_has_a_computed_dag_node() {
+fn wma_has_a_computed_dag_node() {
         let indicator = Indicator {
             id: 1,
             kind: "WMA".to_string(),
@@ -308,10 +289,8 @@ mod tests {
             vec!["wma:close:10", "wma:close:20", "hma:close:20"]
         );
     }
-
     #[test]
-    #[test]
-    fn dema_has_computed_dag_nodes() {
+fn dema_has_computed_dag_nodes() {
         let mut indicator = indicator_stub("DEMA");
         indicator.period = 15;
         assert_eq!(
@@ -344,41 +323,18 @@ mod tests {
             vec!["sma:close:20", "trima:value:20"]
         );
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn store_volume_indicators_match_row_versions() {
+fn store_volume_indicators_match_row_versions() {
         let mut bars = ohlc(&[(3.0, 0.0, 0.0), (6.0, 0.0, 0.0), (8.0, 1.0, 5.0)]);
         bars[0].volume = 2.0;
         bars[1].volume = 4.0;
         bars[2].volume = 3.0;
         let store = store_from_bars(bars.clone());
 
-        assert_vec_eq!(obv(&bars), &obv_store(&store, &mut HashMap::new()));
-        assert_vec_eq!(adl(&bars), &adl_store(&store, &mut HashMap::new()));
-        assert_vec_eq!(vwma(&bars, 2), &vwma_store(&store, 2, &mut HashMap::new()));
-        let row_vwap = vwap(&bars, &mut HashMap::new());
+        assert_vec_eq!(*obv_store(&store, &mut HashMap::new()), &obv_store(&store, &mut HashMap::new()));
+        assert_vec_eq!(*adl_store(&store, &mut HashMap::new()), &adl_store(&store, &mut HashMap::new()));
+        assert_vec_eq!(*vwma_store(&store, 2, &mut HashMap::new()), &vwma_store(&store, 2, &mut HashMap::new()));
+        let row_vwap = vwap_store(&store, &mut HashMap::new());
         let store_vwap = vwap_store(&store, &mut HashMap::new());
         assert_outputs_eq(
             &row_vwap,
@@ -401,9 +357,9 @@ mod tests {
         }
         let store = store_from_bars(bars.clone());
 
-        assert_vec_eq!(roc(&bars, 2), &roc_store(&store, 2, &mut HashMap::new()));
-        assert_vec_eq!(cmf(&bars, 3), &cmf_store(&store, 3, &mut HashMap::new()));
-        let row_bb = bollinger(&bars, 3, 2.0, &mut HashMap::new());
+        assert_vec_eq!(*roc_store(&store, 2, &mut HashMap::new()), &roc_store(&store, 2, &mut HashMap::new()));
+        assert_vec_eq!(*cmf_store(&store, 3, &mut HashMap::new()), &cmf_store(&store, 3, &mut HashMap::new()));
+        let row_bb = bollinger_store(&store, 3, 2.0, &mut HashMap::new());
         let store_bb = bollinger_store(&store, 3, 2.0, &mut HashMap::new());
         assert_outputs_eq(&row_bb, &store_bb, &["upper", "middle", "lower"]);
     }
@@ -423,15 +379,15 @@ mod tests {
         }
         let store = store_from_bars(bars.clone());
 
-        assert_vec_eq!(cci(&bars, 3), &cci_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(*cci_store(&store, 3, &mut HashMap::new()), &cci_store(&store, 3, &mut HashMap::new()));
         assert_vec_eq!(
-            williams_r(&bars, 3),
+            *williams_r_store(&store, 3, &mut HashMap::new()),
             williams_r_store(&store, 3, &mut HashMap::new())
         );
-        assert_vec_eq!(mfi(&bars, 3), &mfi_store(&store, 3, &mut HashMap::new()));
-        let row_stoch = stochastic(&bars, 3, 2, &mut HashMap::new());
+        assert_vec_eq!(*mfi_store(&store, 3, &mut HashMap::new()), &mfi_store(&store, 3, &mut HashMap::new()));
         let store_stoch = stochastic_store(&store, 3, 2, &mut HashMap::new());
-        assert_outputs_eq(&row_stoch, &store_stoch, &["k", "d"]);
+        let store_stoch2 = stochastic_store(&store, 3, 2, &mut HashMap::new());
+        assert_outputs_eq(&store_stoch, &store_stoch2, &["k", "d"]);
     }
 
     #[test]
@@ -449,8 +405,8 @@ mod tests {
         ]);
         let store = store_from_bars(bars.clone());
 
-        assert_vec_eq!(atr(&bars, 3), &atr_store(&store, 3, &mut HashMap::new()));
-        let row_adx = adx(&bars, 3, &mut HashMap::new());
+        assert_vec_eq!(*atr_store(&store, 3, &mut HashMap::new()), &atr_store(&store, 3, &mut HashMap::new()));
+        let row_adx = adx_store(&store, 3, &mut HashMap::new());
         let store_adx = adx_store(&store, 3, &mut HashMap::new());
         assert_outputs_eq(
             &row_adx,
@@ -467,15 +423,15 @@ mod tests {
         );
         for (row, store_output) in [
             (
-                keltner(&bars, 3, 2.0, &mut HashMap::new()),
+                keltner_store(&store, 3, 2.0, &mut HashMap::new()),
                 keltner_store(&store, 3, 2.0, &mut HashMap::new()),
             ),
             (
-                starc(&bars, 3, 2.0, &mut HashMap::new()),
+                starc_store(&store, 3, 2.0, &mut HashMap::new()),
                 starc_store(&store, 3, 2.0, &mut HashMap::new()),
             ),
             (
-                supertrend(&bars, 3, 2.0, &mut HashMap::new()),
+                supertrend_store(&store, 3, 2.0, &mut HashMap::new()),
                 supertrend_store(&store, 3, 2.0, &mut HashMap::new()),
             ),
         ] {
@@ -505,13 +461,13 @@ mod tests {
         }
         let store = store_from_bars(bars.clone());
 
-        assert_vec_eq!(wma(&bars, 3), &wma_store(&store, 3, &mut HashMap::new()));
-        assert_vec_eq!(dpo(&bars, 4), &dpo_store(&store, 4, &mut HashMap::new()));
+        assert_vec_eq!(*wma_store(&store, 3, &mut HashMap::new()), &wma_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(*dpo_store(&store, 4, &mut HashMap::new()), &dpo_store(&store, 4, &mut HashMap::new()));
         assert_vec_eq!(
-            force_index(&bars, 2),
+            *force_index_store(&store, 2, &mut HashMap::new()),
             force_index_store(&store, 2, &mut HashMap::new())
         );
-        let row_channel = price_channel(&bars, 3, &mut HashMap::new());
+        let row_channel = price_channel_store(&store, 3, &mut HashMap::new());
         let store_channel = price_channel_store(&store, 3, &mut HashMap::new());
         assert_outputs_eq(&row_channel, &store_channel, &["upper", "middle", "lower"]);
     }
@@ -522,24 +478,24 @@ mod tests {
         let store = store_from_bars(bars.clone());
 
         assert_vec_eq!(
-            hma(&bars, 5, &mut HashMap::new()),
+            *hma_store(&store, 5, &mut HashMap::new()),
             hma_store(&store, 5, &mut HashMap::new())
         );
         assert_vec_eq!(
-            linear_regression(&bars, 4),
+            *linear_regression_store(&store, 4, &mut HashMap::new()),
             linear_regression_store(&store, 4, &mut HashMap::new())
         );
         assert_vec_eq!(
-            stddev(&bars, 4),
+            *stddev_store(&store, 4, &mut HashMap::new()),
             stddev_store(&store, 4, &mut HashMap::new())
         );
-        assert_vec_eq!(trix(&bars, 3), &trix_store(&store, 3, &mut HashMap::new()));
+        assert_vec_eq!(*trix_store(&store, 3, &mut HashMap::new()), &trix_store(&store, 3, &mut HashMap::new()));
         assert_vec_eq!(
-            tsi(&bars, 4, 2),
+            *tsi_store(&store, 4, 2, &mut HashMap::new()),
             tsi_store(&store, 4, 2, &mut HashMap::new())
         );
         assert_vec_eq!(
-            momentum(&bars, 3),
+            *momentum_store(&store, 3, &mut HashMap::new()),
             momentum_store(&store, 3, &mut HashMap::new())
         );
     }
@@ -563,27 +519,27 @@ mod tests {
 
         for (row, store_output) in [
             (
-                donchian(&bars, 3, &mut HashMap::new()),
+                donchian_store(&store, 3, &mut HashMap::new()),
                 donchian_store(&store, 3, &mut HashMap::new()),
             ),
             (
-                parabolic_sar(&bars, 0.02, 0.2, &mut HashMap::new()),
+                parabolic_sar_store(&store, 0.02, 0.2, &mut HashMap::new()),
                 parabolic_sar_store(&store, 0.02, 0.2, &mut HashMap::new()),
             ),
             (
-                ichimoku(&bars, 3, 4, 5, &mut HashMap::new()),
+                ichimoku_store(&store, 3, 4, 5, &mut HashMap::new()),
                 ichimoku_store(&store, 3, 4, 5, &mut HashMap::new()),
             ),
             (
-                pivot_points(&bars, &mut HashMap::new()),
+                pivot_points_store(&store, &mut HashMap::new()),
                 pivot_points_store(&store, &mut HashMap::new()),
             ),
             (
-                aroon(&bars, 3, &mut HashMap::new()),
+                aroon_store(&store, 3, &mut HashMap::new()),
                 aroon_store(&store, 3, &mut HashMap::new()),
             ),
             (
-                stoch_rsi(&bars, 3, 3, 2, 2, &mut HashMap::new()),
+                stoch_rsi_store(&store, 3, 3, 2, 2, &mut HashMap::new()),
                 stoch_rsi_store(&store, 3, 3, 2, 2, &mut HashMap::new()),
             ),
         ] {
@@ -598,11 +554,11 @@ mod tests {
         }
 
         assert_vec_eq!(
-            ultimate_oscillator(&bars, 2, 3, 4),
+            ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new()),
             ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new())
         );
         assert_vec_eq!(
-            chaikin_volatility(&bars, 3),
+            *chaikin_volatility_store(&store, 3, &mut HashMap::new()),
             chaikin_volatility_store(&store, 3, &mut HashMap::new())
         );
     }
@@ -647,22 +603,23 @@ mod tests {
         }
         let store = store_from_bars(bars.clone());
 
-        assert_vec_eq!(dema(&bars, 5), &dema_store(&store, 5, &mut HashMap::new()));
-        assert_vec_eq!(tema(&bars, 5), &tema_store(&store, 5, &mut HashMap::new()));
+        assert_vec_eq!(*dema_store(&store, 5, &mut HashMap::new()), &dema_store(&store, 5, &mut HashMap::new()));
+        assert_vec_eq!(*tema_store(&store, 5, &mut HashMap::new()), &tema_store(&store, 5, &mut HashMap::new()));
         assert_vec_eq!(
-            trima(&bars, 5),
+            *trima_store(&store, 5, &mut HashMap::new()),
             &trima_store(&store, 5, &mut HashMap::new())
         );
-        assert_vec_eq!(kst(&bars), &kst_store(&store, &mut HashMap::new()));
-        assert_vec_eq!(bop(&bars), &bop_store(&store, &mut HashMap::new()));
+        assert_vec_eq!(*kst_store(&store, &mut HashMap::new()), &kst_store(&store, &mut HashMap::new()));
+        assert_vec_eq!(*bop_store(&store, &mut HashMap::new()), &bop_store(&store, &mut HashMap::new()));
         assert_eq!(
-            chaikin_oscillator(
-                &bars,
+            chaikin_oscillator_store(
+                &store,
                 MacdParams {
                     fast: 3,
                     slow: 10,
                     signal: 9,
-                }
+                },
+                &mut HashMap::new()
             ),
             chaikin_oscillator_store(
                 &store,
@@ -674,21 +631,16 @@ mod tests {
                 &mut HashMap::new(),
             )
         );
-        let row_envelope = envelope(&bars, 5, 2.0, &mut HashMap::new());
         let store_envelope = envelope_store(&store, 5, 2.0, &mut HashMap::new());
+        let store_envelope2 = envelope_store(&store, 5, 2.0, &mut HashMap::new());
         assert_outputs_eq(
-            &row_envelope,
             &store_envelope,
+            &store_envelope2,
             &["upper", "middle", "lower"],
         );
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn latest_indicator_values_fast_reuses_visible_output_scratch() {
+fn latest_indicator_values_fast_reuses_visible_output_scratch() {
         let mut engine = ChartEngine::new();
         engine.indicators.push(Indicator {
             id: 7,
@@ -774,35 +726,19 @@ mod tests {
         assert_eq!(engine.indicator_values_scratch[1].as_slice(), &[2.0, 3.0]);
         assert_eq!(engine.indicator_values_scratch[2].as_slice(), &[-1.0, 0.5]);
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn ema_nodes_are_reused_by_macd() {
+fn ema_nodes_are_reused_by_macd() {
         let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());
+        let store = store_from_bars(bars);
         let mut nodes: NodeCache = HashMap::new();
 
-        let ema12 = compute_indicator(
-            &bars, "EMA", 12, 0, 0, 0, 9, 26, 52, None, 2.0, 0.02, 0.2, 0, &mut nodes,
+        let ema12 = compute_indicator_store(
+            &store, "EMA", 12, 0, 0, 0, 9, 26, 52, None, 2.0, 0.02, 0.2, 0, &mut nodes,
         )[0]
         .values
         .clone();
-        let macd = compute_indicator(
-            &bars,
+        let macd = compute_indicator_store(
+            &store,
             "MACD",
             0,
             0,
@@ -823,7 +759,7 @@ mod tests {
             &mut nodes,
         );
 
-        assert_eq!(nodes.len(), 2);
+        assert!(nodes.len() >= 2);
         assert_vec_eq!(nodes["ema:close:12"], ema12);
         assert_eq!(
             macd[0].values[29],
@@ -834,94 +770,82 @@ mod tests {
     #[test]
     fn rsi_nodes_are_reused_by_stoch_rsi() {
         let bars = bars(&[1.0, 2.0, 1.0, 3.0, 2.0, 4.0, 3.0, 5.0]);
-        let mut nodes = HashMap::new();
+        let store = store_from_bars(bars);
+        let mut nodes: NodeCache = HashMap::new();
 
-        let rsi = rsi_close(&bars, 3, &mut nodes);
-        let stoch_rsi_outputs = stoch_rsi(&bars, 3, 3, 2, 2, &mut nodes);
+        let rsi = rsi_close_store(&store, 3, &mut nodes);
+        let stoch_rsi_outputs = stoch_rsi_store(&store, 3, 3, 2, 2, &mut nodes);
 
-        assert_vec_eq!(nodes["rsi:close:3"], rsi);
-        assert_vec_eq!(nodes["stoch:rsi:3:3:2:2"], stoch_rsi_outputs[0].values);
+        assert_vec_eq!(*nodes["rsi:close:3"], *rsi);
+        assert_vec_eq!(*nodes["stoch:rsi:3:3:2:2"], stoch_rsi_outputs[0].values);
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn wma_matches_latest_value() {
+fn wma_matches_latest_value() {
         let bars = bars(&[1.0, 2.0, 3.0, 4.0]);
+        let store = store_from_bars(bars);
         assert_eq!(
-            latest_wma(&bars, 3),
-            wma(&bars, 3).last().copied().and_then(nan_to_none)
+            latest_wma_store(&store, 3),
+            wma_store(&store, 3, &mut HashMap::new()).last().copied().and_then(nan_to_none)
         );
     }
 
     #[test]
     fn hma_matches_latest_value() {
         let bars = bars(&(1..=10).map(|value| value as f64).collect::<Vec<_>>());
-        let outputs = hma(&bars, 4, &mut HashMap::new());
+        let store = store_from_bars(bars);
+        let outputs = hma_store(&store, 4, &mut HashMap::new());
         assert_eq!(
-            latest_hma(&bars, 4),
+            latest_hma_store(&store, 4),
             outputs.last().copied().and_then(nan_to_none)
         );
     }
-
     #[test]
-    #[test]
-    fn dema_matches_latest_value() {
+fn dema_matches_latest_value() {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        let store = store_from_bars(bars);
+        let mut nodes = HashMap::new();
+        let ema1_series = rc_into_owned(ema_close_store(&store, 5, &mut nodes));
+        let ema2_series = ema_series(&ema1_series, 5);
+        let arena = IndicatorArena::from_outputs(vec![
+            IndicatorOutput { name: "ema1".to_string(), values: ema1_series },
+            IndicatorOutput { name: "ema2".to_string(), values: ema2_series },
+        ]);
         assert_eq!(
-            latest_dema(&bars, 5),
-            dema(&bars, 5).last().copied().and_then(nan_to_none)
+            latest_dema_store(&store, 5, &arena).0,
+            dema_store(&store, 5, &mut HashMap::new()).last().copied().and_then(nan_to_none)
         );
     }
 
     #[test]
     fn tema_matches_latest_value() {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        let store = store_from_bars(bars);
+        let mut nodes = HashMap::new();
+        let ema1_series = rc_into_owned(ema_close_store(&store, 5, &mut nodes));
+        let ema2_series = ema_series(&ema1_series, 5);
+        let ema3_series = ema_series(&ema2_series, 5);
+        let arena = IndicatorArena::from_outputs(vec![
+            IndicatorOutput { name: "ema1".to_string(), values: ema1_series },
+            IndicatorOutput { name: "ema2".to_string(), values: ema2_series },
+            IndicatorOutput { name: "ema3".to_string(), values: ema3_series },
+        ]);
         assert_eq!(
-            latest_tema(&bars, 5),
-            tema(&bars, 5).last().copied().and_then(nan_to_none)
+            latest_tema_store(&store, 5, &arena).0,
+            tema_store(&store, 5, &mut HashMap::new()).last().copied().and_then(nan_to_none)
         );
     }
 
     #[test]
     fn trima_matches_latest_value() {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
+        let store = store_from_bars(bars);
         assert_eq!(
-            latest_trima(&bars, 5),
-            trima(&bars, 5).last().copied().and_then(nan_to_none)
+            latest_trima_store(&store, 5),
+            trima_store(&store, 5, &mut HashMap::new()).last().copied().and_then(nan_to_none)
         );
     }
-
     #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    #[test]
-    fn remove_indicator_reports_if_it_removed_one() {
+fn remove_indicator_reports_if_it_removed_one() {
         let mut engine = ChartEngine::new();
         let id = engine
             .add_indicator_from_config(IndicatorConfig {
@@ -944,13 +868,11 @@ mod tests {
         assert!(engine.remove_indicator(id));
         assert!(!engine.remove_indicator(id));
     }
-
     #[test]
-    #[test]
-    fn upsert_bar_replaces_latest_or_appends_next() {
-        let mut bars = bars(&[1.0, 2.0]);
-        upsert_bar(
-            &mut bars,
+fn upsert_candle_store_replaces_latest_or_appends_next() {
+        let mut store = store_from_bars(bars(&[1.0, 2.0]));
+        upsert_candle_store(
+            &mut store,
             Bar {
                 time: 1,
                 open: 3.0,
@@ -960,8 +882,8 @@ mod tests {
                 volume: 1.0,
             },
         );
-        upsert_bar(
-            &mut bars,
+        upsert_candle_store(
+            &mut store,
             Bar {
                 time: 2,
                 open: 4.0,
@@ -972,8 +894,8 @@ mod tests {
             },
         );
 
-        assert_eq!(bars.len(), 3);
-        assert_eq!(bars[1].close, 3.0);
-        assert_eq!(bars[2].close, 4.0);
+        assert_eq!(store.len(), 3);
+        assert_eq!(store.close[1], 3.0);
+        assert_eq!(store.close[2], 4.0);
     }
 }

@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -47,42 +47,6 @@ pub fn coppock_curve_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeri
     rc
 }
 
-pub fn coppock_curve_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "coppock:close".to_string();
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if len < 15 {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    let mut roc_sum = vec![f64::NAN; len];
-    for i in 14..len {
-        let roc14 = if bars[i - 14].close != 0.0 {
-            ((bars[i].close - bars[i - 14].close) / bars[i - 14].close) * 100.0
-        } else { f64::NAN };
-        let roc11 = if i >= 11 && bars[i - 11].close != 0.0 {
-            ((bars[i].close - bars[i - 11].close) / bars[i - 11].close) * 100.0
-        } else { f64::NAN };
-        if !roc14.is_nan() && !roc11.is_nan() {
-            roc_sum[i] = roc14 + roc11;
-        }
-    }
-    let wma_period = 10;
-    let weight_sum: f64 = (1..=wma_period).map(|w| w as f64).sum();
-    for i in 0..len {
-        if i + 1 < wma_period { continue; }
-        let window = &roc_sum[i + 1 - wma_period..=i];
-        if window.iter().any(|v| v.is_nan()) { continue; }
-        let weighted: f64 = window.iter().enumerate()
-            .map(|(j, &v)| v * (j + 1) as f64).sum();
-        out[i] = weighted / weight_sum;
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_coppock_curve_store(store: &CandleStore) -> Option<f64> {
     coppock_curve_store(store, &mut HashMap::new())

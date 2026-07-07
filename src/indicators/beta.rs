@@ -1,6 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Beta indicator (single-symbol): measures the rolling regression slope of
@@ -51,45 +50,24 @@ pub fn beta_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> 
     rc
 }
 
-pub fn beta_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("beta:close:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if period < 2 || len < period + 1 {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-
-    let mut returns = vec![f64::NAN; len];
-    for i in 1..len {
-        if bars[i - 1].close != 0.0 {
-            returns[i] = (bars[i].close - bars[i - 1].close) / bars[i - 1].close;
-        }
-    }
-
-    let n = period as f64;
-    for i in period..len {
-        let window = &returns[i + 1 - period..=i];
-        let valid: Vec<f64> = window.iter().filter(|v| !v.is_nan()).copied().collect();
-        if valid.len() < 2 {
-            continue;
-        }
-        let count = valid.len() as f64;
-        let mean = valid.iter().sum::<f64>() / count;
-        let variance = valid.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (count - 1.0);
-        out[i] = variance.sqrt() * n.sqrt();
-    }
-
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_beta_store(store: &CandleStore, period: usize) -> Option<f64> {
-    beta_store(store, period, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(|v| if v.is_nan() { None } else { Some(v) })
+    if period < 2 || store.len() < period + 1 {
+        return None;
+    }
+    let n = period as f64;
+    let start = store.len() - period;
+    let mut returns = Vec::with_capacity(period);
+    for i in start..store.len() {
+        if store.close[i - 1] != 0.0 {
+            returns.push((store.close[i] - store.close[i - 1]) / store.close[i - 1]);
+        }
+    }
+    if returns.len() < 2 {
+        return None;
+    }
+    let count = returns.len() as f64;
+    let mean = returns.iter().sum::<f64>() / count;
+    let variance = returns.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (count - 1.0);
+    Some(variance.sqrt() * n.sqrt())
 }

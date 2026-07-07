@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -25,8 +25,8 @@ pub fn swing_index_store(store: &CandleStore, _nodes: &mut NodeCache) -> RcSerie
         let oy = store.open[i-1];
         let h = store.high[i];
         let l = store.low[i];
-        let hy = store.high[i-1];
-        let ly = store.low[i-1];
+        let _hy = store.high[i-1];
+        let _ly = store.low[i-1];
         
         let k = (h - cy).abs().max((l - cy).abs());
         let tr = (h - l).max((h - cy).abs()).max((l - cy).abs());
@@ -52,38 +52,6 @@ pub fn swing_index_store(store: &CandleStore, _nodes: &mut NodeCache) -> RcSerie
     rc
 }
 
-pub fn swing_index_node(bars: &[Bar], _nodes: &mut NodeCache) -> Series {
-    let key = "swing_index:ohlc".to_string();
-    if let Some(values) = _nodes.get(&key) { return (**values).clone(); }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if len < 2 {
-        _nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    let mut cumulative = 0.0;
-    for i in 1..len {
-        let c = bars[i].close; let cy = bars[i-1].close;
-        let o = bars[i].open; let oy = bars[i-1].open;
-        let h = bars[i].high; let l = bars[i].low;
-        let k = (h - cy).abs().max((l - cy).abs());
-        let tr = (h - l).max((h - cy).abs()).max((l - cy).abs());
-        if tr < 1e-10 { out[i] = cumulative; continue; }
-        let er = if (h - cy).abs() >= (l - cy).abs() && (h - cy).abs() >= (h - l) {
-            (h - cy).abs() + 0.5*(l - cy).abs() + 0.25*(cy - oy).abs()
-        } else if (l - cy).abs() >= (h - cy).abs() && (l - cy).abs() >= (h - l) {
-            (l - cy).abs() + 0.5*(h - cy).abs() + 0.25*(cy - oy).abs()
-        } else {
-            (h - l) + 0.25*(cy - oy).abs()
-        };
-        if er.abs() < 1e-10 { out[i] = cumulative; continue; }
-        let si = 50.0 * ((cy - c) + 0.5*(cy - oy) + 0.25*(c - o)) * k / (er * tr);
-        cumulative += si;
-        out[i] = cumulative;
-    }
-    _nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_swing_index_store(store: &CandleStore) -> Option<f64> {
     swing_index_store(store, &mut HashMap::new())

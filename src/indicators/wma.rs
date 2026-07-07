@@ -1,22 +1,7 @@
-use crate::nan_to_none;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries, Series};
 use std::rc::Rc;
 
-#[allow(dead_code)]
-pub fn wma(bars: &[Bar], period: usize) -> Series {
-    let values: Vec<_> = bars.iter().map(|bar| bar.close).collect();
-    wma_from_values(&values, period)
-}
-pub fn wma_close(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("wma:close:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = wma(bars, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn wma_from_values(values: &[f64], period: usize) -> Series {
     let mut out = vec![f64::NAN; values.len()];
     if period == 0 || values.len() < period {
@@ -46,10 +31,6 @@ pub fn wma_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
     let rc = Rc::new(wma_from_values(&values, period));
     nodes.insert(key, Rc::clone(&rc));
     rc
-}
-#[allow(dead_code)]
-pub fn latest_wma(bars: &[Bar], period: usize) -> Option<f64> {
-    wma(bars, period).last().copied().and_then(nan_to_none)
 }
 pub fn latest_wma_store(store: &CandleStore, period: usize) -> Option<f64> {
     if period == 0 || store.len() < period {

@@ -1,53 +1,11 @@
-use crate::indicators::cci::{typical_price, typical_price_parts};
+use crate::indicators::cci::typical_price_parts;
 use crate::output_at;
 use crate::IndicatorArena;
 use crate::IndicatorOutput;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, Series};
+use crate::{CandleStore, Series};
 use std::rc::Rc;
 
-#[allow(dead_code)]
-pub fn vwap(bars: &[Bar], nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    if let Some(values) = nodes.get("vwap:hlcv") {
-        return vwap_outputs(
-            (**values).clone(),
-            nodes
-                .get("vwap:cumulative_pv")
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
-            nodes
-                .get("vwap:cumulative_volume")
-                .map(|rc| (**rc).clone())
-                .unwrap_or_default(),
-        );
-    }
-    let mut values = Vec::with_capacity(bars.len());
-    let mut cumulative_pv_values = Vec::with_capacity(bars.len());
-    let mut cumulative_volume_values = Vec::with_capacity(bars.len());
-    let mut cumulative_pv = 0.0;
-    let mut cumulative_volume = 0.0;
-    for bar in bars {
-        cumulative_pv += typical_price(bar) * bar.volume;
-        cumulative_volume += bar.volume;
-        values.push(if cumulative_volume > 0.0 {
-            cumulative_pv / cumulative_volume
-        } else {
-            f64::NAN
-        });
-        cumulative_pv_values.push(cumulative_pv);
-        cumulative_volume_values.push(cumulative_volume);
-    }
-    nodes.insert("vwap:hlcv".to_string(), Rc::new(values.clone()));
-    nodes.insert(
-        "vwap:cumulative_pv".to_string(),
-        Rc::new(cumulative_pv_values.clone()),
-    );
-    nodes.insert(
-        "vwap:cumulative_volume".to_string(),
-        Rc::new(cumulative_volume_values.clone()),
-    );
-    vwap_outputs(values, cumulative_pv_values, cumulative_volume_values)
-}
 pub fn vwap_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     if let Some(values) = nodes.get("vwap:hlcv") {
         return vwap_outputs(
@@ -114,29 +72,6 @@ pub fn vwap_outputs(
             values: cumulative_volume,
         },
     ]
-}
-#[allow(dead_code)]
-pub fn latest_vwap(
-    bars: &[Bar],
-    outputs: &IndicatorArena,
-) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let Some(last) = bars.last() else {
-        return (None, None, None);
-    };
-    let previous_index = bars.len().checked_sub(2);
-    let previous_pv = previous_index
-        .and_then(|index| output_at(outputs, "cumulative_pv", index))
-        .unwrap_or(0.0);
-    let previous_volume = previous_index
-        .and_then(|index| output_at(outputs, "cumulative_volume", index))
-        .unwrap_or(0.0);
-    let cumulative_pv = previous_pv + typical_price(last) * last.volume;
-    let cumulative_volume = previous_volume + last.volume;
-    (
-        (cumulative_volume > 0.0).then_some(cumulative_pv / cumulative_volume),
-        Some(cumulative_pv),
-        Some(cumulative_volume),
-    )
 }
 pub fn latest_vwap_store(
     store: &CandleStore,

@@ -1,23 +1,9 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Typical Price = (High + Low + Close) / 3
-pub fn typical_price_series(bars: &[Bar]) -> Series {
-    bars.iter()
-        .map(|b| (b.high + b.low + b.close) / 3.0)
-        .collect()
-}
 
-pub fn typical_price_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "typical_price:hlc".to_string();
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = typical_price_series(bars);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 
 pub fn typical_price_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "typical_price:hlc".to_string();

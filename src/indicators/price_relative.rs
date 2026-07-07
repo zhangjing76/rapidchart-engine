@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Price Relative: ratio of current close to close N bars ago.
@@ -32,26 +32,6 @@ pub fn price_relative_store(
     rc
 }
 
-pub fn price_relative_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("price_relative:close:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if period == 0 || len <= period {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    for i in period..len {
-        let prev = bars[i - period].close;
-        if prev != 0.0 {
-            out[i] = bars[i].close / prev;
-        }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_price_relative_store(store: &CandleStore, period: usize) -> Option<f64> {
     if period == 0 || store.len() <= period {

@@ -20,16 +20,8 @@ pub(crate) fn rc_one_output(rc: RcSeries) -> Vec<crate::types::IndicatorOutput> 
     }]
 }
 
-pub(crate) fn materialized_bars<'a>(
-    store: &CandleStore,
-    snapshot: &'a mut Option<Vec<Bar>>,
-) -> &'a [Bar] {
-    if snapshot.is_none() {
-        *snapshot = Some(store.to_bars());
-    }
-    snapshot.as_deref().expect("bars snapshot initialized")
-}
-
+/// Fast-path upsert for the incremental hot path. Resolves slot by name (1-7 slots typical).
+#[inline]
 pub(crate) fn upsert_output(
     outputs: &mut IndicatorArena,
     name: &str,
@@ -56,25 +48,6 @@ pub(crate) fn output_at_vec(
         .and_then(|output| output.values.get(index))
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
-}
-
-#[allow(dead_code)]
-pub(crate) fn upsert_bar(bars: &mut Vec<Bar>, bar: Bar) -> bool {
-    match bars.last_mut() {
-        Some(last) if last.time == bar.time => {
-            *last = bar;
-            true
-        }
-        Some(last) if last.time < bar.time => {
-            bars.push(bar);
-            true
-        }
-        None => {
-            bars.push(bar);
-            true
-        }
-        _ => false,
-    }
 }
 
 pub(crate) fn upsert_candle_store(bars: &mut CandleStore, bar: Bar) -> bool {

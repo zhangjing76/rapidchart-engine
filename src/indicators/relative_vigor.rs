@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, IndicatorOutput, Series};
+use crate::{CandleStore, IndicatorOutput};
 use std::collections::HashMap;
 
 /// Relative Vigor Index (RVI):
@@ -57,50 +57,6 @@ pub fn relative_vigor_store(store: &CandleStore, period: usize, _nodes: &mut Nod
     ]
 }
 
-pub fn relative_vigor(bars: &[Bar], period: usize, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let len = bars.len();
-    let mut rvi_out = vec![f64::NAN; len];
-    let mut signal_out = vec![f64::NAN; len];
-    if period == 0 || len < period + 3 {
-        return vec![
-            IndicatorOutput { name: "value".to_string(), values: rvi_out },
-            IndicatorOutput { name: "signal".to_string(), values: signal_out },
-        ];
-    }
-    let mut num = vec![f64::NAN; len];
-    let mut den = vec![f64::NAN; len];
-    for i in 3..len {
-        let n = (bars[i].close - bars[i].open)
-            + 2.0*(bars[i-1].close - bars[i-1].open)
-            + 2.0*(bars[i-2].close - bars[i-2].open)
-            + (bars[i-3].close - bars[i-3].open);
-        let d = (bars[i].high - bars[i].low)
-            + 2.0*(bars[i-1].high - bars[i-1].low)
-            + 2.0*(bars[i-2].high - bars[i-2].low)
-            + (bars[i-3].high - bars[i-3].low);
-        num[i] = n / 6.0;
-        den[i] = d / 6.0;
-    }
-    for i in (period + 2)..len {
-        let mut sum_n = 0.0;
-        let mut sum_d = 0.0;
-        for j in (i + 1 - period)..=i {
-            if !num[j].is_nan() { sum_n += num[j]; }
-            if !den[j].is_nan() { sum_d += den[j]; }
-        }
-        if sum_d.abs() > 1e-10 { rvi_out[i] = sum_n / sum_d; }
-    }
-    for i in 3..len {
-        if !rvi_out[i].is_nan() && !rvi_out[i-1].is_nan()
-            && !rvi_out[i-2].is_nan() && !rvi_out[i-3].is_nan() {
-            signal_out[i] = (rvi_out[i] + 2.0*rvi_out[i-1] + 2.0*rvi_out[i-2] + rvi_out[i-3]) / 6.0;
-        }
-    }
-    vec![
-        IndicatorOutput { name: "value".to_string(), values: rvi_out },
-        IndicatorOutput { name: "signal".to_string(), values: signal_out },
-    ]
-}
 
 pub fn latest_relative_vigor_store(store: &CandleStore, period: usize) -> (Option<f64>, Option<f64>) {
     let outputs = relative_vigor_store(store, period, &mut HashMap::new());

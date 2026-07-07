@@ -1,25 +1,9 @@
 use crate::indicators::ema::ema_series;
-use crate::nan_to_none;
+use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
-pub fn force_index(bars: &[Bar], period: usize) -> Series {
-    let mut raw = vec![f64::NAN; bars.len()];
-    for index in 1..bars.len() {
-        raw[index] = (bars[index].close - bars[index - 1].close) * bars[index].volume;
-    }
-    ema_series(&raw, period)
-}
-pub fn force_index_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("force:close:volume:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = force_index(bars, period);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 pub fn force_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("force:close:volume:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -34,23 +18,23 @@ pub fn force_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCac
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-#[allow(dead_code)]
-pub fn latest_force_index(bars: &[Bar], period: usize) -> Option<f64> {
-    force_index(bars, period)
-        .last()
-        .copied()
-        .and_then(nan_to_none)
-}
-pub fn latest_force_index_store(store: &CandleStore, period: usize) -> Option<f64> {
+
+pub fn latest_force_index_store(
+    store: &CandleStore,
+    period: usize,
+    outputs: &IndicatorArena,
+) -> (Option<f64>, Option<f64>) {
     if store.len() < 2 {
-        return None;
+        return (None, None);
     }
-    let mut raw = vec![f64::NAN; store.len()];
-    for (index, item) in raw.iter_mut().enumerate().skip(1) {
-        *item = (store.close[index] - store.close[index - 1]) * store.volume[index];
-    }
-    ema_series(&raw, period)
-        .last()
-        .copied()
-        .and_then(nan_to_none)
+    let raw = (store.close[store.len() - 1] - store.close[store.len() - 2])
+        * store.volume[store.len() - 1];
+    let alpha = 2.0 / (period as f64 + 1.0);
+    let prev_ema = outputs
+        .get("fi_ema")
+        .and_then(|s| s.get(store.len() - 2).copied())
+        .filter(|v| !v.is_nan())
+        .unwrap_or(raw);
+    let ema = alpha * raw + (1.0 - alpha) * prev_ema;
+    (Some(ema), Some(ema))
 }

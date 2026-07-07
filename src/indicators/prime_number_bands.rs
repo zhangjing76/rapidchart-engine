@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, IndicatorOutput};
+use crate::{CandleStore, IndicatorOutput};
 
 /// Find the nearest prime number >= n (searching in integer space).
 fn nearest_prime_up(value: f64) -> f64 {
@@ -53,19 +53,6 @@ fn is_prime(n: u64) -> bool {
 }
 
 /// Prime Number Bands: Upper band = nearest prime >= high, Lower band = nearest prime <= low.
-pub fn prime_number_bands(bars: &[Bar], _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
-    let len = bars.len();
-    let mut upper = Vec::with_capacity(len);
-    let mut lower = Vec::with_capacity(len);
-    for bar in bars {
-        upper.push(nearest_prime_up(bar.high));
-        lower.push(nearest_prime_down(bar.low));
-    }
-    vec![
-        IndicatorOutput { name: "upper".to_string(), values: upper },
-        IndicatorOutput { name: "lower".to_string(), values: lower },
-    ]
-}
 
 pub fn prime_number_bands_store(store: &CandleStore, _nodes: &mut NodeCache) -> Vec<IndicatorOutput> {
     let len = store.len();

@@ -1,6 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 fn is_prime(n: u64) -> bool {
@@ -45,18 +44,6 @@ pub fn prime_number_oscillator_store(store: &CandleStore, _nodes: &mut NodeCache
     rc
 }
 
-pub fn prime_number_oscillator_node(bars: &[Bar], _nodes: &mut NodeCache) -> Series {
-    let key = "pno:close".to_string();
-    if let Some(values) = _nodes.get(&key) { return (**values).clone(); }
-    let len = bars.len();
-    let mut out = Vec::with_capacity(len);
-    for bar in bars {
-        let np = nearest_prime(bar.close);
-        out.push(bar.close - np);
-    }
-    _nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_prime_number_oscillator_store(store: &CandleStore) -> Option<f64> {
     if store.len() == 0 { return None; }

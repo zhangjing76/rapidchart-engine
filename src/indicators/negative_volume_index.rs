@@ -1,6 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Negative Volume Index (NVI):
@@ -26,24 +25,6 @@ pub fn negative_volume_index_store(store: &CandleStore, nodes: &mut NodeCache) -
     rc
 }
 
-pub fn negative_volume_index_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "nvi:cv".to_string();
-    if let Some(values) = nodes.get(&key) { return (**values).clone(); }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if len == 0 { nodes.insert(key, Rc::new(out.clone())); return out; }
-    out[0] = 1000.0;
-    for i in 1..len {
-        if bars[i].volume < bars[i-1].volume && bars[i-1].close != 0.0 {
-            let roc = (bars[i].close - bars[i-1].close) / bars[i-1].close;
-            out[i] = out[i-1] + roc * out[i-1];
-        } else {
-            out[i] = out[i-1];
-        }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_negative_volume_index_store(store: &CandleStore, prev: Option<&[f64]>) -> Option<f64> {
     let len = store.len();

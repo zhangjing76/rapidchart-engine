@@ -1,23 +1,9 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Weighted Close = (High + Low + 2*Close) / 4
-pub fn weighted_close_series(bars: &[Bar]) -> Series {
-    bars.iter()
-        .map(|b| (b.high + b.low + 2.0 * b.close) / 4.0)
-        .collect()
-}
 
-pub fn weighted_close_node(bars: &[Bar], nodes: &mut NodeCache) -> Series {
-    let key = "weighted_close:hlc".to_string();
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let values = weighted_close_series(bars);
-    nodes.insert(key, Rc::new(values.clone()));
-    values
-}
 
 pub fn weighted_close_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
     let key = "weighted_close:hlc".to_string();

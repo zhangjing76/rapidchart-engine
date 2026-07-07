@@ -1,5 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
+use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -20,21 +20,6 @@ pub fn gopalakrishnan_range_store(store: &CandleStore, period: usize, nodes: &mu
         if range > 0.0 && log_period > 0.0 { out[i] = range.ln() / log_period; }
     }
     let rc = Rc::new(out); nodes.insert(key, Rc::clone(&rc)); rc
-}
-pub fn gopalakrishnan_range_node(bars: &[Bar], period: usize, nodes: &mut NodeCache) -> Series {
-    let key = format!("gapo:hl:{period}");
-    if let Some(v) = nodes.get(&key) { return (**v).clone(); }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if period < 2 || len < period { nodes.insert(key, Rc::new(out.clone())); return out; }
-    let log_period = (period as f64).ln();
-    for i in period - 1..len {
-        let hh = bars[i+1-period..=i].iter().map(|b| b.high).fold(f64::NEG_INFINITY, f64::max);
-        let ll = bars[i+1-period..=i].iter().map(|b| b.low).fold(f64::INFINITY, f64::min);
-        let range = hh - ll;
-        if range > 0.0 && log_period > 0.0 { out[i] = range.ln() / log_period; }
-    }
-    nodes.insert(key, Rc::new(out.clone())); out
 }
 pub fn latest_gopalakrishnan_range_store(store: &CandleStore, period: usize) -> Option<f64> {
     gopalakrishnan_range_store(store, period, &mut HashMap::new())

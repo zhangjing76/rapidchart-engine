@@ -685,25 +685,12 @@ cargo test
 
 The shortest path is to copy the shape of an existing indicator with similar behavior.
 
-### 1. Add the engine entry in Rust
+### 1. Create the indicator file
 
-Most of the work lives in [src/lib.rs](/Users/jingzhang/Projects/chart/src/lib.rs).
+Create `src/indicators/new_indicator.rs` with:
 
-- Allow the new kind in `add_indicator_from_config()`.
-- Add validation in `validate_indicator()` if the indicator has custom params.
-- Add a descriptor in `indicator_descriptors()` so the UI can render the picker form.
-- Add the compute branch in `compute_indicator()`.
-- Add the live-update branch in `update_indicators_incremental()`.
-- Add the kind to `supports_incremental()`.
-
-If the indicator has hidden intermediate state used only for incremental updates, keep those outputs out of the UI by adding them to `is_visible_output()`.
-
-### 2. Implement full-series and incremental functions
-
-Use the existing pattern:
-
-- One full-series function, for example `adx()`, `stochastic()`, or `macd()`
-- One incremental function, for example `latest_adx()`, `latest_stochastic()`, or `latest_macd()`
+- `new_indicator_store(store: &CandleStore, ..., nodes: &mut NodeCache) -> Vec<IndicatorOutput>` — full-series compute
+- `latest_new_indicator_store(store: &CandleStore, ...) -> Option<f64>` — incremental single-value update
 
 The full-series function should return `Vec<IndicatorOutput>`. Visible lines use names like `value`, `signal`, `upper`, `plus_di`, and so on. Hidden state outputs can also live in the same return value.
 
@@ -714,18 +701,33 @@ If the indicator reuses computed series, cache them in `NodeCache`. Examples alr
 - `adx:ohlc:{period}`
 - `vwap:hlcv`
 
-### 3. Add DAG metadata
+### 2. Register the module
 
-To make the DAG panel useful, wire the indicator into:
+In `src/indicators/mod.rs`, add:
 
-- `indicator_nodes()`
-- `indicator_edges()`
+```rust
+pub mod new_indicator;
+pub use new_indicator::*;
+```
 
-Use source nodes that already exist in the engine when possible: `close`, `high`, `low`, `volume`.
+### 3. Wire into the engine
+
+Touch these 4 files:
+
+| File | What to add |
+|------|-------------|
+| `src/dag.rs` | Add the kind to `is_valid_kind()`, `indicator_nodes()`, and `indicator_edges()` |
+| `src/dispatch.rs` | Match arm in `compute_indicator_store()` |
+| `src/lib.rs` | Match arm in `update_indicators_incremental()` |
+| `src/descriptors.rs` | `IndicatorDescriptor` entry |
+
+If the indicator has hidden intermediate state used only for incremental updates, keep those outputs out of the UI by adding them to `is_visible_output()` in `src/dag.rs`.
+
+If the indicator has custom parameters that need validation, add a check in `validate_indicator()` in `src/dag.rs`.
 
 ### 4. Expose it in the test app
 
-The UI mostly comes from Rust descriptors, but [src/main.ts](/Users/jingzhang/Projects/chart/src/main.ts) still matters.
+The UI mostly comes from Rust descriptors, but `src/main.ts` still matters.
 
 - Add a label in `indicatorLabel()` if the indicator has custom formatting.
 - Extend `IndicatorConfig` if the indicator needs new parameters.
@@ -735,7 +737,7 @@ If the descriptor is enough, the picker and series rendering work without extra 
 
 ### 5. Add one small test set
 
-Add the smallest checks that prove the indicator is wired correctly in the test module in [src/lib.rs](/Users/jingzhang/Projects/chart/src/lib.rs:1779):
+Add the smallest checks that prove the indicator is wired correctly in the test module in `src/tests.rs`:
 
 - DAG node test
 - Full-series output shape test
@@ -754,17 +756,16 @@ npm run build
 
 Use this checklist:
 
-- add kind to `add_indicator_from_config()`
-- add descriptor to `indicator_descriptors()`
-- add branch to `compute_indicator()`
-- implement `indicator()` full-series function
-- implement `latest_indicator()` incremental function
-- add branch to `update_indicators_incremental()`
-- add kind to `supports_incremental()`
+- create `src/indicators/new_indicator.rs` with `_store` compute and `latest_*_store` functions
+- add `pub mod` + `pub use` in `src/indicators/mod.rs`
+- add kind to `is_valid_kind()` in `src/dag.rs`
+- add `indicator_nodes()` and `indicator_edges()` in `src/dag.rs`
+- add match arm in `compute_indicator_store()` in `src/dispatch.rs`
+- add match arm in `update_indicators_incremental()` in `src/lib.rs`
+- add descriptor in `indicator_descriptors()` in `src/descriptors.rs`
 - hide state outputs in `is_visible_output()` if needed
-- add `indicator_nodes()` and `indicator_edges()`
 - add `main.ts` label/param handling if needed
-- add 2-3 focused tests
+- add 2-3 focused tests in `src/tests.rs`
 
 ## Notes
 

@@ -1,6 +1,5 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use std::collections::HashMap;
+use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
 /// Projected Volume at Time:
@@ -51,40 +50,6 @@ pub fn projected_volume_at_time_store(
     rc
 }
 
-pub fn projected_volume_at_time_node(
-    bars: &[Bar],
-    period: usize,
-    nodes: &mut NodeCache,
-) -> Series {
-    let key = format!("pvat:v:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return (**values).clone();
-    }
-    let len = bars.len();
-    let mut out = vec![f64::NAN; len];
-    if period == 0 || len == 0 {
-        nodes.insert(key, Rc::new(out.clone()));
-        return out;
-    }
-    for i in 0..len {
-        let pos_in_session = i % period;
-        let mut sum = 0.0;
-        let mut count = 0u32;
-        let mut idx = pos_in_session;
-        while idx < i {
-            sum += bars[idx].volume;
-            count += 1;
-            idx += period;
-        }
-        if count > 0 {
-            out[i] = sum / count as f64;
-        } else {
-            out[i] = bars[i].volume;
-        }
-    }
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 pub fn latest_projected_volume_at_time_store(store: &CandleStore, period: usize) -> Option<f64> {
     if store.len() == 0 || period == 0 {

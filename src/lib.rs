@@ -239,140 +239,11 @@ impl ChartEngine {
 
     fn add_indicator_from_config(&mut self, config: IndicatorConfig) -> Result<u32, JsValue> {
         let kind = config.kind.to_uppercase();
-        if kind != "SMA"
-            && kind != "EMA"
-            && kind != "RSI"
-            && kind != "STOCH_RSI"
-            && kind != "CCI"
-            && kind != "MACD"
-            && kind != "PPO"
-            && kind != "BB"
-            && kind != "OBV"
-            && kind != "ATR"
-            && kind != "ADX"
-            && kind != "SUPERTREND"
-            && kind != "KELTNER"
-            && kind != "DONCHIAN"
-            && kind != "PARABOLIC_SAR"
-            && kind != "ICHIMOKU"
-            && kind != "PIVOT_POINTS"
-            && kind != "ROC"
-            && kind != "AROON"
-            && kind != "CMF"
-            && kind != "ADL"
-            && kind != "WMA"
-            && kind != "HMA"
-            && kind != "LINEAR_REGRESSION"
-            && kind != "DEMA"
-            && kind != "TEMA"
-            && kind != "TRIMA"
-            && kind != "STDDEV"
-            && kind != "ENVELOPE"
-            && kind != "TRIX"
-            && kind != "TSI"
-            && kind != "KST"
-            && kind != "BOP"
-            && kind != "DPO"
-            && kind != "MOMENTUM"
-            && kind != "ULTIMATE_OSCILLATOR"
-            && kind != "CHAIKIN_OSCILLATOR"
-            && kind != "FORCE_INDEX"
-            && kind != "VWMA"
-            && kind != "WILLIAMS_AD"
-            && kind != "CHAIKIN_VOLATILITY"
-            && kind != "PRICE_CHANNEL"
-            && kind != "STARC"
-            && kind != "VWAP"
-            && kind != "STOCHASTIC"
-            && kind != "WILLIAMS_R"
-            && kind != "MFI"
-            && kind != "MEDIAN_PRICE"
-            && kind != "HIGHEST_HIGH"
-            && kind != "LOWEST_LOW"
-            && kind != "ALLIGATOR"
-            && kind != "ATR_BANDS"
-            && kind != "HIGH_LOW_BANDS"
-            && kind != "FRACTAL_CHAOS_BANDS"
-            && kind != "GMMA"
-            && kind != "LINEAR_REG_FORECAST"
-            && kind != "LINEAR_REG_INTERCEPT"
-            && kind != "ANCHORED_VWAP"
-            && kind != "TYPICAL_PRICE"
-            && kind != "WEIGHTED_CLOSE"
-            && kind != "MA_CROSS"
-            && kind != "RAINBOW_MA"
-            && kind != "PRIME_NUMBER_BANDS"
-            && kind != "TIME_SERIES_FORECAST"
-            && kind != "VALUATION_LINES"
-            && kind != "BETA"
-            && kind != "CORRELATION_COEFFICIENT"
-            && kind != "PERFORMANCE_INDEX"
-            && kind != "PRICE_RELATIVE"
-            && kind != "AWESOME_OSCILLATOR"
-            && kind != "BOLLINGER_PCT_B"
-            && kind != "CENTER_OF_GRAVITY"
-            && kind != "CHANDE_FORECAST"
-            && kind != "CHANDE_MOMENTUM"
-            && kind != "COPPOCK_CURVE"
-            && kind != "DISPARITY_INDEX"
-            && kind != "EASE_OF_MOVEMENT"
-            && kind != "EHLER_FISHER"
-            && kind != "ELDER_RAY"
-            && kind != "FRACTAL_CHAOS_OSCILLATOR"
-            && kind != "GATOR_OSCILLATOR"
-            && kind != "INTRADAY_MOMENTUM"
-            && kind != "LINEAR_REG_SLOPE"
-            && kind != "MA_DEVIATION"
-            && kind != "PRETTY_GOOD_OSCILLATOR"
-            && kind != "PRICE_MOMENTUM_OSCILLATOR"
-            && kind != "PRICE_OSCILLATOR"
-            && kind != "RAINBOW_OSCILLATOR"
-            && kind != "RAVI"
-            && kind != "RELATIVE_VIGOR"
-            && kind != "SCHAFF_TREND_CYCLE"
-            && kind != "STOCHASTIC_MOMENTUM"
-            && kind != "SWING_INDEX"
-            && kind != "TREND_INTENSITY"
-            && kind != "VOLUME_OSCILLATOR"
-            && kind != "KLINGER_VOLUME"
-            && kind != "MARKET_FACILITATION"
-            && kind != "NEGATIVE_VOLUME_INDEX"
-            && kind != "POSITIVE_VOLUME_INDEX"
-            && kind != "PRICE_VOLUME_TREND"
-            && kind != "TRADE_VOLUME_INDEX"
-            && kind != "TWIGGS_MONEY_FLOW"
-            && kind != "PROJECTED_AGGREGATE_VOLUME"
-            && kind != "PROJECTED_VOLUME_AT_TIME"
-            && kind != "HISTORICAL_VOLATILITY"
-            && kind != "LINEAR_REG_R2"
-            && kind != "PRIME_NUMBER_OSCILLATOR"
-            && kind != "RANDOM_WALK_INDEX"
-            && kind != "DARVAS_BOX"
-            && kind != "VOLUME_PROFILE"
-            && kind != "CHOPPINESS_INDEX"
-            && kind != "ELDER_IMPULSE"
-            && kind != "GONOGO_TREND"
-            && kind != "PSYCHOLOGICAL_LINE"
-            && kind != "QSTICK"
-            && kind != "SHINOHARA_INTENSITY"
-            && kind != "ULCER_INDEX"
-            && kind != "VERTICAL_HORIZONTAL_FILTER"
-            && kind != "VORTEX_INDICATOR"
-            && kind != "ZIGZAG"
-            && kind != "BOLLINGER_BANDWIDTH"
-            && kind != "DONCHIAN_WIDTH"
-            && kind != "GOPALAKRISHNAN_RANGE"
-            && kind != "HIGH_MINUS_LOW"
-            && kind != "MASS_INDEX"
-            && kind != "RELATIVE_VOLATILITY"
-            && kind != "TRUE_RANGE"
-            && kind != "VOLUME_CHART"
-            && kind != "VOLUME_ROC"
-            && kind != "VOLUME_UNDERLAY"
-        {
-            return Err(JsValue::from_str(
-                "indicator kind must be SMA, EMA, RSI, STOCH_RSI, CCI, MACD, PPO, BB, OBV, ATR, ADX, SUPERTREND, KELTNER, DONCHIAN, PARABOLIC_SAR, ICHIMOKU, PIVOT_POINTS, ROC, AROON, CMF, ADL, WMA, HMA, LINEAR_REGRESSION, DEMA, TEMA, TRIMA, STDDEV, ENVELOPE, TRIX, TSI, KST, BOP, DPO, MOMENTUM, ULTIMATE_OSCILLATOR, CHAIKIN_OSCILLATOR, FORCE_INDEX, VWMA, WILLIAMS_AD, CHAIKIN_VOLATILITY, PRICE_CHANNEL, STARC, VWAP, STOCHASTIC, WILLIAMS_R, or MFI",
-            ));
+        if !is_valid_kind(&kind) {
+            return Err(JsValue::from_str(&format!(
+                "unsupported indicator kind: {}",
+                kind
+            )));
         }
         let macd = if kind == "MACD" || kind == "PPO" || kind == "CHAIKIN_OSCILLATOR" || kind == "MA_CROSS" || kind == "PRICE_OSCILLATOR" || kind == "VOLUME_OSCILLATOR" || kind == "SCHAFF_TREND_CYCLE" {
             Some(MacdParams {
@@ -545,9 +416,7 @@ impl ChartEngine {
     }
 
     fn recompute_indicators(&mut self) {
-        // ponytail: full recompute is enough for snapshot testing; switch to incremental state for live streams.
         let mut nodes = HashMap::new();
-        let mut bars_snapshot = None;
         let mut dag = DagDebug {
             nodes: vec![
                 "close".to_string(),
@@ -574,7 +443,6 @@ impl ChartEngine {
                 indicator.psar_max_step,
                 indicator.anchor,
                 &mut nodes,
-                &mut bars_snapshot,
             ));
             let indicator_node = indicator_node(indicator);
             dag.nodes.push(indicator_node.clone());
@@ -590,15 +458,9 @@ impl ChartEngine {
     }
 
     fn update_indicators_incremental(&mut self) -> bool {
-        if !self
-            .indicators
-            .iter()
-            .all(|indicator| supports_incremental(indicator.kind.as_str()))
-        {
-            return false;
-        }
         let target_len = self.bars.len();
         for indicator in &mut self.indicators {
+            indicator.outputs.ensure_len(target_len);
             match indicator.kind.as_str() {
                 "SMA" => upsert_output(
                     &mut indicator.outputs,
@@ -771,12 +633,19 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "DEMA" => {
-                    let value = latest_dema_store(&self.bars, indicator.period);
+                    let (value, ema1, ema2) =
+                        latest_dema_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "ema1", target_len, ema1);
+                    upsert_output(&mut indicator.outputs, "ema2", target_len, ema2);
                 }
                 "TEMA" => {
-                    let value = latest_tema_store(&self.bars, indicator.period);
+                    let (value, ema1, ema2, ema3) =
+                        latest_tema_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "ema1", target_len, ema1);
+                    upsert_output(&mut indicator.outputs, "ema2", target_len, ema2);
+                    upsert_output(&mut indicator.outputs, "ema3", target_len, ema3);
                 }
                 "TRIMA" => {
                     let value = latest_trima_store(&self.bars, indicator.period);
@@ -794,13 +663,25 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
                 "TRIX" => {
-                    let value = latest_trix_store(&self.bars, indicator.period);
+                    let (value, ema1, ema2, ema3) =
+                        latest_trix_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "ema1", target_len, ema1);
+                    upsert_output(&mut indicator.outputs, "ema2", target_len, ema2);
+                    upsert_output(&mut indicator.outputs, "ema3", target_len, ema3);
                 }
                 "TSI" => {
-                    let value =
-                        latest_tsi_store(&self.bars, indicator.period, indicator.stoch_period);
+                    let (value, m_ema1, m_ema2, a_ema1, a_ema2) = latest_tsi_store(
+                        &self.bars,
+                        indicator.period,
+                        indicator.stoch_period,
+                        &indicator.outputs,
+                    );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "m_ema1", target_len, m_ema1);
+                    upsert_output(&mut indicator.outputs, "m_ema2", target_len, m_ema2);
+                    upsert_output(&mut indicator.outputs, "a_ema1", target_len, a_ema1);
+                    upsert_output(&mut indicator.outputs, "a_ema2", target_len, a_ema2);
                 }
                 "KST" => {
                     let value = latest_kst_store(&self.bars);
@@ -833,12 +714,18 @@ impl ChartEngine {
                         slow: 10,
                         signal: 9,
                     });
-                    let value = latest_chaikin_oscillator_store(&self.bars, params);
+                    let (value, adl, fast_ema, slow_ema) =
+                        latest_chaikin_oscillator_store(&self.bars, params, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "adl", target_len, adl);
+                    upsert_output(&mut indicator.outputs, "fast_ema", target_len, fast_ema);
+                    upsert_output(&mut indicator.outputs, "slow_ema", target_len, slow_ema);
                 }
                 "FORCE_INDEX" => {
-                    let value = latest_force_index_store(&self.bars, indicator.period);
+                    let (value, fi_ema) =
+                        latest_force_index_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "fi_ema", target_len, fi_ema);
                 }
                 "VWMA" => {
                     let value = latest_vwma_store(&self.bars, indicator.period);
@@ -850,8 +737,10 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
                 "CHAIKIN_VOLATILITY" => {
-                    let value = latest_chaikin_volatility_store(&self.bars, indicator.period);
+                    let (value, hl_ema) =
+                        latest_chaikin_volatility_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
+                    upsert_output(&mut indicator.outputs, "hl_ema", target_len, hl_ema);
                 }
                 "PRICE_CHANNEL" => {
                     let (upper, middle, lower) =

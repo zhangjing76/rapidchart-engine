@@ -1,6 +1,6 @@
 use crate::NodeCache;
-use crate::{Bar, CandleStore, RcSeries, Series};
-use crate::indicators::ema::{ema_close_store, ema_series};
+use crate::{CandleStore, RcSeries, Series};
+use crate::indicators::ema::ema_close_store;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -42,31 +42,6 @@ pub fn schaff_trend_cycle_store(
     rc
 }
 
-pub fn schaff_trend_cycle_node(
-    bars: &[Bar],
-    fast: usize,
-    slow: usize,
-    stoch_period: usize,
-    nodes: &mut NodeCache,
-) -> Series {
-    let key = format!("stc:{}:{}:{}", fast, slow, stoch_period);
-    if let Some(values) = nodes.get(&key) { return (**values).clone(); }
-    let ema_fast = crate::indicators::ema::ema_close(bars, fast, nodes);
-    let ema_slow = crate::indicators::ema::ema_close(bars, slow, nodes);
-    let len = bars.len();
-    let mut macd_line = vec![f64::NAN; len];
-    for i in 0..len {
-        if !ema_fast[i].is_nan() && !ema_slow[i].is_nan() {
-            macd_line[i] = ema_fast[i] - ema_slow[i];
-        }
-    }
-    let stoch1 = stochastic_of(&macd_line, stoch_period);
-    let smooth1 = ema_factor(&stoch1, 0.5);
-    let stoch2 = stochastic_of(&smooth1, stoch_period);
-    let out = ema_factor(&stoch2, 0.5);
-    nodes.insert(key, Rc::new(out.clone()));
-    out
-}
 
 /// Rolling stochastic: (value - min) / (max - min) * 100
 fn stochastic_of(values: &[f64], period: usize) -> Series {

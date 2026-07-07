@@ -1,3 +1,12 @@
+#![allow(clippy::collapsible_else_if)]
+#![allow(clippy::empty_line_after_doc_comments)]
+#![allow(clippy::manual_clamp)]
+#![allow(clippy::manual_is_multiple_of)]
+#![allow(clippy::manual_memcpy)]
+#![allow(clippy::module_inception)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::type_complexity)]
+
 use js_sys::{Array, Float64Array, Object, Uint32Array};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;

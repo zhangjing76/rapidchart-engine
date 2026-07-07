@@ -39,11 +39,11 @@ mod tests {
             let l = left
                 .iter()
                 .find(|o| o.name() == *name)
-                .expect(&format!("left missing {}", name));
+                .unwrap_or_else(|| panic!("left missing {}", name));
             let r = right
                 .iter()
                 .find(|o| o.name() == *name)
-                .expect(&format!("right missing {}", name));
+                .unwrap_or_else(|| panic!("right missing {}", name));
             assert_series_eq(l.values(), r.values());
         }
     }
@@ -148,7 +148,7 @@ mod tests {
         let store = store_from_bars(bars(&[1.0, 2.0, 3.0, 4.0]));
         assert_vec_eq!(
             *sma_close_store(&store, 3, &mut HashMap::new()),
-            vec![f64::NAN, f64::NAN, 2.0, 3.0]
+            [f64::NAN, f64::NAN, 2.0, 3.0]
         );
     }
 

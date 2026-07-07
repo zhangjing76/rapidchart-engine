@@ -1,0 +1,542 @@
+{
+  "createdAt": "2026-07-07T08:02:56.633Z",
+  "sizes": [
+    1000,
+    10000
+  ],
+  "runs": 5,
+  "upserts": 100,
+  "indicators": [
+    {
+      "kind": "SMA",
+      "period": 20
+    },
+    {
+      "kind": "EMA",
+      "period": 50
+    },
+    {
+      "kind": "RSI",
+      "period": 14
+    },
+    {
+      "kind": "MACD",
+      "fast": 12,
+      "slow": 26,
+      "signal": 9
+    },
+    {
+      "kind": "BB",
+      "period": 20,
+      "multiplier": 2
+    },
+    {
+      "kind": "ATR",
+      "period": 14
+    },
+    {
+      "kind": "STOCHASTIC",
+      "period": 14,
+      "smooth": 3
+    },
+    {
+      "kind": "ADX",
+      "period": 14
+    },
+    {
+      "kind": "ICHIMOKU",
+      "tenkan_period": 9,
+      "kijun_period": 26,
+      "senkou_b_period": 52
+    },
+    {
+      "kind": "SUPERTREND",
+      "period": 10,
+      "multiplier": 3
+    },
+    {
+      "kind": "VWAP"
+    },
+    {
+      "kind": "OBV"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "ingestBars:1000",
+      "samplesMs": [
+        0.473,
+        0.485,
+        0.659,
+        0.717,
+        1.473
+      ],
+      "medianMs": 0.659,
+      "meanMs": 0.761,
+      "minMs": 0.473,
+      "maxMs": 1.473
+    },
+    {
+      "name": "ingestColumns:1000",
+      "samplesMs": [
+        0.499,
+        0.501,
+        0.52,
+        0.837,
+        1.198
+      ],
+      "medianMs": 0.52,
+      "meanMs": 0.711,
+      "minMs": 0.499,
+      "maxMs": 1.198
+    },
+    {
+      "name": "ingestColumnsFast:1000",
+      "samplesMs": [
+        0.009,
+        0.01,
+        0.012,
+        0.013,
+        0.045
+      ],
+      "medianMs": 0.012,
+      "meanMs": 0.018,
+      "minMs": 0.009,
+      "maxMs": 0.045
+    },
+    {
+      "name": "ingestColumnsZeroCopy:1000",
+      "samplesMs": [
+        0.009,
+        0.011,
+        0.011,
+        0.012,
+        0.139
+      ],
+      "medianMs": 0.011,
+      "meanMs": 0.036,
+      "minMs": 0.009,
+      "maxMs": 0.139
+    },
+    {
+      "name": "ingestColumnsZeroCopy+indicators:1000",
+      "samplesMs": [
+        1.588,
+        1.73,
+        1.742,
+        1.99,
+        3.009
+      ],
+      "medianMs": 1.742,
+      "meanMs": 2.012,
+      "minMs": 1.588,
+      "maxMs": 3.009
+    },
+    {
+      "name": "ingestBars+indicators:1000",
+      "samplesMs": [
+        1.83,
+        1.836,
+        1.843,
+        1.953,
+        1.966
+      ],
+      "medianMs": 1.843,
+      "meanMs": 1.886,
+      "minMs": 1.83,
+      "maxMs": 1.966
+    },
+    {
+      "name": "ingestColumns+indicators:1000",
+      "samplesMs": [
+        1.756,
+        1.758,
+        1.894,
+        1.932,
+        2.117
+      ],
+      "medianMs": 1.894,
+      "meanMs": 1.891,
+      "minMs": 1.756,
+      "maxMs": 2.117
+    },
+    {
+      "name": "ingestColumnsFast+indicators:1000",
+      "samplesMs": [
+        1.248,
+        1.265,
+        1.276,
+        1.31,
+        1.328
+      ],
+      "medianMs": 1.276,
+      "meanMs": 1.285,
+      "minMs": 1.248,
+      "maxMs": 1.328
+    },
+    {
+      "name": "upsertBar:1000+100",
+      "samplesMs": [
+        12.043,
+        12.133,
+        12.178,
+        12.243,
+        13.823
+      ],
+      "medianMs": 12.178,
+      "meanMs": 12.484,
+      "minMs": 12.043,
+      "maxMs": 13.823
+    },
+    {
+      "name": "appendLiveBar:1000",
+      "samplesMs": [
+        0.183,
+        0.189,
+        0.2,
+        0.219,
+        0.238
+      ],
+      "medianMs": 0.2,
+      "meanMs": 0.206,
+      "minMs": 0.183,
+      "maxMs": 0.238
+    },
+    {
+      "name": "replaceLastBar:1000",
+      "samplesMs": [
+        0.103,
+        0.106,
+        0.119,
+        0.135,
+        0.17
+      ],
+      "medianMs": 0.119,
+      "meanMs": 0.127,
+      "minMs": 0.103,
+      "maxMs": 0.17
+    },
+    {
+      "name": "appendLiveBar+latestOutputs:1000",
+      "samplesMs": [
+        0.144,
+        0.151,
+        0.16,
+        0.17,
+        0.259
+      ],
+      "medianMs": 0.16,
+      "meanMs": 0.177,
+      "minMs": 0.144,
+      "maxMs": 0.259
+    },
+    {
+      "name": "replaceLastBar+latestOutputs:1000",
+      "samplesMs": [
+        0.11,
+        0.111,
+        0.112,
+        0.119,
+        0.121
+      ],
+      "medianMs": 0.112,
+      "meanMs": 0.115,
+      "minMs": 0.11,
+      "maxMs": 0.121
+    },
+    {
+      "name": "candles:1000",
+      "samplesMs": [
+        0.295,
+        0.302,
+        0.338,
+        0.35,
+        1.475
+      ],
+      "medianMs": 0.338,
+      "meanMs": 0.552,
+      "minMs": 0.295,
+      "maxMs": 1.475
+    },
+    {
+      "name": "candleColumnsFast:1000",
+      "samplesMs": [
+        0.003,
+        0.003,
+        0.003,
+        0.003,
+        0.062
+      ],
+      "medianMs": 0.003,
+      "meanMs": 0.015,
+      "minMs": 0.003,
+      "maxMs": 0.062
+    },
+    {
+      "name": "indicatorOutputsAll:1000",
+      "samplesMs": [
+        0.078,
+        0.08,
+        0.088,
+        0.145,
+        0.183
+      ],
+      "medianMs": 0.088,
+      "meanMs": 0.115,
+      "minMs": 0.078,
+      "maxMs": 0.183
+    },
+    {
+      "name": "indicatorOutputValuesFast:1000",
+      "samplesMs": [
+        0.003,
+        0.003,
+        0.004,
+        0.004,
+        0.045
+      ],
+      "medianMs": 0.004,
+      "meanMs": 0.012,
+      "minMs": 0.003,
+      "maxMs": 0.045
+    },
+    {
+      "name": "ingestBars:10000",
+      "samplesMs": [
+        3.572,
+        3.575,
+        3.576,
+        3.652,
+        3.961
+      ],
+      "medianMs": 3.576,
+      "meanMs": 3.667,
+      "minMs": 3.572,
+      "maxMs": 3.961
+    },
+    {
+      "name": "ingestColumns:10000",
+      "samplesMs": [
+        3.745,
+        3.793,
+        5.84,
+        6.351,
+        6.382
+      ],
+      "medianMs": 5.84,
+      "meanMs": 5.222,
+      "minMs": 3.745,
+      "maxMs": 6.382
+    },
+    {
+      "name": "ingestColumnsFast:10000",
+      "samplesMs": [
+        0.096,
+        0.097,
+        0.106,
+        0.12,
+        0.175
+      ],
+      "medianMs": 0.106,
+      "meanMs": 0.119,
+      "minMs": 0.096,
+      "maxMs": 0.175
+    },
+    {
+      "name": "ingestColumnsZeroCopy:10000",
+      "samplesMs": [
+        0.052,
+        0.053,
+        0.055,
+        0.084,
+        0.089
+      ],
+      "medianMs": 0.055,
+      "meanMs": 0.067,
+      "minMs": 0.052,
+      "maxMs": 0.089
+    },
+    {
+      "name": "ingestColumnsZeroCopy+indicators:10000",
+      "samplesMs": [
+        9.583,
+        9.614,
+        9.624,
+        9.672,
+        10.082
+      ],
+      "medianMs": 9.624,
+      "meanMs": 9.715,
+      "minMs": 9.583,
+      "maxMs": 10.082
+    },
+    {
+      "name": "ingestBars+indicators:10000",
+      "samplesMs": [
+        13.153,
+        17.093,
+        19.223,
+        19.786,
+        20.027
+      ],
+      "medianMs": 19.223,
+      "meanMs": 17.856,
+      "minMs": 13.153,
+      "maxMs": 20.027
+    },
+    {
+      "name": "ingestColumns+indicators:10000",
+      "samplesMs": [
+        19.277,
+        19.418,
+        20.58,
+        20.639,
+        20.791
+      ],
+      "medianMs": 20.58,
+      "meanMs": 20.141,
+      "minMs": 19.277,
+      "maxMs": 20.791
+    },
+    {
+      "name": "ingestColumnsFast+indicators:10000",
+      "samplesMs": [
+        15.558,
+        15.581,
+        16.791,
+        17.027,
+        17.222
+      ],
+      "medianMs": 16.791,
+      "meanMs": 16.436,
+      "minMs": 15.558,
+      "maxMs": 17.222
+    },
+    {
+      "name": "upsertBar:10000+100",
+      "samplesMs": [
+        104.425,
+        105.454,
+        106.01,
+        106.377,
+        107.183
+      ],
+      "medianMs": 106.01,
+      "meanMs": 105.89,
+      "minMs": 104.425,
+      "maxMs": 107.183
+    },
+    {
+      "name": "appendLiveBar:10000",
+      "samplesMs": [
+        2.58,
+        3.141,
+        3.321,
+        3.75,
+        3.822
+      ],
+      "medianMs": 3.321,
+      "meanMs": 3.323,
+      "minMs": 2.58,
+      "maxMs": 3.822
+    },
+    {
+      "name": "replaceLastBar:10000",
+      "samplesMs": [
+        1.127,
+        1.129,
+        1.146,
+        1.171,
+        1.205
+      ],
+      "medianMs": 1.146,
+      "meanMs": 1.155,
+      "minMs": 1.127,
+      "maxMs": 1.205
+    },
+    {
+      "name": "appendLiveBar+latestOutputs:10000",
+      "samplesMs": [
+        2.404,
+        2.442,
+        2.577,
+        2.58,
+        3.547
+      ],
+      "medianMs": 2.577,
+      "meanMs": 2.71,
+      "minMs": 2.404,
+      "maxMs": 3.547
+    },
+    {
+      "name": "replaceLastBar+latestOutputs:10000",
+      "samplesMs": [
+        1.084,
+        1.142,
+        1.148,
+        1.158,
+        1.161
+      ],
+      "medianMs": 1.148,
+      "meanMs": 1.139,
+      "minMs": 1.084,
+      "maxMs": 1.161
+    },
+    {
+      "name": "candles:10000",
+      "samplesMs": [
+        2.3,
+        2.339,
+        2.37,
+        2.624,
+        3.674
+      ],
+      "medianMs": 2.37,
+      "meanMs": 2.661,
+      "minMs": 2.3,
+      "maxMs": 3.674
+    },
+    {
+      "name": "candleColumnsFast:10000",
+      "samplesMs": [
+        0.003,
+        0.003,
+        0.003,
+        0.003,
+        0.052
+      ],
+      "medianMs": 0.003,
+      "meanMs": 0.013,
+      "minMs": 0.003,
+      "maxMs": 0.052
+    },
+    {
+      "name": "indicatorOutputsAll:10000",
+      "samplesMs": [
+        0.451,
+        0.573,
+        0.578,
+        0.591,
+        1.177
+      ],
+      "medianMs": 0.578,
+      "meanMs": 0.674,
+      "minMs": 0.451,
+      "maxMs": 1.177
+    },
+    {
+      "name": "indicatorOutputValuesFast:10000",
+      "samplesMs": [
+        0.003,
+        0.003,
+        0.003,
+        0.003,
+        0.039
+      ],
+      "medianMs": 0.003,
+      "meanMs": 0.01,
+      "minMs": 0.003,
+      "maxMs": 0.039
+    }
+  ]
+}

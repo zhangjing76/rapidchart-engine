@@ -1,0 +1,151 @@
+{
+  "createdAt": "2026-07-07T08:02:48.484Z",
+  "size": 5000,
+  "runs": 5,
+  "categories": [
+    {
+      "category": "Moving Average",
+      "indicatorCount": 8,
+      "compute": {
+        "medianMs": 1.351,
+        "meanMs": 1.73
+      },
+      "incremental": {
+        "medianMs": 0.053,
+        "meanMs": 0.453
+      }
+    },
+    {
+      "category": "Averages/Bands",
+      "indicatorCount": 8,
+      "compute": {
+        "medianMs": 2.349,
+        "meanMs": 2.791
+      },
+      "incremental": {
+        "medianMs": 0.516,
+        "meanMs": 0.537
+      }
+    },
+    {
+      "category": "Momentum/Oscillator",
+      "indicatorCount": 14,
+      "compute": {
+        "medianMs": 18.06,
+        "meanMs": 18.805
+      },
+      "incremental": {
+        "medianMs": 1.192,
+        "meanMs": 1.16
+      }
+    },
+    {
+      "category": "Money Flow",
+      "indicatorCount": 8,
+      "compute": {
+        "medianMs": 2.191,
+        "meanMs": 2.644
+      },
+      "incremental": {
+        "medianMs": 0.267,
+        "meanMs": 0.387
+      }
+    },
+    {
+      "category": "Trend Analysis",
+      "indicatorCount": 11,
+      "compute": {
+        "medianMs": 7.09,
+        "meanMs": 8.288
+      },
+      "incremental": {
+        "medianMs": 0.782,
+        "meanMs": 0.853
+      }
+    },
+    {
+      "category": "Volatility",
+      "indicatorCount": 10,
+      "compute": {
+        "medianMs": 10.864,
+        "meanMs": 10.892
+      },
+      "incremental": {
+        "medianMs": 2.011,
+        "meanMs": 2.109
+      }
+    },
+    {
+      "category": "Statistical",
+      "indicatorCount": 11,
+      "compute": {
+        "medianMs": 4.96,
+        "meanMs": 5.348
+      },
+      "incremental": {
+        "medianMs": 0.593,
+        "meanMs": 0.664
+      }
+    },
+    {
+      "category": "Compare",
+      "indicatorCount": 3,
+      "compute": {
+        "medianMs": 1.523,
+        "meanMs": 1.548
+      },
+      "incremental": {
+        "medianMs": 0.311,
+        "meanMs": 0.448
+      }
+    },
+    {
+      "category": "Support/Resistance",
+      "indicatorCount": 4,
+      "compute": {
+        "medianMs": 2.723,
+        "meanMs": 2.972
+      },
+      "incremental": {
+        "medianMs": 1.96,
+        "meanMs": 1.809
+      }
+    },
+    {
+      "category": "Volume",
+      "indicatorCount": 9,
+      "compute": {
+        "medianMs": 2.321,
+        "meanMs": 2.296
+      },
+      "incremental": {
+        "medianMs": 0.283,
+        "meanMs": 0.3
+      }
+    },
+    {
+      "category": "Projection",
+      "indicatorCount": 2,
+      "compute": {
+        "medianMs": 2.685,
+        "meanMs": 3.008
+      },
+      "incremental": {
+        "medianMs": 1.581,
+        "meanMs": 1.576
+      }
+    }
+  ],
+  "total": {
+    "category": "ALL INDICATORS",
+    "indicatorCount": 88,
+    "compute": {
+      "medianMs": 284.92,
+      "meanMs": 287.749
+    },
+    "incremental": {
+      "medianMs": 16.218,
+      "meanMs": 15.524
+    }
+  }
+}

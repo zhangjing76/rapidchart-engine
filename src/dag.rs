@@ -1,5 +1,26 @@
 use crate::types::{DagEdge, Indicator, MacdParams};
 
+/// Returns true if the indicator kind requires a `period` parameter.
+fn needs_period(kind: &str) -> bool {
+    // These indicator kinds do NOT accept a period parameter, so skip the period check.
+    // This list only contains kinds that receive no period argument in dispatch.rs.
+    let no_period = matches!(
+        kind,
+        "OBV" | "ADL" | "VWAP" | "WILLIAMS_AD" | "KST" | "BOP"
+            | "PARABOLIC_SAR" | "ICHIMOKU" | "PIVOT_POINTS" | "MACD" | "PPO"
+            | "MEDIAN_PRICE" | "ALLIGATOR" | "GMMA" | "ANCHORED_VWAP"
+            | "TYPICAL_PRICE" | "WEIGHTED_CLOSE" | "PRIME_NUMBER_BANDS"
+            | "PERFORMANCE_INDEX" | "AWESOME_OSCILLATOR" | "COPPOCK_CURVE"
+            | "FRACTAL_CHAOS_OSCILLATOR" | "FRACTAL_CHAOS_BANDS"
+            | "GATOR_OSCILLATOR" | "KLINGER_VOLUME" | "PRICE_VOLUME_TREND"
+            | "TRADE_VOLUME_INDEX" | "DARVAS_BOX" | "ZIGZAG" | "TRUE_RANGE"
+            | "VOLUME_CHART" | "VOLUME_UNDERLAY" | "MARKET_FACILITATION"
+            | "SWING_INDEX" | "PRIME_NUMBER_OSCILLATOR" | "HIGH_MINUS_LOW"
+            | "VOLUME_OSCILLATOR" | "PRICE_OSCILLATOR" | "SCHAFF_TREND_CYCLE"
+    );
+    !no_period
+}
+
 pub(crate) fn is_valid_kind(kind: &str) -> bool {
     matches!(
         kind,
@@ -1453,21 +1474,7 @@ pub(crate) fn validate_indicator(
         return Err(wasm_bindgen::JsValue::from_str(
             "PARABOLIC_SAR params must satisfy step > 0 and max_step >= step",
         ));
-    } else if kind != "OBV"
-        && kind != "VWAP"
-        && kind != "PARABOLIC_SAR"
-        && kind != "ICHIMOKU"
-        && kind != "PIVOT_POINTS"
-        && kind != "ADL"
-        && kind != "WILLIAMS_AD"
-        && kind != "DEMA"
-        && kind != "TEMA"
-        && kind != "TRIMA"
-        && kind != "STDDEV"
-        && kind != "ENVELOPE"
-        && kind != "KST"
-        && kind != "BOP"
-        && period == 0
+    } else if needs_period(kind) && period == 0
     {
         return Err(wasm_bindgen::JsValue::from_str(
             "period must be greater than zero",
@@ -1492,7 +1499,8 @@ pub(crate) fn validate_indicator(
         || kind == "SUPERTREND"
         || kind == "KELTNER"
         || kind == "ENVELOPE"
-        || kind == "STARC")
+        || kind == "STARC"
+        || kind == "ATR_BANDS")
         && (!multiplier.is_finite() || multiplier <= 0.0)
     {
         return Err(wasm_bindgen::JsValue::from_str(

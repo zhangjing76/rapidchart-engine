@@ -109,3 +109,55 @@ pub fn latest_starc_store(
         _ => (None, middle, None),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn keltner_is_the_manual_ema_plus_atr_band() {
+        let store = ohlc_store(&[
+            (1.0, 1.0, 1.0),
+            (2.0, 2.0, 2.0),
+            (3.0, 3.0, 3.0),
+            (4.0, 4.0, 4.0),
+            (5.0, 5.0, 5.0),
+        ]);
+        let outputs = keltner_store(&store, 3, 2.0, &mut HashMap::new());
+        let arena = crate::IndicatorArena::from_named_outputs(outputs.clone());
+
+        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 5.125, 6.0625]);
+        assert_series_close(outputs[1].values.as_slice(), &[1.0, 1.5, 2.25, 3.125, 4.0625]);
+        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.125, 2.0625]);
+        assert_series_close(outputs[3].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0]);
+        assert_eq!(
+            latest_keltner_store(&store, 3, 2.0, &arena),
+            (Some(6.0625), Some(4.0625), Some(2.0625))
+        );
+    }
+
+}

@@ -64,13 +64,17 @@ mod tests {
     }
 
     fn store_from_bars(bars: Vec<Bar>) -> CandleStore {
-        CandleStore::from_bars(bars)
+        let mut store = CandleStore::default();
+        for bar in bars {
+            store.push(bar);
+        }
+        store
     }
 
     #[test]
     fn candle_store_from_columns_matches_from_bars() {
         let bars = bars(&[10.0, 11.0, 12.0]);
-        let from_bars = CandleStore::from_bars(bars.clone());
+        let from_bars = store_from_bars(bars.clone());
         let from_columns = CandleStore::from_columns(CandleColumnsInput {
             time: bars.iter().map(|bar| bar.time).collect(),
             open: bars.iter().map(|bar| bar.open).collect(),
@@ -189,17 +193,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn rsi_waits_for_period_then_uses_wilder_smoothing() {
-        let store = store_from_bars(bars(&[1.0, 2.0, 1.0, 3.0, 2.0]));
-        let outputs = rsi_outputs_store(&store, 3, &mut HashMap::new());
-        let values = &outputs.iter().find(|o| o.name == "value").unwrap().values;
-        assert!(values[0].is_nan());
-        assert!(values[1].is_nan());
-        assert!(values[2].is_nan());
-        assert_eq!(values[3], 75.0);
-        assert!((values[4] - 54.54545454545455).abs() < 0.000001);
-    }
     #[test]
     fn hidden_state_outputs_are_not_visible() {
         assert!(is_visible_output("value"));
@@ -732,52 +725,6 @@ mod tests {
         assert_eq!(engine.latest_values_scratch.len(), 1);
     }
 
-    #[test]
-    fn indicator_output_values_fast_reuses_visible_output_scratch() {
-        let mut engine = ChartEngine::new();
-        engine.indicators.push(Indicator {
-            id: 9,
-            kind: "MACD".to_string(),
-            period: 0,
-            stoch_period: 0,
-            smooth: 0,
-            signal: 0,
-            tenkan_period: 0,
-            kijun_period: 0,
-            senkou_b_period: 0,
-            macd: None,
-            multiplier: 0.0,
-            psar_step: 0.0,
-            psar_max_step: 0.0,
-            anchor: 0,
-            outputs: IndicatorArena::from_outputs(vec![
-                IndicatorOutput {
-                    name: "macd".to_string(),
-                    values: vec![1.0, f64::NAN],
-                },
-                IndicatorOutput {
-                    name: "signal".to_string(),
-                    values: vec![2.0, 3.0],
-                },
-                IndicatorOutput {
-                    name: "histogram".to_string(),
-                    values: vec![-1.0, 0.5],
-                },
-                IndicatorOutput {
-                    name: "fast_ema".to_string(),
-                    values: vec![99.0, 100.0],
-                },
-            ]),
-        });
-
-        engine.populate_indicator_output_values_scratch(9).unwrap();
-
-        assert_eq!(engine.indicator_values_scratch.len(), 3);
-        assert_eq!(engine.indicator_values_scratch[0][0], 1.0);
-        assert!(engine.indicator_values_scratch[0][1].is_nan());
-        assert_eq!(engine.indicator_values_scratch[1].as_slice(), &[2.0, 3.0]);
-        assert_eq!(engine.indicator_values_scratch[2].as_slice(), &[-1.0, 0.5]);
-    }
     #[test]
     fn ema_nodes_are_reused_by_macd() {
         let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());

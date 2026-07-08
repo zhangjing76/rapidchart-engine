@@ -46,3 +46,42 @@ pub fn latest_stoch_rsi_store(
         value_at_slice(outputs[1].values.as_slice(), index),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn stoch_rsi_is_the_manual_smoothed_rsi_stochastic() {
+        let store = close_store(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        let outputs = stoch_rsi_store(&store, 3, 3, 2, 2, &mut HashMap::new());
+
+        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0]);
+        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.0]);
+        assert_eq!(latest_stoch_rsi_store(&store, 3, 3, 2, 2), (Some(0.0), Some(0.0)));
+    }
+}

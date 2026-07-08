@@ -1,4 +1,6 @@
-use serde::{Deserialize, Serialize};
+use serde::de::{SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
+use std::fmt;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Bar {
@@ -21,21 +23,18 @@ pub(crate) struct CandleStore {
 }
 
 impl CandleStore {
-    pub(crate) fn from_bars(bars: Vec<Bar>) -> Self {
-        let mut store = Self {
-            time: Vec::with_capacity(bars.len()),
-            open: Vec::with_capacity(bars.len()),
-            high: Vec::with_capacity(bars.len()),
-            low: Vec::with_capacity(bars.len()),
-            close: Vec::with_capacity(bars.len()),
-            volume: Vec::with_capacity(bars.len()),
-        };
-        for bar in bars {
-            store.push(bar);
+    fn with_capacity(len: usize) -> Self {
+        Self {
+            time: Vec::with_capacity(len),
+            open: Vec::with_capacity(len),
+            high: Vec::with_capacity(len),
+            low: Vec::with_capacity(len),
+            close: Vec::with_capacity(len),
+            volume: Vec::with_capacity(len),
         }
-        store
     }
 
+    #[cfg(test)]
     pub(crate) fn from_columns(columns: CandleColumnsInput) -> Result<Self, &'static str> {
         let len = columns.time.len();
         if columns.open.len() != len
@@ -125,6 +124,37 @@ impl CandleStore {
     }
 }
 
+impl<'de> Deserialize<'de> for CandleStore {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct CandleStoreVisitor;
+
+        impl<'de> Visitor<'de> for CandleStoreVisitor {
+            type Value = CandleStore;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("an array of OHLCV bars")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut store = CandleStore::with_capacity(seq.size_hint().unwrap_or(0));
+                while let Some(bar) = seq.next_element::<Bar>()? {
+                    store.push(bar);
+                }
+                Ok(store)
+            }
+        }
+
+        deserializer.deserialize_seq(CandleStoreVisitor)
+    }
+}
+
+#[cfg(test)]
 #[derive(Deserialize)]
 pub(crate) struct CandleColumnsInput {
     pub time: Vec<u32>,

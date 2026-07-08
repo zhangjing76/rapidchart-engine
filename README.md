@@ -49,17 +49,6 @@ const bars = [
   },
 ];
 
-engine.ingestBars(bars);
-
-engine.ingestColumns({
-  time: new Uint32Array(bars.map((bar) => bar.time)),
-  open: new Float64Array(bars.map((bar) => bar.open)),
-  high: new Float64Array(bars.map((bar) => bar.high)),
-  low: new Float64Array(bars.map((bar) => bar.low)),
-  close: new Float64Array(bars.map((bar) => bar.close)),
-  volume: new Float64Array(bars.map((bar) => bar.volume)),
-});
-
 engine.ingestColumnsFast({
   time: new Uint32Array(bars.map((bar) => bar.time)),
   open: new Float64Array(bars.map((bar) => bar.open)),
@@ -194,8 +183,6 @@ smaLine.setData(
 ### Wrapper API
 
 - `new RapidChartEngine()`
-- `ingestBars(bars)`
-- `ingestColumns(columns)`
 - `ingestColumnsFast(columns)`
 - `candles()`
 - `candleColumns()`
@@ -396,7 +383,7 @@ This is the current truth inside the engine. The JavaScript side fetches Binance
 Current flow:
 
 1. JavaScript fetches historical bars.
-2. JavaScript calls `engine.ingest_bars(bars)`.
+2. JavaScript writes the data into typed arrays and calls `engine.ingestColumnsFast(...)` or `engine.ingestColumnsZeroCopy(...)`.
 3. Rust stores the bars and recomputes indicator state.
 4. JavaScript opens a WebSocket stream.
 5. Each live kline update is passed to `engine.upsert_bar(bar)`.
@@ -436,7 +423,7 @@ The engine has two update modes.
 
 Full recompute:
 
-- used after `ingest_bars()`
+- used after `ingestColumnsFast()` or `ingestColumnsZeroCopy()`
 - used after adding or removing an indicator
 - rebuilds outputs for all indicators from the full bar history
 

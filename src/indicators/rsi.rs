@@ -151,3 +151,46 @@ pub fn rsi_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn rsi_is_the_manual_wilder_average() {
+        let store = close_store(&[1.0, 2.0, 1.0, 3.0, 2.0]);
+        let outputs = rsi_outputs_store(&store, 3, &mut HashMap::new());
+
+        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 75.0, 54.54545454545455]);
+        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.0, 0.6666666666666666]);
+        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 0.3333333333333333, 0.5555555555555555]);
+        assert_eq!(
+            latest_rsi_store(&store, 3, &crate::IndicatorArena::from_named_outputs(outputs.clone())),
+            (Some(54.54545454545455), Some(0.6666666666666666), Some(0.5555555555555555))
+        );
+    }
+}

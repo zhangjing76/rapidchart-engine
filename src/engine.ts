@@ -253,18 +253,6 @@ export class RapidChartEngine {
     this.#engine = new WasmChartEngine();
   }
 
-  ingestBars(bars: Bar[]): void {
-    this.#engine.ingest_bars(bars);
-    this.#lastBarTime = bars.at(-1)?.time;
-    this.#seriesSpacing = seriesSpacingFromBars(bars);
-  }
-
-  ingestColumns(columns: CandleColumns): void {
-    this.#engine.ingest_columns(columns);
-    this.#lastBarTime = columns.time.at(-1);
-    this.#seriesSpacing = seriesSpacingSeconds(columns.time);
-  }
-
   ingestColumnsFast(columns: CandleColumns): void {
     this.#engine.ingest_columns_fast(
       columns.time,

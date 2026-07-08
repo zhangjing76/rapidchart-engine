@@ -297,3 +297,68 @@ pub fn latest_adx_store(store: &CandleStore, period: usize, outputs: &IndicatorA
         Some(dx),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn adx_is_the_manual_directional_index() {
+        let store = ohlc_store(&[
+            (1.0, 0.0, 1.0),
+            (2.0, 1.0, 2.0),
+            (3.0, 2.0, 3.0),
+            (4.0, 3.0, 4.0),
+            (5.0, 4.0, 5.0),
+            (6.0, 5.0, 6.0),
+            (7.0, 6.0, 7.0),
+            (8.0, 7.0, 8.0),
+        ]);
+        let outputs = adx_store(&store, 3, &mut HashMap::new());
+        let arena = crate::IndicatorArena::from_named_outputs(outputs.clone());
+
+        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 100.0, 100.0]);
+        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 100.0, 100.0, 100.0, 100.0, 100.0]);
+        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        assert_series_close(outputs[3].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0, 1.0, 1.0, 1.0]);
+        assert_series_close(outputs[4].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0, 1.0, 1.0, 1.0]);
+        assert_series_close(outputs[5].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        assert_series_close(outputs[6].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 100.0, 100.0, 100.0, 100.0, 100.0]);
+        assert_eq!(
+            latest_adx_store(&store, 3, &arena),
+            (
+                Some(100.0),
+                Some(100.0),
+                Some(0.0),
+                Some(1.0),
+                Some(1.0),
+                Some(0.0),
+                Some(100.0),
+            )
+        );
+    }
+}

@@ -67,3 +67,47 @@ pub fn latest_atr_store(store: &CandleStore, period: usize, output: Option<&[f64
         (previous * (period - 1) as f64 + true_range_store(store, store.len() - 1)) / period as f64,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn atr_is_the_manual_true_range_average() {
+        let store = ohlc_store(&[
+            (10.0, 8.0, 9.0),
+            (11.0, 9.0, 10.0),
+            (12.0, 10.0, 11.0),
+            (13.0, 11.0, 12.0),
+            (14.0, 12.0, 13.0),
+        ]);
+        let values = atr_store(&store, 3, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, 2.0, 2.0]);
+        assert_eq!(latest_atr_store(&store, 3, Some(&values[..])), Some(2.0));
+    }
+}

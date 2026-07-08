@@ -40,8 +40,6 @@ pub struct ChartEngine {
     indicators: Vec<Indicator>,
     next_indicator_id: u32,
     dag: DagDebug,
-    #[allow(dead_code)]
-    indicator_values_scratch: Vec<Vec<f64>>,
     latest_values_scratch: Vec<f64>,
 }
 
@@ -52,7 +50,6 @@ impl Default for ChartEngine {
             indicators: Vec::new(),
             next_indicator_id: 1,
             dag: DagDebug::default(),
-            indicator_values_scratch: Vec::new(),
             latest_values_scratch: Vec::new(),
         }
     }
@@ -63,22 +60,6 @@ impl ChartEngine {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn ingest_bars(&mut self, bars: JsValue) -> Result<(), JsValue> {
-        let bars: Vec<Bar> = serde_wasm_bindgen::from_value(bars)
-            .map_err(|err| JsValue::from_str(&err.to_string()))?;
-        self.bars = CandleStore::from_bars(bars);
-        self.recompute_indicators();
-        Ok(())
-    }
-
-    pub fn ingest_columns(&mut self, columns: JsValue) -> Result<(), JsValue> {
-        let columns: CandleColumnsInput = serde_wasm_bindgen::from_value(columns)
-            .map_err(|err| JsValue::from_str(&err.to_string()))?;
-        self.bars = CandleStore::from_columns(columns).map_err(JsValue::from_str)?;
-        self.recompute_indicators();
-        Ok(())
     }
 
     pub fn ingest_columns_fast(
@@ -1306,32 +1287,4 @@ impl ChartEngine {
         Ok(self.latest_values_scratch.as_slice())
     }
 
-    #[allow(dead_code)]
-    fn populate_indicator_output_values_scratch(&mut self, id: u32) -> Result<(), JsValue> {
-        let indicator = self
-            .indicators
-            .iter()
-            .find(|indicator| indicator.id == id)
-            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let visible_count = indicator
-            .outputs
-            .iter_slots()
-            .filter(|(name, _)| is_visible_output(name))
-            .count();
-        if self.indicator_values_scratch.len() < visible_count {
-            self.indicator_values_scratch
-                .resize_with(visible_count, Vec::new);
-        }
-        for (index, (_, values)) in indicator
-            .outputs
-            .iter_slots()
-            .filter(|(name, _)| is_visible_output(name))
-            .enumerate()
-        {
-            let scratch = &mut self.indicator_values_scratch[index];
-            scratch.clear();
-            scratch.extend(values.iter().copied());
-        }
-        Ok(())
-    }
 }

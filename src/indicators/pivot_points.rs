@@ -92,6 +92,9 @@ mod tests {
         assert_series_close(&values[2].values, &[f64::NAN, 1.0]);
         assert_series_close(&values[3].values, &[f64::NAN, 7.0]);
         assert_series_close(&values[4].values, &[f64::NAN, -1.0]);
-        assert_eq!(latest_pivot_points_store(&store), (Some(3.0), Some(5.0), Some(1.0), Some(7.0), Some(-1.0)));
+        assert_eq!(
+            latest_pivot_points_store(&store),
+            (Some(3.0), Some(5.0), Some(1.0), Some(7.0), Some(-1.0))
+        );
     }
 }

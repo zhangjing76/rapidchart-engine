@@ -94,10 +94,22 @@ mod tests {
         let outputs = atr_bands_store(&store, 3, 2.0, &mut HashMap::new());
         let arena = crate::IndicatorArena::from_named_outputs(outputs.clone());
 
-        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 5.125, 6.0625]);
-        assert_series_close(outputs[1].values.as_slice(), &[1.0, 1.5, 2.25, 3.125, 4.0625]);
-        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.125, 2.0625]);
-        assert_series_close(outputs[3].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0]);
+        assert_series_close(
+            outputs[0].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 5.125, 6.0625],
+        );
+        assert_series_close(
+            outputs[1].values.as_slice(),
+            &[1.0, 1.5, 2.25, 3.125, 4.0625],
+        );
+        assert_series_close(
+            outputs[2].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 1.125, 2.0625],
+        );
+        assert_series_close(
+            outputs[3].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0],
+        );
         assert_eq!(
             latest_atr_bands_store(&store, 3, 2.0, &arena),
             (Some(6.0625), Some(4.0625), Some(2.0625))

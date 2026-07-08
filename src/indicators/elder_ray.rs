@@ -72,6 +72,9 @@ mod tests {
         assert_eq!(&*outputs[1].values, &[0.0, 0.0, 0.0, 0.0]);
 
         let arena = IndicatorArena::from_named_outputs(outputs);
-        assert_eq!(latest_elder_ray_store(&store, 3, &arena), (Some(0.0), Some(0.0)));
+        assert_eq!(
+            latest_elder_ray_store(&store, 3, &arena),
+            (Some(0.0), Some(0.0))
+        );
     }
 }

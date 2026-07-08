@@ -85,6 +85,9 @@ mod tests {
         let expected = (2.0 * band / 2.0) * 100.0;
 
         assert_series_close(&values, &[f64::NAN, f64::NAN, expected]);
-        assert_eq!(latest_bollinger_bandwidth_store(&store, 3, 2.0), Some(expected));
+        assert_eq!(
+            latest_bollinger_bandwidth_store(&store, 3, 2.0),
+            Some(expected)
+        );
     }
 }

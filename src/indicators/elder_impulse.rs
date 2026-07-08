@@ -70,3 +70,31 @@ pub fn latest_elder_impulse_store(store: &CandleStore, period: usize) -> Option<
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn elder_impulse_is_neutral_for_constant_prices() {
+        let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
+        let values = elder_impulse_store(&store, 3, &mut HashMap::new());
+
+        assert!(values[0].is_nan());
+        assert_eq!(&*values[1..].to_vec(), &[0.0, 0.0, 0.0]);
+        assert_eq!(latest_elder_impulse_store(&store, 3), Some(0.0));
+    }
+}

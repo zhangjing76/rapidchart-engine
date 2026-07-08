@@ -91,6 +91,9 @@ mod tests {
         let values = price_momentum_oscillator_store(&store, 2, 2, &mut HashMap::new());
 
         assert_series_close(&values, &[f64::NAN, 0.0, 0.0, 0.0]);
-        assert_eq!(latest_price_momentum_oscillator_store(&store, 2, 2), Some(0.0));
+        assert_eq!(
+            latest_price_momentum_oscillator_store(&store, 2, 2),
+            Some(0.0)
+        );
     }
 }

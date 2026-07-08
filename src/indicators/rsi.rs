@@ -185,12 +185,35 @@ mod tests {
         let store = close_store(&[1.0, 2.0, 1.0, 3.0, 2.0]);
         let outputs = rsi_outputs_store(&store, 3, &mut HashMap::new());
 
-        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 75.0, 54.54545454545455]);
-        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.0, 0.6666666666666666]);
-        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 0.3333333333333333, 0.5555555555555555]);
+        assert_series_close(
+            outputs[0].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 75.0, 54.54545454545455],
+        );
+        assert_series_close(
+            outputs[1].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 1.0, 0.6666666666666666],
+        );
+        assert_series_close(
+            outputs[2].values.as_slice(),
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                0.3333333333333333,
+                0.5555555555555555,
+            ],
+        );
         assert_eq!(
-            latest_rsi_store(&store, 3, &crate::IndicatorArena::from_named_outputs(outputs.clone())),
-            (Some(54.54545454545455), Some(0.6666666666666666), Some(0.5555555555555555))
+            latest_rsi_store(
+                &store,
+                3,
+                &crate::IndicatorArena::from_named_outputs(outputs.clone())
+            ),
+            (
+                Some(54.54545454545455),
+                Some(0.6666666666666666),
+                Some(0.5555555555555555)
+            )
         );
     }
 }

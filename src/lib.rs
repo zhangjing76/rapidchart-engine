@@ -1286,5 +1286,4 @@ impl ChartEngine {
         );
         Ok(self.latest_values_scratch.as_slice())
     }
-
 }

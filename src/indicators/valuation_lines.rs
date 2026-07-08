@@ -92,6 +92,9 @@ mod tests {
         assert_series_close(&values[0].values, &[f64::NAN, 11.0, 11.0]);
         assert_series_close(&values[1].values, &[f64::NAN, 10.0, 10.0]);
         assert_series_close(&values[2].values, &[f64::NAN, 9.0, 9.0]);
-        assert_eq!(latest_valuation_lines_store(&store, 2, 10.0), (Some(11.0), Some(10.0), Some(9.0)));
+        assert_eq!(
+            latest_valuation_lines_store(&store, 2, 10.0),
+            (Some(11.0), Some(10.0), Some(9.0))
+        );
     }
 }

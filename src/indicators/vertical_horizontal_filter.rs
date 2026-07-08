@@ -68,6 +68,9 @@ mod tests {
         assert!(values[1].is_nan());
         assert!((values[2] - 1.0).abs() < 1e-12);
         assert!((values[3] - 1.0).abs() < 1e-12);
-        assert_eq!(latest_vertical_horizontal_filter_store(&store, 2), Some(1.0));
+        assert_eq!(
+            latest_vertical_horizontal_filter_store(&store, 2),
+            Some(1.0)
+        );
     }
 }

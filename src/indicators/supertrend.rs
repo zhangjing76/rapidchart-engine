@@ -225,10 +225,22 @@ mod tests {
         let outputs = supertrend_store(&store, 3, 2.0, &mut HashMap::new());
         let arena = crate::IndicatorArena::from_named_outputs(outputs.clone());
 
-        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 2.0, 3.0]);
-        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 6.0, 6.0]);
-        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 2.0, 3.0]);
-        assert_series_close(outputs[3].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0]);
+        assert_series_close(
+            outputs[0].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 2.0, 3.0],
+        );
+        assert_series_close(
+            outputs[1].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 6.0, 6.0],
+        );
+        assert_series_close(
+            outputs[2].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 2.0, 3.0],
+        );
+        assert_series_close(
+            outputs[3].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0],
+        );
         assert_eq!(
             latest_supertrend_store(&store, 3, 2.0, &arena),
             (Some(3.0), Some(6.0), Some(3.0), Some(1.0))

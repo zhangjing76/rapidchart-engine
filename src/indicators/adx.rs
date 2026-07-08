@@ -341,13 +341,61 @@ mod tests {
         let outputs = adx_store(&store, 3, &mut HashMap::new());
         let arena = crate::IndicatorArena::from_named_outputs(outputs.clone());
 
-        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 100.0, 100.0]);
-        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 100.0, 100.0, 100.0, 100.0, 100.0]);
-        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0, 0.0, 0.0, 0.0]);
-        assert_series_close(outputs[3].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0, 1.0, 1.0, 1.0]);
-        assert_series_close(outputs[4].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0, 1.0, 1.0, 1.0]);
-        assert_series_close(outputs[5].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0, 0.0, 0.0, 0.0]);
-        assert_series_close(outputs[6].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, 100.0, 100.0, 100.0, 100.0, 100.0]);
+        assert_series_close(
+            outputs[0].values.as_slice(),
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                100.0,
+                100.0,
+            ],
+        );
+        assert_series_close(
+            outputs[1].values.as_slice(),
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                100.0,
+                100.0,
+                100.0,
+                100.0,
+                100.0,
+            ],
+        );
+        assert_series_close(
+            outputs[2].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0, 0.0, 0.0, 0.0],
+        );
+        assert_series_close(
+            outputs[3].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0, 1.0, 1.0, 1.0],
+        );
+        assert_series_close(
+            outputs[4].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0, 1.0, 1.0, 1.0],
+        );
+        assert_series_close(
+            outputs[5].values.as_slice(),
+            &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0, 0.0, 0.0, 0.0],
+        );
+        assert_series_close(
+            outputs[6].values.as_slice(),
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                100.0,
+                100.0,
+                100.0,
+                100.0,
+                100.0,
+            ],
+        );
         assert_eq!(
             latest_adx_store(&store, 3, &arena),
             (

@@ -71,11 +71,7 @@ mod tests {
 
     #[test]
     fn true_range_is_the_manual_bar_range() {
-        let store = ohlc_store(&[
-            (10.0, 8.0, 9.0),
-            (12.0, 7.0, 11.0),
-            (13.0, 9.0, 10.0),
-        ]);
+        let store = ohlc_store(&[(10.0, 8.0, 9.0), (12.0, 7.0, 11.0), (13.0, 9.0, 10.0)]);
         let values = true_range_series_store(&store, &mut HashMap::new());
 
         assert_series_close(&values, &[2.0, 5.0, 4.0]);

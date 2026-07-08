@@ -203,8 +203,8 @@ pub fn latest_ppo_store(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::IndicatorArena;
     use crate::named_series;
+    use crate::types::IndicatorArena;
     use std::collections::HashMap;
 
     fn close_store(values: &[f64]) -> CandleStore {

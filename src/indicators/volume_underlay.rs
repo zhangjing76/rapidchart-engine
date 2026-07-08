@@ -64,7 +64,11 @@ mod tests {
 
     #[test]
     fn volume_underlay_uses_sign_for_direction() {
-        let store = ohlcv_store(&[(1.0, 1.0, 1.0, 2.0), (2.0, 2.0, 2.0, 3.0), (1.0, 1.0, 1.0, 4.0)]);
+        let store = ohlcv_store(&[
+            (1.0, 1.0, 1.0, 2.0),
+            (2.0, 2.0, 2.0, 3.0),
+            (1.0, 1.0, 1.0, 4.0),
+        ]);
         let values = volume_underlay_store(&store, &mut HashMap::new());
 
         assert_eq!(&*values, &[2.0, 3.0, -4.0]);

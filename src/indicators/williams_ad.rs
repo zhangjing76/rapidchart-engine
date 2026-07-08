@@ -55,3 +55,33 @@ pub fn latest_williams_ad_store(store: &CandleStore, output: Option<&[f64]>) -> 
             ),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn williams_ad_is_zero_for_constant_prices() {
+        let store = ohlcv_store(&[(10.0, 10.0, 10.0), (10.0, 10.0, 10.0), (10.0, 10.0, 10.0)]);
+        let values = williams_ad_store(&store, &mut HashMap::new());
+
+        assert_eq!(&*values, &[0.0, 0.0, 0.0]);
+        assert_eq!(
+            latest_williams_ad_store(&store, Some(&values[..])),
+            Some(0.0)
+        );
+    }
+}

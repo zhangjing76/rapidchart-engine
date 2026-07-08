@@ -106,6 +106,9 @@ mod tests {
 
         assert_eq!(&*outputs[0].values, &[5.0, 11.0]);
         assert_eq!(&*outputs[1].values, &[2.0, 7.0]);
-        assert_eq!(latest_prime_number_bands_store(&store), (Some(11.0), Some(7.0)));
+        assert_eq!(
+            latest_prime_number_bands_store(&store),
+            (Some(11.0), Some(7.0))
+        );
     }
 }

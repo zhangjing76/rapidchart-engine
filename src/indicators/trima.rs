@@ -73,10 +73,7 @@ mod tests {
         let store = close_store(&[10.0, 10.0, 10.0, 10.0, 10.0]);
         let values = trima_store(&store, 3, &mut HashMap::new());
 
-        assert_series_close(
-            &values,
-            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 10.0],
-        );
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 10.0]);
         assert_eq!(latest_trima_store(&store, 3), Some(10.0));
     }
 }

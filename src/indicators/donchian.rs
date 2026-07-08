@@ -125,7 +125,10 @@ mod tests {
         assert_eq!(actual.len(), expected.len());
         for (index, (actual, expected)) in actual.iter().zip(expected.iter()).enumerate() {
             if expected.is_nan() {
-                assert!(actual.is_nan(), "index {index}: actual={actual:?} expected=NaN");
+                assert!(
+                    actual.is_nan(),
+                    "index {index}: actual={actual:?} expected=NaN"
+                );
             } else {
                 assert!(
                     (actual - expected).abs() < 1e-9,

@@ -76,6 +76,9 @@ mod tests {
         let values = projected_aggregate_volume_store(&store, 3, &mut HashMap::new());
 
         assert_eq!(&*values, &[10.0, 30.0, 60.0]);
-        assert_eq!(latest_projected_aggregate_volume_store(&store, 3), Some(60.0));
+        assert_eq!(
+            latest_projected_aggregate_volume_store(&store, 3),
+            Some(60.0)
+        );
     }
 }

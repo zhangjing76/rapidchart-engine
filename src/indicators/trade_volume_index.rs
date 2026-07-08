@@ -91,6 +91,9 @@ mod tests {
         let values = trade_volume_index_store(&store, &mut HashMap::new());
 
         assert_series_close(&values, &[0.0, 20.0, -10.0, -10.0]);
-        assert_eq!(latest_trade_volume_index_store(&store, Some(&values[..])), Some(-10.0));
+        assert_eq!(
+            latest_trade_volume_index_store(&store, Some(&values[..])),
+            Some(-10.0)
+        );
     }
 }

@@ -99,10 +99,7 @@ mod tests {
 
     #[test]
     fn anchored_vwap_is_the_running_typical_price_average() {
-        let store = ohlcv_store(&[
-            (3.0, 1.0, 2.0, 1.0),
-            (5.0, 1.0, 3.0, 1.0),
-        ]);
+        let store = ohlcv_store(&[(3.0, 1.0, 2.0, 1.0), (5.0, 1.0, 3.0, 1.0)]);
         let outputs = anchored_vwap_store(&store, 0, &mut HashMap::new());
 
         assert_series_close(outputs[0].values.as_slice(), &[2.0, 2.5]);

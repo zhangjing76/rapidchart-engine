@@ -134,7 +134,15 @@ mod tests {
         );
         assert_series_close(
             &values[1].values,
-            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.0],
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                0.0,
+            ],
         );
         assert_eq!(
             latest_relative_vigor_store(&store, 1),

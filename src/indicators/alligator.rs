@@ -148,15 +148,54 @@ mod tests {
 
         assert_series_close(
             &values[0].values,
-            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 10.0, 10.0, 10.0, 10.0],
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+            ],
         );
         assert_series_close(
             &values[1].values,
-            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0],
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+            ],
         );
         assert_series_close(
             &values[2].values,
-            &[f64::NAN, f64::NAN, f64::NAN, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0],
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+                10.0,
+            ],
         );
         let latest = latest_alligator_store(&store);
         let (jaw, teeth, lips) = latest;

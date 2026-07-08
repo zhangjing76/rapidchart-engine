@@ -93,6 +93,9 @@ mod tests {
         assert_series_close(&outputs[0].values, &[f64::NAN, 5.0, 7.0]);
         assert_series_close(&outputs[1].values, &[f64::NAN, 3.0, 5.0]);
         assert_series_close(&outputs[2].values, &[f64::NAN, 1.0, 3.0]);
-        assert_eq!(latest_high_low_bands_store(&store, 2), (Some(7.0), Some(5.0), Some(3.0)));
+        assert_eq!(
+            latest_high_low_bands_store(&store, 2),
+            (Some(7.0), Some(5.0), Some(3.0))
+        );
     }
 }

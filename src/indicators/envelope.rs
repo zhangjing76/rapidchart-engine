@@ -107,7 +107,10 @@ mod tests {
         assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, 1.65, 2.75]);
         assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, 1.5, 2.5]);
         assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, 1.35, 2.25]);
-        assert_eq!(latest_envelope_store(&store, 2, 10.0), (Some(2.75), Some(2.5), Some(2.25)));
+        assert_eq!(
+            latest_envelope_store(&store, 2, 10.0),
+            (Some(2.75), Some(2.5), Some(2.25))
+        );
         let _ = middle;
     }
 }

@@ -86,6 +86,9 @@ mod tests {
         assert!(values[0].values[0].is_nan());
         assert!((values[0].values[2] - 100.0).abs() < 1e-12);
         assert!((values[1].values[2] - 100.0).abs() < 1e-12);
-        assert_eq!(latest_shinohara_intensity_store(&store, 2), (Some(100.0), Some(100.0)));
+        assert_eq!(
+            latest_shinohara_intensity_store(&store, 2),
+            (Some(100.0), Some(100.0))
+        );
     }
 }

@@ -89,6 +89,9 @@ mod tests {
         assert!(values[1].values[0].is_nan());
         assert!((values[0].values[2] - 1.0).abs() < 1e-12);
         assert!((values[1].values[2] - 1.0).abs() < 1e-12);
-        assert_eq!(latest_vortex_indicator_store(&store, 2), (Some(1.0), Some(1.0)));
+        assert_eq!(
+            latest_vortex_indicator_store(&store, 2),
+            (Some(1.0), Some(1.0))
+        );
     }
 }

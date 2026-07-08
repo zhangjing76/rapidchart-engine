@@ -115,6 +115,9 @@ mod tests {
         let values = ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new());
 
         assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 50.0]);
-        assert_eq!(latest_ultimate_oscillator_store(&store, 2, 3, 4), Some(50.0));
+        assert_eq!(
+            latest_ultimate_oscillator_store(&store, 2, 3, 4),
+            Some(50.0)
+        );
     }
 }

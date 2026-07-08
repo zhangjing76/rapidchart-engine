@@ -112,8 +112,14 @@ mod tests {
         let store = ohlc_store(&[(1.0, 0.0), (2.0, 0.0), (1.5, 0.0), (1.0, 0.0), (1.0, 0.0)]);
         let values = darvas_box_store(&store, &mut HashMap::new());
 
-        assert_series_close(&values[0].values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 2.0]);
-        assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.0]);
+        assert_series_close(
+            &values[0].values,
+            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 2.0],
+        );
+        assert_series_close(
+            &values[1].values,
+            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.0],
+        );
         assert_eq!(latest_darvas_box_store(&store), (Some(2.0), Some(0.0)));
     }
 }

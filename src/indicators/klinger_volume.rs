@@ -60,3 +60,34 @@ pub fn latest_klinger_volume_store(store: &CandleStore) -> Option<f64> {
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(high, _, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _, _)| *low).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(_, _, _, volume)| *volume).collect(),
+        )
+    }
+
+    #[test]
+    fn klinger_volume_is_zero_for_constant_prices_and_volume() {
+        let store = ohlcv_store(&[
+            (10.0, 10.0, 10.0, 5.0),
+            (10.0, 10.0, 10.0, 5.0),
+            (10.0, 10.0, 10.0, 5.0),
+        ]);
+        let values = klinger_volume_store(&store, &mut HashMap::new());
+
+        assert_eq!(&*values, &[0.0, 0.0, 0.0]);
+        assert_eq!(latest_klinger_volume_store(&store), Some(0.0));
+    }
+}

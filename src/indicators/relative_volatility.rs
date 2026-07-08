@@ -112,7 +112,20 @@ mod tests {
 
         assert_series_close(
             &values,
-            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 50.0],
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                50.0,
+            ],
         );
         assert_eq!(latest_relative_volatility_store(&store, 2), Some(50.0));
     }

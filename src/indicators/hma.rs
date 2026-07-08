@@ -87,10 +87,7 @@ mod tests {
         let store = close_store(&[10.0, 10.0, 10.0, 10.0, 10.0]);
         let values = hma_store(&store, 4, &mut HashMap::new());
 
-        assert_series_close(
-            &values,
-            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 10.0],
-        );
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 10.0]);
         assert_eq!(latest_hma_store(&store, 4), Some(10.0));
     }
 }

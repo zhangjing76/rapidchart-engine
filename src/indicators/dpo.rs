@@ -69,10 +69,7 @@ mod tests {
         let store = close_store(&[10.0, 10.0, 10.0, 10.0, 10.0, 10.0]);
         let values = dpo_store(&store, 4, &mut HashMap::new());
 
-        assert_series_close(
-            &values,
-            &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0, 0.0],
-        );
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0, 0.0]);
         assert_eq!(latest_dpo_store(&store, 4), Some(0.0));
     }
 }

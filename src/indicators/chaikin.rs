@@ -189,7 +189,15 @@ mod tests {
             (2.0, 0.0, 1.0, 10.0),
             (2.0, 0.0, 1.0, 10.0),
         ]);
-        let values = chaikin_oscillator_store(&store, MacdParams { fast: 2, slow: 3, signal: 1 }, &mut HashMap::new());
+        let values = chaikin_oscillator_store(
+            &store,
+            MacdParams {
+                fast: 2,
+                slow: 3,
+                signal: 1,
+            },
+            &mut HashMap::new(),
+        );
 
         assert_series_close(&values, &[0.0, 0.0, 0.0, 0.0]);
     }

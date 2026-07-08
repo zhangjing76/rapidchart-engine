@@ -205,3 +205,50 @@ pub fn latest_parabolic_sar_store(
     }
     (Some(sar), Some(ep), Some(af), Some(trend))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::IndicatorArena;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn parabolic_sar_is_flat_for_constant_prices() {
+        let store = ohlc_store(&[10.0, 10.0, 10.0, 10.0]);
+        let outputs = parabolic_sar_store(&store, 0.02, 0.2, &mut HashMap::new());
+
+        assert_series_close(&outputs[0].values, &[f64::NAN, 10.0, 10.0, 10.0]);
+        assert_series_close(&outputs[1].values, &[f64::NAN, 10.0, 10.0, 10.0]);
+        assert_series_close(&outputs[2].values, &[f64::NAN, 0.02, 0.02, 0.02]);
+        assert_series_close(&outputs[3].values, &[f64::NAN, 1.0, 1.0, 1.0]);
+
+        let arena = IndicatorArena::from_named_outputs(outputs);
+        assert_eq!(
+            latest_parabolic_sar_store(&store, 0.02, 0.2, &arena),
+            (Some(10.0), Some(10.0), Some(0.02), Some(1.0))
+        );
+    }
+}

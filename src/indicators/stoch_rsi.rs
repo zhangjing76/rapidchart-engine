@@ -80,8 +80,35 @@ mod tests {
         let store = close_store(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
         let outputs = stoch_rsi_store(&store, 3, 3, 2, 2, &mut HashMap::new());
 
-        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0]);
-        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.0]);
-        assert_eq!(latest_stoch_rsi_store(&store, 3, 3, 2, 2), (Some(0.0), Some(0.0)));
+        assert_series_close(
+            outputs[0].values.as_slice(),
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                0.0,
+                0.0,
+            ],
+        );
+        assert_series_close(
+            outputs[1].values.as_slice(),
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                0.0,
+            ],
+        );
+        assert_eq!(
+            latest_stoch_rsi_store(&store, 3, 3, 2, 2),
+            (Some(0.0), Some(0.0))
+        );
     }
 }

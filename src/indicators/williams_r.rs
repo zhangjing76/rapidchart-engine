@@ -79,7 +79,10 @@ mod tests {
         let store = ohlc_store(&[(4.0, 0.0, 3.0), (6.0, 2.0, 5.0), (6.0, 0.0, 5.0)]);
         let values = williams_r_store(&store, 2, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, -16.666666666666664, -16.666666666666664]);
+        assert_series_close(
+            &values,
+            &[f64::NAN, -16.666666666666664, -16.666666666666664],
+        );
         assert_eq!(
             latest_williams_r_store(&store, 2),
             Some(-16.666666666666668)

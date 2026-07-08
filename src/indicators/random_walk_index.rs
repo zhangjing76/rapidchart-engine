@@ -110,14 +110,8 @@ mod tests {
         let values = random_walk_index_store(&store, 3, &mut HashMap::new());
 
         let expected = 0.7071067811865475;
-        assert_series_close(
-            &values[0].values,
-            &[f64::NAN, f64::NAN, f64::NAN, expected],
-        );
-        assert_series_close(
-            &values[1].values,
-            &[f64::NAN, f64::NAN, f64::NAN, expected],
-        );
+        assert_series_close(&values[0].values, &[f64::NAN, f64::NAN, f64::NAN, expected]);
+        assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, f64::NAN, expected]);
         assert_eq!(
             latest_random_walk_index_store(&store, 3),
             (Some(expected), Some(expected))

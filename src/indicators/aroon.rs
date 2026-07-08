@@ -126,12 +126,25 @@ mod tests {
         ]);
         let outputs = aroon_store(&store, 3, &mut HashMap::new());
 
-        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, 100.0, 100.0]);
-        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, f64::NAN, 33.333333333333336, 33.333333333333336]);
-        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, f64::NAN, 66.66666666666666, 66.66666666666666]);
+        assert_series_close(
+            outputs[0].values.as_slice(),
+            &[f64::NAN, f64::NAN, 100.0, 100.0],
+        );
+        assert_series_close(
+            outputs[1].values.as_slice(),
+            &[f64::NAN, f64::NAN, 33.333333333333336, 33.333333333333336],
+        );
+        assert_series_close(
+            outputs[2].values.as_slice(),
+            &[f64::NAN, f64::NAN, 66.66666666666666, 66.66666666666666],
+        );
         assert_eq!(
             latest_aroon_store(&store, 3),
-            (Some(100.0), Some(33.333333333333336), Some(66.66666666666666))
+            (
+                Some(100.0),
+                Some(33.333333333333336),
+                Some(66.66666666666666)
+            )
         );
     }
 }

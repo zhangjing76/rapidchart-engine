@@ -61,6 +61,16 @@ pub fn latest_linear_regression_store(store: &CandleStore, period: usize) -> Opt
     Some(intercept + slope * (period - 1) as f64)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "LINEAR_REGRESSION",
+                "LINEAR REGRESSION",
+                "Projection",
+                "overlay",
+                20,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -185,6 +185,32 @@ pub fn latest_supertrend_store(
     (Some(value), Some(upper), Some(lower), Some(trend))
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "SUPERTREND",
+                name: "SUPERTREND",
+                category: "Support/Resistance",
+                pane: "overlay",
+                params: vec![
+                    crate::descriptors::ParamDescriptor {
+                        name: "period",
+                        label: "Period",
+                        default: 10.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "multiplier",
+                        label: "Multiplier",
+                        default: 3.0,
+                        min: 1.0,
+                        step: "0.1",
+                    },
+                ],
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "overlay", "#0f766e")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

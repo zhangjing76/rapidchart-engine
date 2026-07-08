@@ -53,6 +53,16 @@ pub fn latest_projected_aggregate_volume_store(store: &CandleStore, period: usiz
     Some(cum_vol / bars_elapsed as f64 * session_len as f64)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "PROJECTED_AGGREGATE_VOLUME",
+                "PROJECTED AGGREGATE VOLUME",
+                "Volume",
+                "separate",
+                24,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -72,6 +72,26 @@ pub fn latest_random_walk_index_store(
     (h, l)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "RANDOM_WALK_INDEX",
+                name: "RANDOM WALK INDEX",
+                category: "Statistical",
+                pane: "separate",
+                params: vec![crate::descriptors::ParamDescriptor {
+                    name: "period",
+                    label: "Period",
+                    default: 14.0,
+                    min: 2.0,
+                    step: "1",
+                }],
+                outputs: vec![
+                    crate::descriptors::output_descriptor("high", "line", "separate", "#059669"),
+                    crate::descriptors::output_descriptor("low", "line", "separate", "#dc2626"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

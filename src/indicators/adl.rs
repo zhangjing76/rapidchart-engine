@@ -50,6 +50,17 @@ pub fn latest_adl_store(store: &CandleStore, output: Option<&[f64]>) -> Option<f
     )
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "ADL",
+                name: "ADL",
+                category: "Trend Analysis",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#9333ea")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

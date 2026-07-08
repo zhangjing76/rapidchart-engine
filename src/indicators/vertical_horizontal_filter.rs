@@ -42,6 +42,16 @@ pub fn latest_vertical_horizontal_filter_store(store: &CandleStore, period: usiz
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "VERTICAL_HORIZONTAL_FILTER",
+                "VERTICAL HORIZONTAL FILTER",
+                "Trend Analysis",
+                "separate",
+                28,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

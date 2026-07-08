@@ -65,6 +65,16 @@ pub fn latest_linear_reg_r2_store(store: &CandleStore, period: usize) -> Option<
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "LINEAR_REG_R2",
+                "LINEAR REG R2",
+                "Trend Analysis",
+                "separate",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

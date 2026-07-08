@@ -31,6 +31,16 @@ pub fn latest_ma_deviation_store(store: &CandleStore, period: usize) -> Option<f
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "MA_DEVIATION",
+                "MOVING AVERAGE DEVIATION",
+                "Momentum/Oscillator",
+                "separate",
+                20,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

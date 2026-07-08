@@ -53,6 +53,16 @@ pub fn latest_intraday_momentum_store(store: &CandleStore, period: usize) -> Opt
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "INTRADAY_MOMENTUM",
+                "INTRADAY MOMENTUM INDEX",
+                "Momentum/Oscillator",
+                "separate",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

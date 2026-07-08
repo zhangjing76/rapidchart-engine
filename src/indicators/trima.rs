@@ -40,6 +40,10 @@ pub fn latest_trima_store(store: &CandleStore, period: usize) -> Option<f64> {
     Some(last_period.iter().sum::<f64>() / p)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("TRIMA", "TRIMA", "Moving Average", "overlay", 20)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -75,6 +75,39 @@ pub fn latest_ultimate_oscillator_store(
     Some(100.0 * (4.0 * avg(short) + 2.0 * avg(medium) + avg(long)) / 7.0)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "ULTIMATE_OSCILLATOR",
+                name: "ULTIMATE OSCILLATOR",
+                category: "Momentum/Oscillator",
+                pane: "separate",
+                params: vec![
+                    crate::descriptors::ParamDescriptor {
+                        name: "period",
+                        label: "Short",
+                        default: 7.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "stoch_period",
+                        label: "Medium",
+                        default: 14.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "smooth",
+                        label: "Long",
+                        default: 28.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                ],
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

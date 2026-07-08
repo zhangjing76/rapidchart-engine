@@ -75,6 +75,30 @@ pub fn latest_gmma_store(
     results
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "GMMA",
+                name: "GUPPY MULTIPLE MOVING AVERAGE",
+                category: "Averages/Bands",
+                pane: "overlay",
+                params: Vec::new(),
+                outputs: vec![
+                    crate::descriptors::output_descriptor("short_3", "line", "overlay", "#059669"),
+                    crate::descriptors::output_descriptor("short_5", "line", "overlay", "#059669"),
+                    crate::descriptors::output_descriptor("short_8", "line", "overlay", "#059669"),
+                    crate::descriptors::output_descriptor("short_10", "line", "overlay", "#059669"),
+                    crate::descriptors::output_descriptor("short_12", "line", "overlay", "#059669"),
+                    crate::descriptors::output_descriptor("short_15", "line", "overlay", "#059669"),
+                    crate::descriptors::output_descriptor("long_30", "line", "overlay", "#dc2626"),
+                    crate::descriptors::output_descriptor("long_35", "line", "overlay", "#dc2626"),
+                    crate::descriptors::output_descriptor("long_40", "line", "overlay", "#dc2626"),
+                    crate::descriptors::output_descriptor("long_45", "line", "overlay", "#dc2626"),
+                    crate::descriptors::output_descriptor("long_50", "line", "overlay", "#dc2626"),
+                    crate::descriptors::output_descriptor("long_60", "line", "overlay", "#dc2626"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -45,6 +45,22 @@ pub fn latest_volume_underlay_store(store: &CandleStore) -> Option<f64> {
     }
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "VOLUME_UNDERLAY",
+                name: "VOLUME UNDERLAY",
+                category: "Volume",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor(
+                    "value",
+                    "histogram",
+                    "separate",
+                    "#94a3b8",
+                )],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

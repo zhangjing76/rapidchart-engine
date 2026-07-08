@@ -298,6 +298,27 @@ pub fn latest_adx_store(store: &CandleStore, period: usize, outputs: &IndicatorA
     )
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "ADX",
+                name: "ADX",
+                category: "Trend Analysis",
+                pane: "separate",
+                params: vec![crate::descriptors::ParamDescriptor {
+                    name: "period",
+                    label: "Period",
+                    default: 14.0,
+                    min: 1.0,
+                    step: "1",
+                }],
+                outputs: vec![
+                    crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb"),
+                    crate::descriptors::output_descriptor("plus_di", "line", "separate", "#059669"),
+                    crate::descriptors::output_descriptor("minus_di", "line", "separate", "#dc2626"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

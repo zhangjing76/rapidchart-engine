@@ -87,6 +87,26 @@ pub fn latest_relative_vigor_store(
     (v, s)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "RELATIVE_VIGOR",
+                name: "RELATIVE VIGOR INDEX",
+                category: "Momentum/Oscillator",
+                pane: "separate",
+                params: vec![crate::descriptors::ParamDescriptor {
+                    name: "period",
+                    label: "Period",
+                    default: 10.0,
+                    min: 1.0,
+                    step: "1",
+                }],
+                outputs: vec![
+                    crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb"),
+                    crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

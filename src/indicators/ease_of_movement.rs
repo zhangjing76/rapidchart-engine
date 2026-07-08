@@ -53,6 +53,16 @@ pub fn latest_ease_of_movement_store(store: &CandleStore, period: usize) -> Opti
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "EASE_OF_MOVEMENT",
+                "EASE OF MOVEMENT",
+                "Momentum/Oscillator",
+                "separate",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

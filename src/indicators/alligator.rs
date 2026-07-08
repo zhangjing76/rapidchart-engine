@@ -113,6 +113,21 @@ pub fn latest_alligator_store(store: &CandleStore) -> (Option<f64>, Option<f64>,
     (jaw, teeth, lips)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "ALLIGATOR",
+                name: "ALLIGATOR",
+                category: "Averages/Bands",
+                pane: "overlay",
+                params: Vec::new(),
+                outputs: vec![
+                    crate::descriptors::output_descriptor("jaw", "line", "overlay", "#2563eb"),
+                    crate::descriptors::output_descriptor("teeth", "line", "overlay", "#dc2626"),
+                    crate::descriptors::output_descriptor("lips", "line", "overlay", "#059669"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

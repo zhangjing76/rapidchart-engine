@@ -47,6 +47,16 @@ pub fn latest_linear_reg_slope_store(store: &CandleStore, period: usize) -> Opti
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "LINEAR_REG_SLOPE",
+                "LINEAR REG SLOPE",
+                "Statistical",
+                "separate",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

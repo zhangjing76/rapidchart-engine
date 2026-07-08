@@ -46,6 +46,16 @@ pub fn latest_center_of_gravity_store(store: &CandleStore, period: usize) -> Opt
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "CENTER_OF_GRAVITY",
+                "CENTER OF GRAVITY",
+                "Momentum/Oscillator",
+                "separate",
+                10,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

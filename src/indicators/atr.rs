@@ -68,6 +68,10 @@ pub fn latest_atr_store(store: &CandleStore, period: usize, output: Option<&[f64
     )
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("ATR", "ATR", "Volatility", "separate", 14)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

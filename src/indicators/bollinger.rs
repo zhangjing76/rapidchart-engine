@@ -71,6 +71,36 @@ pub fn latest_bollinger_store(
     (Some(mean + band), Some(mean), Some(mean - band))
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "BB",
+                name: "BOLLINGER",
+                category: "Volatility",
+                pane: "overlay",
+                params: vec![
+                    crate::descriptors::ParamDescriptor {
+                        name: "period",
+                        label: "Period",
+                        default: 20.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "multiplier",
+                        label: "Multiplier",
+                        default: 2.0,
+                        min: 1.0,
+                        step: "0.1",
+                    },
+                ],
+                outputs: vec![
+                    crate::descriptors::output_descriptor("upper", "line", "overlay", "#9333ea"),
+                    crate::descriptors::output_descriptor("middle", "line", "overlay", "#64748b"),
+                    crate::descriptors::output_descriptor("lower", "line", "overlay", "#9333ea"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

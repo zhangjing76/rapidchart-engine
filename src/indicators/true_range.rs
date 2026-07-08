@@ -41,6 +41,17 @@ pub fn latest_true_range_store(store: &CandleStore) -> Option<f64> {
     )
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "TRUE_RANGE",
+                name: "TRUE RANGE",
+                category: "Volatility",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

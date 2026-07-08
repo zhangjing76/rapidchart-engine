@@ -57,6 +57,17 @@ pub fn latest_trade_volume_index_store(store: &CandleStore, prev: Option<&[f64]>
     }
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "TRADE_VOLUME_INDEX",
+                name: "TRADE VOLUME INDEX",
+                category: "Money Flow",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#0f766e")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

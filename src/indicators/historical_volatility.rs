@@ -55,6 +55,16 @@ pub fn latest_historical_volatility_store(store: &CandleStore, period: usize) ->
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "HISTORICAL_VOLATILITY",
+                "HISTORICAL VOLATILITY",
+                "Volatility",
+                "separate",
+                20,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

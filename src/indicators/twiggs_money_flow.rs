@@ -61,6 +61,16 @@ pub fn latest_twiggs_money_flow_store(store: &CandleStore, period: usize) -> Opt
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "TWIGGS_MONEY_FLOW",
+                "TWIGGS MONEY FLOW",
+                "Volume",
+                "separate",
+                21,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

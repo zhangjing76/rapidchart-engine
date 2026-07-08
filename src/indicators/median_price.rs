@@ -11,6 +11,17 @@ pub fn latest_median_price_store(store: &CandleStore) -> Option<f64> {
     latest_hl2(store)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "MEDIAN_PRICE",
+                name: "MEDIAN PRICE",
+                category: "Statistical",
+                pane: "overlay",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "overlay", "#64748b")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

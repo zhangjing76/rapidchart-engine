@@ -55,6 +55,16 @@ pub fn latest_choppiness_index_store(store: &CandleStore, period: usize) -> Opti
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "CHOPPINESS_INDEX",
+                "CHOPPINESS INDEX",
+                "Volatility",
+                "separate",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

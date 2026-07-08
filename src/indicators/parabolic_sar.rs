@@ -206,6 +206,32 @@ pub fn latest_parabolic_sar_store(
     (Some(sar), Some(ep), Some(af), Some(trend))
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "PARABOLIC_SAR",
+                name: "PARABOLIC SAR",
+                category: "Trend Analysis",
+                pane: "overlay",
+                params: vec![
+                    crate::descriptors::ParamDescriptor {
+                        name: "psar_step",
+                        label: "Step",
+                        default: 0.02,
+                        min: 0.001,
+                        step: "0.001",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "psar_max_step",
+                        label: "Max",
+                        default: 0.2,
+                        min: 0.01,
+                        step: "0.01",
+                    },
+                ],
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "overlay", "#059669")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

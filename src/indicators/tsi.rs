@@ -96,6 +96,32 @@ pub fn latest_tsi_store(
     )
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "TSI",
+                name: "TSI",
+                category: "Momentum/Oscillator",
+                pane: "separate",
+                params: vec![
+                    crate::descriptors::ParamDescriptor {
+                        name: "period",
+                        label: "Long",
+                        default: 25.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "stoch_period",
+                        label: "Short",
+                        default: 13.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                ],
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

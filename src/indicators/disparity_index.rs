@@ -36,6 +36,16 @@ pub fn latest_disparity_index_store(store: &CandleStore, period: usize) -> Optio
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "DISPARITY_INDEX",
+                "DISPARITY INDEX",
+                "Momentum/Oscillator",
+                "separate",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

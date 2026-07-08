@@ -54,6 +54,10 @@ pub fn latest_hma_store(store: &CandleStore, period: usize) -> Option<f64> {
     wma_window(&raw, sqrt_period)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("HMA", "HMA", "Moving Average", "overlay", 20)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

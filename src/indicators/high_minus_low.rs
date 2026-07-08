@@ -26,6 +26,17 @@ pub fn latest_high_minus_low_store(store: &CandleStore) -> Option<f64> {
     Some(store.high[i] - store.low[i])
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "HIGH_MINUS_LOW",
+                name: "HIGH MINUS LOW",
+                category: "Volatility",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

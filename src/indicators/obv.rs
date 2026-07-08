@@ -45,6 +45,17 @@ pub fn latest_obv_store(store: &CandleStore, output: Option<&[f64]>) -> Option<f
     }
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "OBV",
+                name: "OBV",
+                category: "Volume",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#059669")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

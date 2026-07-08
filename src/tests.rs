@@ -185,11 +185,11 @@ mod tests {
 
     #[test]
     fn all_exposed_indicators_support_incremental_updates() {
-        for descriptor in indicator_descriptors() {
+        for item in indicator_descriptors() {
             assert!(
-                is_valid_kind(descriptor.kind),
+                is_valid_kind(item.kind),
                 "{} must be handled incrementally or intentionally hidden",
-                descriptor.kind
+                item.kind
             );
         }
     }

@@ -38,6 +38,16 @@ pub fn latest_psychological_line_store(store: &CandleStore, period: usize) -> Op
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "PSYCHOLOGICAL_LINE",
+                "PSYCHOLOGICAL LINE",
+                "Trend Analysis",
+                "separate",
+                12,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -36,6 +36,10 @@ pub fn latest_dpo_store(store: &CandleStore, period: usize) -> Option<f64> {
     latest_sma_store(store, period).map(|mean| store.close[index - shift] - mean)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("DPO", "DPO", "Trend Analysis", "separate", 20)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

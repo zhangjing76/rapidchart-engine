@@ -82,6 +82,20 @@ pub fn latest_prime_number_bands_store(store: &CandleStore) -> (Option<f64>, Opt
     )
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "PRIME_NUMBER_BANDS",
+                name: "PRIME NUMBER BANDS",
+                category: "Support/Resistance",
+                pane: "overlay",
+                params: Vec::new(),
+                outputs: vec![
+                    crate::descriptors::output_descriptor("upper", "line", "overlay", "#059669"),
+                    crate::descriptors::output_descriptor("lower", "line", "overlay", "#dc2626"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

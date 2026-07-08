@@ -58,6 +58,10 @@ pub fn latest_dema_store(
     (Some(2.0 * ema1 - ema2), Some(ema1), Some(ema2))
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("DEMA", "DEMA", "Moving Average", "overlay", 20)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

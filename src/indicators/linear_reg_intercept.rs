@@ -62,6 +62,16 @@ pub fn latest_linear_reg_intercept_store(store: &CandleStore, period: usize) -> 
     Some((sum_y - slope * sum_x) / n)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "LINEAR_REG_INTERCEPT",
+                "LINEAR REG INTERCEPT",
+                "Statistical",
+                "overlay",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

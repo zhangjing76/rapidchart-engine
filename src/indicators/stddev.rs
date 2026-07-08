@@ -47,6 +47,10 @@ pub fn latest_stddev_store(store: &CandleStore, period: usize) -> Option<f64> {
     Some(variance.sqrt())
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("STDDEV", "STDDEV", "Statistical", "separate", 20)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

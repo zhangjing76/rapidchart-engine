@@ -127,15 +127,6 @@ At that boundary, `rc_into_owned(...)` moves the underlying `Vec<f64>` when the 
 ### Push live updates
 
 ```ts
-engine.upsertBar({
-  time: 1719837600,
-  open: 62450,
-  high: 62700,
-  low: 62350,
-  close: 62620,
-  volume: 1100,
-});
-
 engine.upsertBarFast({
   time: 1719837600,
   open: 62450,
@@ -195,7 +186,6 @@ smaLine.setData(
 - `removeIndicator(id)`
 - `indicatorDescriptors()`
 - `dagDebug()`
-- `upsertBar(bar)`
 - `upsertBarFast(bar)`
 
 The local implementation lives in [src/engine.ts](/Users/jingzhang/Projects/chart/src/engine.ts), but consumers should import from the package root instead of reaching into `src/`.
@@ -386,7 +376,7 @@ Current flow:
 2. JavaScript writes the data into typed arrays and calls `engine.ingestColumnsFast(...)` or `engine.ingestColumnsZeroCopy(...)`.
 3. Rust stores the bars and recomputes indicator state.
 4. JavaScript opens a WebSocket stream.
-5. Each live kline update is passed to `engine.upsert_bar(bar)`.
+5. Each live kline update is passed to `engine.upsert_bar_fast(...)`.
 6. Rust updates the last bar or appends a new one, then incrementally updates indicators.
 
 ### Indicator model
@@ -429,7 +419,7 @@ Full recompute:
 
 Incremental update:
 
-- used after `upsert_bar()`
+- used after `upsert_bar_fast()`
 - updates only the latest value for each indicator
 - avoids rebuilding the full history on every live tick/bar
 

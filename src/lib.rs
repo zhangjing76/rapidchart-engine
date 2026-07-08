@@ -167,12 +167,6 @@ impl ChartEngine {
         self.recompute_indicators();
     }
 
-    pub fn upsert_bar(&mut self, bar: JsValue) -> Result<(), JsValue> {
-        let bar: Bar = serde_wasm_bindgen::from_value(bar)
-            .map_err(|err| JsValue::from_str(&err.to_string()))?;
-        self.upsert_bar_inner(bar)
-    }
-
     pub fn upsert_bar_fast(
         &mut self,
         time: u32,
@@ -182,18 +176,18 @@ impl ChartEngine {
         close: f64,
         volume: f64,
     ) -> Result<(), JsValue> {
-        self.upsert_bar_inner(Bar {
-            time,
-            open,
-            high,
-            low,
-            close,
-            volume,
-        })
-    }
-
-    fn upsert_bar_inner(&mut self, bar: Bar) -> Result<(), JsValue> {
-        if upsert_candle_store(&mut self.bars, bar) && !self.update_indicators_incremental() {
+        if upsert_candle_store(
+            &mut self.bars,
+            Bar {
+                time,
+                open,
+                high,
+                low,
+                close,
+                volume,
+            },
+        ) && !self.update_indicators_incremental()
+        {
             return Err(JsValue::from_str(
                 "indicator does not support incremental updates",
             ));

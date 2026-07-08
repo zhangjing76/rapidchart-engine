@@ -44,6 +44,16 @@ pub fn latest_gopalakrishnan_range_store(store: &CandleStore, period: usize) -> 
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "GOPALAKRISHNAN_RANGE",
+                "GOPALAKRISHNAN RANGE INDEX",
+                "Volatility",
+                "separate",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

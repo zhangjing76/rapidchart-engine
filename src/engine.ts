@@ -296,11 +296,6 @@ export class RapidChartEngine {
     this.#seriesSpacing = seriesSpacingSeconds(columns.time);
   }
 
-  upsertBar(bar: Bar): void {
-    this.#engine.upsert_bar(bar);
-    this.#updateSpacingForBar(bar.time);
-  }
-
   upsertBarFast(bar: Bar): void {
     this.#engine.upsert_bar_fast(
       bar.time,

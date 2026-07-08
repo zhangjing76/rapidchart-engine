@@ -39,6 +39,10 @@ pub fn latest_force_index_store(
     (Some(ema), Some(ema))
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("FORCE_INDEX", "FORCE INDEX", "Money Flow", "separate", 13)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

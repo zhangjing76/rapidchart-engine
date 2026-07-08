@@ -51,6 +51,17 @@ pub fn latest_price_volume_trend_store(store: &CandleStore, prev: Option<&[f64]>
     }
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "PRICE_VOLUME_TREND",
+                name: "PRICE VOLUME TREND",
+                category: "Money Flow",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -57,6 +57,32 @@ pub fn latest_price_momentum_oscillator_store(
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "PRICE_MOMENTUM_OSCILLATOR",
+                name: "PRICE MOMENTUM OSCILLATOR",
+                category: "Momentum/Oscillator",
+                pane: "separate",
+                params: vec![
+                    crate::descriptors::ParamDescriptor {
+                        name: "period",
+                        label: "Smoothing",
+                        default: 35.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "smooth",
+                        label: "Double Smooth",
+                        default: 20.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                ],
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

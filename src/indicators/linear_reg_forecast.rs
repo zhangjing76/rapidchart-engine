@@ -66,6 +66,26 @@ pub fn latest_linear_reg_forecast_store(store: &CandleStore, period: usize) -> O
     Some(intercept + slope * period as f64)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "LINEAR_REG_FORECAST",
+                "LINEAR REG FORECAST",
+                "Statistical",
+                "overlay",
+                14,
+            )
+}
+
+pub(crate) fn time_series_forecast_descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "TIME_SERIES_FORECAST",
+                "TIME SERIES FORECAST",
+                "Statistical",
+                "overlay",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

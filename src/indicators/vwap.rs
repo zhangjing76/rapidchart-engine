@@ -94,6 +94,17 @@ pub fn latest_vwap_store(
     )
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "VWAP",
+                name: "VWAP",
+                category: "Volume",
+                pane: "overlay",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "overlay", "#0f766e")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

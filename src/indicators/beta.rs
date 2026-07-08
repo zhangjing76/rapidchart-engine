@@ -71,6 +71,10 @@ pub fn latest_beta_store(store: &CandleStore, period: usize) -> Option<f64> {
     Some(variance.sqrt() * n.sqrt())
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("BETA", "BETA", "Volatility", "separate", 20)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

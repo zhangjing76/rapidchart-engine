@@ -200,6 +200,80 @@ pub fn latest_ppo_store(
     (ppo, signal, histogram)
 }
 
+pub(crate) fn macd_descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "MACD",
+                name: "MACD",
+                category: "Momentum/Oscillator",
+                pane: "separate",
+                params: vec![
+                    crate::descriptors::ParamDescriptor {
+                        name: "fast",
+                        label: "Fast",
+                        default: 12.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "slow",
+                        label: "Slow",
+                        default: 26.0,
+                        min: 2.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "signal",
+                        label: "Signal",
+                        default: 9.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                ],
+                outputs: vec![
+                    crate::descriptors::output_descriptor("macd", "line", "separate", "#2563eb"),
+                    crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
+                    crate::descriptors::output_descriptor("histogram", "histogram", "separate", "#86efac"),
+                ],
+            }
+}
+
+pub(crate) fn ppo_descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "PPO",
+                name: "PPO",
+                category: "Momentum/Oscillator",
+                pane: "separate",
+                params: vec![
+                    crate::descriptors::ParamDescriptor {
+                        name: "fast",
+                        label: "Fast",
+                        default: 12.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "slow",
+                        label: "Slow",
+                        default: 26.0,
+                        min: 2.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "signal",
+                        label: "Signal",
+                        default: 9.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                ],
+                outputs: vec![
+                    crate::descriptors::output_descriptor("ppo", "line", "separate", "#2563eb"),
+                    crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
+                    crate::descriptors::output_descriptor("histogram", "histogram", "separate", "#86efac"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

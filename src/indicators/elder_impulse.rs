@@ -71,6 +71,16 @@ pub fn latest_elder_impulse_store(store: &CandleStore, period: usize) -> Option<
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "ELDER_IMPULSE",
+                "ELDER IMPULSE SYSTEM",
+                "Trend Analysis",
+                "separate",
+                13,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

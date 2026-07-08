@@ -52,6 +52,10 @@ pub fn latest_cmf_store(store: &CandleStore, period: usize) -> Option<f64> {
     (volume_sum != 0.0).then_some(mfv_sum / volume_sum)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("CMF", "CMF", "Money Flow", "separate", 20)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

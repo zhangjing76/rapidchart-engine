@@ -33,6 +33,17 @@ pub fn latest_performance_index_store(store: &CandleStore) -> Option<f64> {
     Some((store.close[i] / store.close[0]) * 100.0)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "PERFORMANCE_INDEX",
+                name: "PERFORMANCE INDEX",
+                category: "Trend Analysis",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

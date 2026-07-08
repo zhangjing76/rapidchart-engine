@@ -62,6 +62,10 @@ pub fn latest_mfi_store(store: &CandleStore, period: usize) -> Option<f64> {
     Some(mfi_value(positive_flow, negative_flow))
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("MFI", "MFI", "Money Flow", "separate", 14)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

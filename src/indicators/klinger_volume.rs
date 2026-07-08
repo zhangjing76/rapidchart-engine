@@ -61,6 +61,17 @@ pub fn latest_klinger_volume_store(store: &CandleStore) -> Option<f64> {
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "KLINGER_VOLUME",
+                name: "KLINGER VOLUME OSCILLATOR",
+                category: "Money Flow",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

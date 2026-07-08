@@ -41,6 +41,16 @@ pub fn latest_price_relative_store(store: &CandleStore, period: usize) -> Option
     }
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "PRICE_RELATIVE",
+                "PRICE RELATIVE",
+                "Compare",
+                "separate",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

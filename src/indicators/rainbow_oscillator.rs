@@ -73,6 +73,16 @@ pub fn latest_rainbow_oscillator_store(store: &CandleStore, period: usize) -> Op
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "RAINBOW_OSCILLATOR",
+                "RAINBOW OSCILLATOR",
+                "Momentum/Oscillator",
+                "separate",
+                2,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

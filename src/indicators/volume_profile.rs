@@ -120,6 +120,27 @@ pub fn latest_volume_profile_store(
     (poc, vah, val)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "VOLUME_PROFILE",
+                name: "VOLUME PROFILE",
+                category: "Volume",
+                pane: "overlay",
+                params: vec![crate::descriptors::ParamDescriptor {
+                    name: "period",
+                    label: "Period",
+                    default: 24.0,
+                    min: 2.0,
+                    step: "1",
+                }],
+                outputs: vec![
+                    crate::descriptors::output_descriptor("poc", "line", "overlay", "#2563eb"),
+                    crate::descriptors::output_descriptor("vah", "line", "overlay", "#059669"),
+                    crate::descriptors::output_descriptor("val", "line", "overlay", "#dc2626"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -55,6 +55,10 @@ pub fn latest_mass_index_store(store: &CandleStore, period: usize) -> Option<f64
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("MASS_INDEX", "MASS INDEX", "Volatility", "separate", 25)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

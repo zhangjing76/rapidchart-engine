@@ -47,6 +47,32 @@ pub fn latest_bollinger_pct_b_store(
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "BOLLINGER_PCT_B",
+                name: "BOLLINGER %B",
+                category: "Momentum/Oscillator",
+                pane: "separate",
+                params: vec![
+                    crate::descriptors::ParamDescriptor {
+                        name: "period",
+                        label: "Period",
+                        default: 20.0,
+                        min: 1.0,
+                        step: "1",
+                    },
+                    crate::descriptors::ParamDescriptor {
+                        name: "multiplier",
+                        label: "Multiplier",
+                        default: 2.0,
+                        min: 0.1,
+                        step: "0.1",
+                    },
+                ],
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#9333ea")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

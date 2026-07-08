@@ -34,6 +34,16 @@ pub fn latest_lowest_low_store(store: &CandleStore, period: usize) -> Option<f64
     Some(min)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "LOWEST_LOW",
+                "LOWEST LOW VALUE",
+                "Statistical",
+                "overlay",
+                14,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

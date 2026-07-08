@@ -27,6 +27,16 @@ pub fn latest_momentum_store(store: &CandleStore, period: usize) -> Option<f64> 
     Some(store.close[store.len() - 1] - store.close[store.len() - 1 - period])
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "MOMENTUM",
+                "MOMENTUM",
+                "Momentum/Oscillator",
+                "separate",
+                10,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

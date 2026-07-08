@@ -29,6 +29,17 @@ pub fn latest_weighted_close_store(store: &CandleStore) -> Option<f64> {
     Some((store.high[i] + store.low[i] + 2.0 * store.close[i]) / 4.0)
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "WEIGHTED_CLOSE",
+                name: "WEIGHTED CLOSE",
+                category: "Averages/Bands",
+                pane: "overlay",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "overlay", "#64748b")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

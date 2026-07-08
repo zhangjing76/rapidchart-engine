@@ -88,6 +88,27 @@ pub fn latest_aroon_store(
     )
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "AROON",
+                name: "AROON",
+                category: "Trend Analysis",
+                pane: "separate",
+                params: vec![crate::descriptors::ParamDescriptor {
+                    name: "period",
+                    label: "Period",
+                    default: 14.0,
+                    min: 1.0,
+                    step: "1",
+                }],
+                outputs: vec![
+                    crate::descriptors::output_descriptor("up", "line", "separate", "#059669"),
+                    crate::descriptors::output_descriptor("down", "line", "separate", "#dc2626"),
+                    crate::descriptors::output_descriptor("oscillator", "line", "separate", "#2563eb"),
+                ],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

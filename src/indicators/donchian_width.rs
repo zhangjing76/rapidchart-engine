@@ -40,6 +40,16 @@ pub fn latest_donchian_width_store(store: &CandleStore, period: usize) -> Option
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor(
+                "DONCHIAN_WIDTH",
+                "DONCHIAN WIDTH",
+                "Volatility",
+                "separate",
+                20,
+            )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

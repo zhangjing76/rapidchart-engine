@@ -54,6 +54,17 @@ pub fn latest_positive_volume_index_store(
     }
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::IndicatorDescriptor {
+                kind: "POSITIVE_VOLUME_INDEX",
+                name: "POSITIVE VOLUME INDEX",
+                category: "Trend Analysis",
+                pane: "separate",
+                params: Vec::new(),
+                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#059669")],
+            }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

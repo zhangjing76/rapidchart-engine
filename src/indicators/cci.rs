@@ -65,6 +65,10 @@ pub fn latest_cci_store(store: &CandleStore, period: usize) -> Option<f64> {
     })
 }
 
+pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
+    crate::descriptors::period_descriptor("CCI", "CCI", "Momentum/Oscillator", "separate", 20)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -52,3 +52,45 @@ pub fn latest_ease_of_movement_store(store: &CandleStore, period: usize) -> Opti
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(_, _, volume)| *volume).collect(),
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn ease_of_movement_is_smoothed_distance_over_box_ratio() {
+        let store = ohlcv_store(&[
+            (2.0, 0.0, 10000.0),
+            (3.0, 1.0, 10000.0),
+            (4.0, 2.0, 10000.0),
+        ]);
+        let values = ease_of_movement_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 2.0]);
+        assert_eq!(latest_ease_of_movement_store(&store, 2), Some(2.0));
+    }
+}

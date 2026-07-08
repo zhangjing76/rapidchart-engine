@@ -33,3 +33,30 @@ pub fn latest_bop_store(store: &CandleStore) -> Option<f64> {
         (store.close[i] - store.open[i]) / range
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64, f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(open, _, _, _, _)| *open).collect(),
+            values.iter().map(|(_, high, _, _, _)| *high).collect(),
+            values.iter().map(|(_, _, low, _, _)| *low).collect(),
+            values.iter().map(|(_, _, _, close, _)| *close).collect(),
+            values.iter().map(|(_, _, _, _, volume)| *volume).collect(),
+        )
+    }
+
+    #[test]
+    fn bop_is_open_to_close_relative_to_range() {
+        let store = ohlcv_store(&[(1.0, 4.0, 0.0, 3.0, 1.0), (8.0, 8.0, 2.0, 5.0, 1.0)]);
+        let values = bop_store(&store, &mut HashMap::new());
+
+        assert_eq!(&*values, &[0.5, -0.5]);
+        assert_eq!(latest_bop_store(&store), Some(-0.5));
+    }
+}

@@ -93,3 +93,47 @@ pub fn latest_vwap_store(
         Some(cumulative_volume),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(high, _, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _, _)| *low).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(_, _, _, volume)| *volume).collect(),
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn vwap_tracks_cumulative_typical_price() {
+        let store = ohlcv_store(&[(12.0, 6.0, 9.0, 2.0), (15.0, 9.0, 12.0, 3.0)]);
+        let outputs = vwap_store(&store, &mut HashMap::new());
+        let arena = crate::IndicatorArena::from_named_outputs(outputs.clone());
+
+        assert_series_close(outputs[0].values.as_slice(), &[9.0, 10.8]);
+        assert_series_close(outputs[1].values.as_slice(), &[18.0, 54.0]);
+        assert_series_close(outputs[2].values.as_slice(), &[2.0, 5.0]);
+        assert_eq!(
+            latest_vwap_store(&store, &arena),
+            (Some(10.8), Some(54.0), Some(5.0))
+        );
+    }
+}

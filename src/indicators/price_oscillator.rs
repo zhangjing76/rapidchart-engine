@@ -38,3 +38,46 @@ pub fn latest_price_oscillator_store(store: &CandleStore, params: MacdParams) ->
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn price_oscillator_is_zero_when_fast_and_slow_emas_match() {
+        let store = close_store(&[5.0, 5.0, 5.0]);
+        let params = MacdParams {
+            fast: 2,
+            slow: 3,
+            signal: 1,
+        };
+        let values = price_oscillator_store(&store, params, &mut HashMap::new());
+
+        assert_series_close(&values, &[0.0, 0.0, 0.0]);
+        assert_eq!(latest_price_oscillator_store(&store, params), Some(0.0));
+    }
+}

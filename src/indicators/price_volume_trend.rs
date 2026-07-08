@@ -50,3 +50,49 @@ pub fn latest_price_volume_trend_store(store: &CandleStore, prev: Option<&[f64]>
         Some(prev_pvt)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(_, volume)| *volume).collect(),
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    fn assert_close(actual: Option<f64>, expected: f64) {
+        let actual = actual.expect("expected a value");
+        assert!((actual - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn price_volume_trend_is_the_manual_cumulative_roc() {
+        let store = ohlcv_store(&[(10.0, 1.0), (11.0, 2.0), (13.0, 3.0)]);
+        let values = price_volume_trend_store(&store, &mut HashMap::new());
+
+        assert_series_close(&values, &[0.0, 0.2, 0.7454545454545456]);
+        assert_close(
+            latest_price_volume_trend_store(&store, Some(&values[..])),
+            0.7454545454545456,
+        );
+    }
+}

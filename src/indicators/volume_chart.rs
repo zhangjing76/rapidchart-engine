@@ -18,3 +18,30 @@ pub fn latest_volume_chart_store(store: &CandleStore) -> Option<f64> {
     }
     Some(store.volume[store.len() - 1])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(high, _, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _, _)| *low).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(_, _, _, volume)| *volume).collect(),
+        )
+    }
+
+    #[test]
+    fn volume_chart_is_the_raw_volume_series() {
+        let store = ohlcv_store(&[(1.0, 1.0, 1.0, 2.0), (2.0, 2.0, 2.0, 3.0)]);
+        let values = volume_chart_store(&store, &mut HashMap::new());
+
+        assert_eq!(&*values, &[2.0, 3.0]);
+        assert_eq!(latest_volume_chart_store(&store), Some(3.0));
+    }
+}

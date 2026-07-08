@@ -44,3 +44,30 @@ pub fn latest_obv_store(store: &CandleStore, output: Option<&[f64]>) -> Option<f
         Some(previous)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(_, volume)| *volume).collect(),
+        )
+    }
+
+    #[test]
+    fn obv_tracks_directional_volume_flow() {
+        let store = ohlcv_store(&[(10.0, 2.0), (12.0, 3.0), (11.0, 5.0), (11.0, 7.0)]);
+        let values = obv_store(&store, &mut HashMap::new());
+
+        assert_eq!(&*values, &[0.0, 3.0, -2.0, -2.0]);
+        assert_eq!(latest_obv_store(&store, Some(&values[..])), Some(-2.0));
+    }
+}

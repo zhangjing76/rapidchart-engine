@@ -43,3 +43,42 @@ pub fn latest_gopalakrishnan_range_store(store: &CandleStore, period: usize) -> 
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn gopalakrishnan_range_matches_log_scaled_range() {
+        let store = ohlc_store(&[(4.0, 1.0, 2.0), (6.0, 2.0, 4.0), (8.0, 3.0, 6.0)]);
+        let values = gopalakrishnan_range_store(&store, 3, &mut HashMap::new());
+        let expected = (7.0_f64).ln() / (3.0_f64).ln();
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, expected]);
+        assert_eq!(latest_gopalakrishnan_range_store(&store, 3), Some(expected));
+    }
+}

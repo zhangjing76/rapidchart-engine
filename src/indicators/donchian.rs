@@ -103,3 +103,63 @@ pub fn latest_price_channel_store(
         .fold(f64::INFINITY, f64::min);
     (Some(high), Some((high + low) / 2.0), Some(low))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (index, (actual, expected)) in actual.iter().zip(expected.iter()).enumerate() {
+            if expected.is_nan() {
+                assert!(actual.is_nan(), "index {index}: actual={actual:?} expected=NaN");
+            } else {
+                assert!(
+                    (actual - expected).abs() < 1e-9,
+                    "index {index}: actual={actual:?} expected={expected:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn donchian_is_the_rolling_high_low_channel() {
+        let store = ohlc_store(&[(10.0, 6.0, 9.0), (12.0, 7.0, 10.0), (11.0, 8.0, 10.0)]);
+        let outputs = donchian_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, 12.0, 12.0]);
+        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, 9.0, 9.5]);
+        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, 6.0, 7.0]);
+        assert_eq!(
+            latest_donchian_store(&store, 2),
+            (Some(12.0), Some(9.5), Some(7.0))
+        );
+    }
+
+    #[test]
+    fn price_channel_matches_donchian_for_the_same_window() {
+        let store = ohlc_store(&[(10.0, 6.0, 9.0), (12.0, 7.0, 10.0), (11.0, 8.0, 10.0)]);
+        let outputs = price_channel_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, 12.0, 12.0]);
+        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, 9.0, 9.5]);
+        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, 6.0, 7.0]);
+        assert_eq!(
+            latest_price_channel_store(&store, 2),
+            (Some(12.0), Some(9.5), Some(7.0))
+        );
+    }
+}

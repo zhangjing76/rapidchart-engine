@@ -28,3 +28,30 @@ pub fn latest_weighted_close_store(store: &CandleStore) -> Option<f64> {
     let i = store.len() - 1;
     Some((store.high[i] + store.low[i] + 2.0 * store.close[i]) / 4.0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn weighted_close_is_the_manual_weighted_mean() {
+        let store = ohlc_store(&[(12.0, 6.0, 9.0), (15.0, 9.0, 12.0)]);
+        let values = weighted_close_store(&store, &mut HashMap::new());
+
+        assert_eq!(&*values, &[9.0, 12.0]);
+        assert_eq!(latest_weighted_close_store(&store), Some(12.0));
+    }
+}

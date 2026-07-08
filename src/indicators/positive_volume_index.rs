@@ -53,3 +53,44 @@ pub fn latest_positive_volume_index_store(
         Some(prev_pvi)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(_, volume)| *volume).collect(),
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn pvi_only_changes_on_volume_increases() {
+        let store = ohlcv_store(&[(10.0, 1.0), (11.0, 2.0), (12.0, 1.0)]);
+        let values = positive_volume_index_store(&store, &mut HashMap::new());
+
+        assert_series_close(&values, &[1000.0, 1100.0, 1100.0]);
+        assert_eq!(
+            latest_positive_volume_index_store(&store, Some(&values[..])),
+            Some(1100.0)
+        );
+    }
+}

@@ -37,3 +37,41 @@ pub fn latest_volume_roc_store(store: &CandleStore, period: usize) -> Option<f64
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn volume_roc_is_the_manual_percentage_change() {
+        let store = ohlcv_store(&[2.0, 4.0, 8.0]);
+        let values = volume_roc_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 300.0]);
+        assert_eq!(latest_volume_roc_store(&store, 2), Some(300.0));
+    }
+}

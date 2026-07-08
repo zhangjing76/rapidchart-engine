@@ -601,6 +601,7 @@ function indicatorFromConfig(config: IndicatorConfig): Indicator {
 
 function attachIndicator(indicator: Indicator, index: number) {
   indicator.engineId = engine.addIndicator(indicatorConfig(indicator));
+  currentColumns = engine.candleColumns();
   attachIndicatorSeries(indicator, index);
   renderIndicator(indicator);
 }
@@ -662,6 +663,7 @@ function addRsiGuides(series: ISeriesApi<"Line">) {
 function attachIndicators() {
   const configs = indicators.map((indicator) => indicatorConfig(indicator));
   const ids = engine.addIndicators(configs);
+  currentColumns = engine.candleColumns();
   indicators.forEach((indicator, index) => {
     indicator.engineId = ids[index];
     attachIndicatorSeries(indicator, index);
@@ -968,6 +970,9 @@ function detachIndicatorSeries() {
 }
 
 function clearIndicators() {
+  for (const indicator of indicators) {
+    if (indicator.engineId) engine.removeIndicator(indicator.engineId);
+  }
   detachIndicatorSeries();
   indicators = [];
   renderIndicatorList();

@@ -625,10 +625,11 @@ That target is still useful, but the current repo takes the lazy path first:
 ## Project layout
 
 - [src/lib.rs](/Users/jingzhang/Projects/chart/src/lib.rs): Rust/WASM chart engine
-- [src/main.ts](/Users/jingzhang/Projects/chart/src/main.ts): test app UI and Binance integration
-- [src/style.css](/Users/jingzhang/Projects/chart/src/style.css): app styles
+- [src/engine.ts](/Users/jingzhang/Projects/chart/src/engine.ts): npm-facing TypeScript wrapper
+- [src/index.ts](/Users/jingzhang/Projects/chart/src/index.ts): package entrypoint
+- [examples/app](/Users/jingzhang/Projects/chart/examples/app): GitHub Pages example app UI, fixtures, and styles
 - [Cargo.toml](/Users/jingzhang/Projects/chart/Cargo.toml): Rust crate config
-- [package.json](/Users/jingzhang/Projects/chart/package.json): frontend scripts
+- [package.json](/Users/jingzhang/Projects/chart/package.json): package metadata and build scripts
 
 ## Requirements
 
@@ -644,7 +645,7 @@ npm install
 npm run dev
 ```
 
-The dev server builds the WASM package first, then starts Vite on `127.0.0.1`.
+The dev server builds the WASM package first, then starts Vite on `127.0.0.1` using `examples/app` as the app root.
 
 ## Build
 
@@ -671,7 +672,7 @@ The workflow will:
 - run `npm run build`
 - publish `dist/` to GitHub Pages
 
-The Vite config uses a relative asset base, so the built app works under the GitHub Pages repo path without extra repo-name-specific config.
+The Vite config builds the example app from `examples/app` into the root `dist/` folder and uses a relative asset base, so the built app works under the GitHub Pages repo path without extra repo-name-specific config.
 
 ## Test
 
@@ -729,9 +730,9 @@ If the indicator has hidden intermediate state used only for incremental updates
 
 If the indicator has custom parameters that need validation, add a check in `validate_indicator()` in `src/dag.rs`.
 
-### 4. Expose it in the test app
+### 4. Expose it in the example app
 
-The UI mostly comes from Rust descriptors, but `src/main.ts` still matters.
+The UI mostly comes from Rust descriptors, but `examples/app/main.ts` still matters.
 
 - Add a label in `indicatorLabel()` if the indicator has custom formatting.
 - Extend `IndicatorConfig` if the indicator needs new parameters.

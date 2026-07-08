@@ -1,4 +1,4 @@
-import type { CandleColumns } from "./engine";
+import type { CandleColumns } from "../../src/index";
 
 export type FixtureName = "btcusdt-1m";
 

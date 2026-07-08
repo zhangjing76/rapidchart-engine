@@ -27,7 +27,7 @@ import {
   indicatorOutputShift,
   seriesSpacingSeconds,
   shiftedOutputTime,
-} from "./index";
+} from "../../src/index";
 import { fixtureColumns } from "./fixtures";
 import "./style.css";
 

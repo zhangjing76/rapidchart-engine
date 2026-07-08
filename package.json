@@ -7,11 +7,12 @@
     ".": "./src/index.ts"
   },
   "files": [
-    "src",
+    "src/index.ts",
+    "src/engine.ts",
     "pkg"
   ],
   "scripts": {
-    "build:wasm": "wasm-pack build --target web --out-dir pkg",
+    "build:wasm": "node -e \"require('node:fs').rmSync('pkg',{recursive:true,force:true})\" && wasm-pack build --target web --out-dir pkg && node -e \"require('node:fs').rmSync('pkg/.gitignore',{force:true})\"",
     "bench": "node scripts/bench.mjs",
     "bench:indicators": "node scripts/bench-indicators.mjs",
     "bench:browser": "npm run build && node scripts/bench-browser.mjs",
@@ -21,13 +22,12 @@
     "dev": "npm run build:wasm && vite --host 127.0.0.1",
     "build": "npm run build:wasm && tsc && vite build"
   },
-  "dependencies": {
-    "lightweight-charts": "^5.0.8",
-    "vite": "^7.0.0"
-  },
   "devDependencies": {
+    "fancy-canvas": "^2.1.0",
+    "lightweight-charts": "^5.2.0",
     "playwright-core": "^1.61.1",
     "typescript": "^5.5.0",
+    "vite": "^7.3.6",
     "wasm-pack": "^0.13.1"
   }
 }

@@ -370,14 +370,14 @@ declare global {
 
 const chart = createChart(document.querySelector<HTMLElement>("#chart")!, {
   autoSize: true,
-  layout: { attributionLogo: false, background: { color: "#ffffff" }, textColor: "#111827" },
-  grid: { vertLines: { color: "#e5e7eb" }, horzLines: { color: "#e5e7eb" } },
+  layout: { attributionLogo: false, background: { color: "#0f172a" }, textColor: "#dbe5f0" },
+  grid: { vertLines: { color: "#223047" }, horzLines: { color: "#223047" } },
   rightPriceScale: { borderVisible: false },
   timeScale: { borderVisible: false },
 });
 const candles = chart.addSeries(CandlestickSeries);
 const volume = chart.addSeries(HistogramSeries, {
-  color: "#94a3b8",
+  color: "#475569",
   priceFormat: { type: "volume" },
   priceScaleId: "",
 });

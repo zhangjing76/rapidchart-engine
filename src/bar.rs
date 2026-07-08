@@ -34,27 +34,6 @@ impl CandleStore {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn from_columns(columns: CandleColumnsInput) -> Result<Self, &'static str> {
-        let len = columns.time.len();
-        if columns.open.len() != len
-            || columns.high.len() != len
-            || columns.low.len() != len
-            || columns.close.len() != len
-            || columns.volume.len() != len
-        {
-            return Err("candle column lengths must match for time/open/high/low/close/volume");
-        }
-        Ok(Self::from_raw_columns(
-            columns.time,
-            columns.open,
-            columns.high,
-            columns.low,
-            columns.close,
-            columns.volume,
-        ))
-    }
-
     pub(crate) fn from_raw_columns(
         mut time: Vec<u32>,
         mut open: Vec<f64>,
@@ -152,15 +131,4 @@ impl<'de> Deserialize<'de> for CandleStore {
 
         deserializer.deserialize_seq(CandleStoreVisitor)
     }
-}
-
-#[cfg(test)]
-#[derive(Deserialize)]
-pub(crate) struct CandleColumnsInput {
-    pub time: Vec<u32>,
-    pub open: Vec<f64>,
-    pub high: Vec<f64>,
-    pub low: Vec<f64>,
-    pub close: Vec<f64>,
-    pub volume: Vec<f64>,
 }

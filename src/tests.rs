@@ -75,15 +75,14 @@ mod tests {
     fn candle_store_from_columns_matches_from_bars() {
         let bars = bars(&[10.0, 11.0, 12.0]);
         let from_bars = store_from_bars(bars.clone());
-        let from_columns = CandleStore::from_columns(CandleColumnsInput {
-            time: bars.iter().map(|bar| bar.time).collect(),
-            open: bars.iter().map(|bar| bar.open).collect(),
-            high: bars.iter().map(|bar| bar.high).collect(),
-            low: bars.iter().map(|bar| bar.low).collect(),
-            close: bars.iter().map(|bar| bar.close).collect(),
-            volume: bars.iter().map(|bar| bar.volume).collect(),
-        })
-        .unwrap();
+        let from_columns = CandleStore::from_raw_columns(
+            bars.iter().map(|bar| bar.time).collect(),
+            bars.iter().map(|bar| bar.open).collect(),
+            bars.iter().map(|bar| bar.high).collect(),
+            bars.iter().map(|bar| bar.low).collect(),
+            bars.iter().map(|bar| bar.close).collect(),
+            bars.iter().map(|bar| bar.volume).collect(),
+        );
 
         assert_eq!(from_columns.time, from_bars.time);
         assert_eq!(from_columns.open, from_bars.open);
@@ -91,25 +90,6 @@ mod tests {
         assert_eq!(from_columns.low, from_bars.low);
         assert_eq!(from_columns.close, from_bars.close);
         assert_eq!(from_columns.volume, from_bars.volume);
-    }
-
-    #[test]
-    fn candle_store_from_columns_rejects_mismatched_lengths() {
-        let error = CandleStore::from_columns(CandleColumnsInput {
-            time: vec![0, 1],
-            open: vec![1.0],
-            high: vec![1.0, 2.0],
-            low: vec![1.0, 2.0],
-            close: vec![1.0, 2.0],
-            volume: vec![1.0, 2.0],
-        })
-        .err()
-        .unwrap();
-
-        assert_eq!(
-            Some(error),
-            Some("candle column lengths must match for time/open/high/low/close/volume")
-        );
     }
 
     fn ohlc(values: &[(f64, f64, f64)]) -> Vec<Bar> {

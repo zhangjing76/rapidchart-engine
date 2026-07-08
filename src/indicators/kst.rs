@@ -80,13 +80,15 @@ pub fn sma_from_series(values: &[f64], period: usize) -> Series {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "KST",
-                name: "KST",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
-            }
+        kind: "KST",
+        name: "KST",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

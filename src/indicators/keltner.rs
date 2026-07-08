@@ -112,62 +112,62 @@ pub fn latest_starc_store(
 
 pub(crate) fn starc_descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "STARC",
-                name: "STARC",
-                category: "Volatility",
-                pane: "overlay",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "period",
-                        label: "Period",
-                        default: 15.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "multiplier",
-                        label: "Multiplier",
-                        default: 2.0,
-                        min: 0.1,
-                        step: "0.1",
-                    },
-                ],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("upper", "line", "overlay", "#0f766e"),
-                    crate::descriptors::output_descriptor("middle", "line", "overlay", "#2563eb"),
-                    crate::descriptors::output_descriptor("lower", "line", "overlay", "#0f766e"),
-                ],
-            }
+        kind: "STARC",
+        name: "STARC",
+        category: "Volatility",
+        pane: "overlay",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 15.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "multiplier",
+                label: "Multiplier",
+                default: 2.0,
+                min: 0.1,
+                step: "0.1",
+            },
+        ],
+        outputs: vec![
+            crate::descriptors::output_descriptor("upper", "line", "overlay", "#0f766e"),
+            crate::descriptors::output_descriptor("middle", "line", "overlay", "#2563eb"),
+            crate::descriptors::output_descriptor("lower", "line", "overlay", "#0f766e"),
+        ],
+    }
 }
 
 pub(crate) fn keltner_descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "KELTNER",
-                name: "KELTNER",
-                category: "Averages/Bands",
-                pane: "overlay",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "period",
-                        label: "Period",
-                        default: 20.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "multiplier",
-                        label: "Multiplier",
-                        default: 2.0,
-                        min: 1.0,
-                        step: "0.1",
-                    },
-                ],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("upper", "line", "overlay", "#0f766e"),
-                    crate::descriptors::output_descriptor("middle", "line", "overlay", "#2563eb"),
-                    crate::descriptors::output_descriptor("lower", "line", "overlay", "#0f766e"),
-                ],
-            }
+        kind: "KELTNER",
+        name: "KELTNER",
+        category: "Averages/Bands",
+        pane: "overlay",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 20.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "multiplier",
+                label: "Multiplier",
+                default: 2.0,
+                min: 1.0,
+                step: "0.1",
+            },
+        ],
+        outputs: vec![
+            crate::descriptors::output_descriptor("upper", "line", "overlay", "#0f766e"),
+            crate::descriptors::output_descriptor("middle", "line", "overlay", "#2563eb"),
+            crate::descriptors::output_descriptor("lower", "line", "overlay", "#0f766e"),
+        ],
+    }
 }
 
 #[cfg(test)]

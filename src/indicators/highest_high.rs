@@ -36,12 +36,12 @@ pub fn latest_highest_high_store(store: &CandleStore, period: usize) -> Option<f
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "HIGHEST_HIGH",
-                "HIGHEST HIGH VALUE",
-                "Statistical",
-                "overlay",
-                14,
-            )
+        "HIGHEST_HIGH",
+        "HIGHEST HIGH VALUE",
+        "Statistical",
+        "overlay",
+        14,
+    )
 }
 
 #[cfg(test)]

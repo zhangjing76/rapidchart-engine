@@ -57,18 +57,18 @@ pub fn latest_awesome_oscillator_store(store: &CandleStore) -> Option<f64> {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "AWESOME_OSCILLATOR",
-                name: "AWESOME OSCILLATOR",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor(
-                    "value",
-                    "histogram",
-                    "separate",
-                    "#2563eb",
-                )],
-            }
+        kind: "AWESOME_OSCILLATOR",
+        name: "AWESOME OSCILLATOR",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value",
+            "histogram",
+            "separate",
+            "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

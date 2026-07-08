@@ -40,12 +40,12 @@ pub fn latest_pretty_good_oscillator_store(store: &CandleStore, period: usize) -
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "PRETTY_GOOD_OSCILLATOR",
-                "PRETTY GOOD OSCILLATOR",
-                "Momentum/Oscillator",
-                "separate",
-                14,
-            )
+        "PRETTY_GOOD_OSCILLATOR",
+        "PRETTY GOOD OSCILLATOR",
+        "Momentum/Oscillator",
+        "separate",
+        14,
+    )
 }
 
 #[cfg(test)]

@@ -105,19 +105,21 @@ pub fn latest_zigzag_store(store: &CandleStore, threshold_pct: f64) -> Option<f6
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "ZIGZAG",
-                name: "ZIGZAG",
-                category: "Trend Analysis",
-                pane: "overlay",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "multiplier",
-                    label: "Threshold %",
-                    default: 5.0,
-                    min: 0.1,
-                    step: "0.1",
-                }],
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "overlay", "#2563eb")],
-            }
+        kind: "ZIGZAG",
+        name: "ZIGZAG",
+        category: "Trend Analysis",
+        pane: "overlay",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "multiplier",
+            label: "Threshold %",
+            default: 5.0,
+            min: 0.1,
+            step: "0.1",
+        }],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "overlay", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

@@ -106,44 +106,44 @@ pub fn latest_price_channel_store(
 
 pub(crate) fn price_channel_descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "PRICE_CHANNEL",
-                name: "PRICE CHANNEL",
-                category: "Support/Resistance",
-                pane: "overlay",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 20.0,
-                    min: 1.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("upper", "line", "overlay", "#f59e0b"),
-                    crate::descriptors::output_descriptor("middle", "line", "overlay", "#64748b"),
-                    crate::descriptors::output_descriptor("lower", "line", "overlay", "#f59e0b"),
-                ],
-            }
+        kind: "PRICE_CHANNEL",
+        name: "PRICE CHANNEL",
+        category: "Support/Resistance",
+        pane: "overlay",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 20.0,
+            min: 1.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("upper", "line", "overlay", "#f59e0b"),
+            crate::descriptors::output_descriptor("middle", "line", "overlay", "#64748b"),
+            crate::descriptors::output_descriptor("lower", "line", "overlay", "#f59e0b"),
+        ],
+    }
 }
 
 pub(crate) fn donchian_descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "DONCHIAN",
-                name: "DONCHIAN",
-                category: "Averages/Bands",
-                pane: "overlay",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 20.0,
-                    min: 1.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("upper", "line", "overlay", "#f59e0b"),
-                    crate::descriptors::output_descriptor("middle", "line", "overlay", "#64748b"),
-                    crate::descriptors::output_descriptor("lower", "line", "overlay", "#f59e0b"),
-                ],
-            }
+        kind: "DONCHIAN",
+        name: "DONCHIAN",
+        category: "Averages/Bands",
+        pane: "overlay",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 20.0,
+            min: 1.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("upper", "line", "overlay", "#f59e0b"),
+            crate::descriptors::output_descriptor("middle", "line", "overlay", "#64748b"),
+            crate::descriptors::output_descriptor("lower", "line", "overlay", "#f59e0b"),
+        ],
+    }
 }
 
 #[cfg(test)]

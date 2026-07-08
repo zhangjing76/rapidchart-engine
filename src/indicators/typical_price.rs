@@ -13,13 +13,15 @@ pub fn latest_typical_price_store(store: &CandleStore) -> Option<f64> {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "TYPICAL_PRICE",
-                name: "TYPICAL PRICE",
-                category: "Averages/Bands",
-                pane: "overlay",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "overlay", "#64748b")],
-            }
+        kind: "TYPICAL_PRICE",
+        name: "TYPICAL PRICE",
+        category: "Averages/Bands",
+        pane: "overlay",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "overlay", "#64748b",
+        )],
+    }
 }
 
 #[cfg(test)]

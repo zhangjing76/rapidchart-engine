@@ -63,12 +63,12 @@ pub fn latest_twiggs_money_flow_store(store: &CandleStore, period: usize) -> Opt
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "TWIGGS_MONEY_FLOW",
-                "TWIGGS MONEY FLOW",
-                "Volume",
-                "separate",
-                21,
-            )
+        "TWIGGS_MONEY_FLOW",
+        "TWIGGS MONEY FLOW",
+        "Volume",
+        "separate",
+        21,
+    )
 }
 
 #[cfg(test)]

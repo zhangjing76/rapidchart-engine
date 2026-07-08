@@ -59,23 +59,23 @@ pub fn latest_high_low_bands_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "HIGH_LOW_BANDS",
-                name: "HIGH LOW BANDS",
-                category: "Statistical",
-                pane: "overlay",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 14.0,
-                    min: 1.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("upper", "line", "overlay", "#f59e0b"),
-                    crate::descriptors::output_descriptor("middle", "line", "overlay", "#64748b"),
-                    crate::descriptors::output_descriptor("lower", "line", "overlay", "#f59e0b"),
-                ],
-            }
+        kind: "HIGH_LOW_BANDS",
+        name: "HIGH LOW BANDS",
+        category: "Statistical",
+        pane: "overlay",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 14.0,
+            min: 1.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("upper", "line", "overlay", "#f59e0b"),
+            crate::descriptors::output_descriptor("middle", "line", "overlay", "#64748b"),
+            crate::descriptors::output_descriptor("lower", "line", "overlay", "#f59e0b"),
+        ],
+    }
 }
 
 #[cfg(test)]

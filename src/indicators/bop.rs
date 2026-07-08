@@ -36,13 +36,15 @@ pub fn latest_bop_store(store: &CandleStore) -> Option<f64> {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "BOP",
-                name: "BOP",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#9333ea")],
-            }
+        kind: "BOP",
+        name: "BOP",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#9333ea",
+        )],
+    }
 }
 
 #[cfg(test)]

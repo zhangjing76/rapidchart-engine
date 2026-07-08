@@ -42,12 +42,12 @@ pub fn latest_donchian_width_store(store: &CandleStore, period: usize) -> Option
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "DONCHIAN_WIDTH",
-                "DONCHIAN WIDTH",
-                "Volatility",
-                "separate",
-                20,
-            )
+        "DONCHIAN_WIDTH",
+        "DONCHIAN WIDTH",
+        "Volatility",
+        "separate",
+        20,
+    )
 }
 
 #[cfg(test)]

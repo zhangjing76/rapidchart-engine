@@ -48,12 +48,12 @@ pub fn latest_williams_r_store(store: &CandleStore, period: usize) -> Option<f64
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "WILLIAMS_R",
-                "WILLIAMS %R",
-                "Momentum/Oscillator",
-                "separate",
-                14,
-            )
+        "WILLIAMS_R",
+        "WILLIAMS %R",
+        "Momentum/Oscillator",
+        "separate",
+        14,
+    )
 }
 
 #[cfg(test)]

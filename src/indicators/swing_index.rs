@@ -69,13 +69,15 @@ pub fn latest_swing_index_store(store: &CandleStore) -> Option<f64> {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "SWING_INDEX",
-                name: "SWING INDEX",
-                category: "Trend Analysis",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
-            }
+        kind: "SWING_INDEX",
+        name: "SWING INDEX",
+        category: "Trend Analysis",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

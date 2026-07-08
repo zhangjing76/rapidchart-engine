@@ -57,12 +57,12 @@ pub fn latest_historical_volatility_store(store: &CandleStore, period: usize) ->
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "HISTORICAL_VOLATILITY",
-                "HISTORICAL VOLATILITY",
-                "Volatility",
-                "separate",
-                20,
-            )
+        "HISTORICAL_VOLATILITY",
+        "HISTORICAL VOLATILITY",
+        "Volatility",
+        "separate",
+        20,
+    )
 }
 
 #[cfg(test)]

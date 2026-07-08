@@ -35,13 +35,15 @@ pub fn latest_market_facilitation_store(store: &CandleStore) -> Option<f64> {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "MARKET_FACILITATION",
-                name: "MARKET FACILITATION INDEX",
-                category: "Volume",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#9333ea")],
-            }
+        kind: "MARKET_FACILITATION",
+        name: "MARKET FACILITATION INDEX",
+        category: "Volume",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#9333ea",
+        )],
+    }
 }
 
 #[cfg(test)]

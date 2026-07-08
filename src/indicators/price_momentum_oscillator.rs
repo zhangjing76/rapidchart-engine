@@ -59,28 +59,30 @@ pub fn latest_price_momentum_oscillator_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "PRICE_MOMENTUM_OSCILLATOR",
-                name: "PRICE MOMENTUM OSCILLATOR",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "period",
-                        label: "Smoothing",
-                        default: 35.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "smooth",
-                        label: "Double Smooth",
-                        default: 20.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
-            }
+        kind: "PRICE_MOMENTUM_OSCILLATOR",
+        name: "PRICE MOMENTUM OSCILLATOR",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "period",
+                label: "Smoothing",
+                default: 35.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "smooth",
+                label: "Double Smooth",
+                default: 20.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]
@@ -130,7 +132,12 @@ mod tests {
 
         assert_series_close(
             &values,
-            &[f64::NAN, 100.00000000000009, 95.95959595959596, 89.89898989898985],
+            &[
+                f64::NAN,
+                100.00000000000009,
+                95.95959595959596,
+                89.89898989898985,
+            ],
         );
         assert_eq!(
             latest_price_momentum_oscillator_store(&store, 2, 2),

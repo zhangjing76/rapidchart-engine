@@ -48,12 +48,12 @@ pub fn latest_center_of_gravity_store(store: &CandleStore, period: usize) -> Opt
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "CENTER_OF_GRAVITY",
-                "CENTER OF GRAVITY",
-                "Momentum/Oscillator",
-                "separate",
-                10,
-            )
+        "CENTER_OF_GRAVITY",
+        "CENTER OF GRAVITY",
+        "Momentum/Oscillator",
+        "separate",
+        10,
+    )
 }
 
 #[cfg(test)]

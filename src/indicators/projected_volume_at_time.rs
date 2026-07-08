@@ -73,12 +73,12 @@ pub fn latest_projected_volume_at_time_store(store: &CandleStore, period: usize)
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "PROJECTED_VOLUME_AT_TIME",
-                "PROJECTED VOLUME AT TIME",
-                "Volume",
-                "separate",
-                24,
-            )
+        "PROJECTED_VOLUME_AT_TIME",
+        "PROJECTED VOLUME AT TIME",
+        "Volume",
+        "separate",
+        24,
+    )
 }
 
 #[cfg(test)]

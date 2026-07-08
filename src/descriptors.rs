@@ -63,4 +63,3 @@ pub(crate) fn output_descriptor(
         color,
     }
 }
-

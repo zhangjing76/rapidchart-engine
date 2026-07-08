@@ -56,19 +56,19 @@ pub fn latest_pivot_points_store(store: &CandleStore) -> PivotPointsResult {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "PIVOT_POINTS",
-                name: "PIVOT POINTS",
-                category: "Support/Resistance",
-                pane: "overlay",
-                params: Vec::new(),
-                outputs: vec![
-                    crate::descriptors::output_descriptor("pp", "line", "overlay", "#64748b"),
-                    crate::descriptors::output_descriptor("r1", "line", "overlay", "#059669"),
-                    crate::descriptors::output_descriptor("s1", "line", "overlay", "#dc2626"),
-                    crate::descriptors::output_descriptor("r2", "line", "overlay", "#16a34a"),
-                    crate::descriptors::output_descriptor("s2", "line", "overlay", "#b91c1c"),
-                ],
-            }
+        kind: "PIVOT_POINTS",
+        name: "PIVOT POINTS",
+        category: "Support/Resistance",
+        pane: "overlay",
+        params: Vec::new(),
+        outputs: vec![
+            crate::descriptors::output_descriptor("pp", "line", "overlay", "#64748b"),
+            crate::descriptors::output_descriptor("r1", "line", "overlay", "#059669"),
+            crate::descriptors::output_descriptor("s1", "line", "overlay", "#dc2626"),
+            crate::descriptors::output_descriptor("r2", "line", "overlay", "#16a34a"),
+            crate::descriptors::output_descriptor("s2", "line", "overlay", "#b91c1c"),
+        ],
+    }
 }
 
 #[cfg(test)]

@@ -63,12 +63,12 @@ pub fn latest_linear_regression_store(store: &CandleStore, period: usize) -> Opt
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "LINEAR_REGRESSION",
-                "LINEAR REGRESSION",
-                "Projection",
-                "overlay",
-                20,
-            )
+        "LINEAR_REGRESSION",
+        "LINEAR REGRESSION",
+        "Projection",
+        "overlay",
+        20,
+    )
 }
 
 #[cfg(test)]

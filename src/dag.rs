@@ -279,7 +279,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("hlbands:middle:{}", indicator.period),
             format!("hlbands:lower:{}", indicator.period),
         ],
-        IndicatorKind::FRACTAL_CHAOS_BANDS => vec!["fcb:upper".to_string(), "fcb:lower".to_string()],
+        IndicatorKind::FRACTAL_CHAOS_BANDS => {
+            vec!["fcb:upper".to_string(), "fcb:lower".to_string()]
+        }
         IndicatorKind::GMMA => {
             let mut nodes = Vec::with_capacity(12);
             for &p in &[3, 5, 8, 10, 12, 15, 30, 35, 40, 45, 50, 60] {
@@ -287,8 +289,12 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             }
             nodes
         }
-        IndicatorKind::LINEAR_REG_FORECAST => vec![format!("linreg_forecast:close:{}", indicator.period)],
-        IndicatorKind::LINEAR_REG_INTERCEPT => vec![format!("linreg_intercept:close:{}", indicator.period)],
+        IndicatorKind::LINEAR_REG_FORECAST => {
+            vec![format!("linreg_forecast:close:{}", indicator.period)]
+        }
+        IndicatorKind::LINEAR_REG_INTERCEPT => {
+            vec![format!("linreg_intercept:close:{}", indicator.period)]
+        }
         IndicatorKind::ANCHORED_VWAP => vec![format!("anchored_vwap:{}", indicator.anchor)],
         IndicatorKind::TYPICAL_PRICE => vec!["typical_price:hlc".to_string()],
         IndicatorKind::WEIGHTED_CLOSE => vec!["weighted_close:hlc".to_string()],
@@ -307,7 +313,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             .map(|i| format!("rainbow:r{}:{}", i, indicator.period))
             .collect(),
         IndicatorKind::PRIME_NUMBER_BANDS => vec!["pnb:upper".to_string(), "pnb:lower".to_string()],
-        IndicatorKind::TIME_SERIES_FORECAST => vec![format!("linreg_forecast:close:{}", indicator.period)],
+        IndicatorKind::TIME_SERIES_FORECAST => {
+            vec![format!("linreg_forecast:close:{}", indicator.period)]
+        }
         IndicatorKind::VALUATION_LINES => vec![
             format!("sma:close:{}", indicator.period),
             format!(
@@ -320,7 +328,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             ),
         ],
         IndicatorKind::BETA => vec![format!("beta:close:{}", indicator.period)],
-        IndicatorKind::CORRELATION_COEFFICIENT => vec![format!("correl:close:{}", indicator.period)],
+        IndicatorKind::CORRELATION_COEFFICIENT => {
+            vec![format!("correl:close:{}", indicator.period)]
+        }
         IndicatorKind::PERFORMANCE_INDEX => vec!["perf_index:close".to_string()],
         IndicatorKind::PRICE_RELATIVE => vec![format!("price_relative:close:{}", indicator.period)],
         IndicatorKind::AWESOME_OSCILLATOR => vec!["ao:hl".to_string()],
@@ -343,7 +353,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("elder_ray:hl:{}", indicator.period),
         ],
         IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => vec!["fco:hl".to_string()],
-        IndicatorKind::GATOR_OSCILLATOR => vec!["gator:upper".to_string(), "gator:lower".to_string()],
+        IndicatorKind::GATOR_OSCILLATOR => {
+            vec!["gator:upper".to_string(), "gator:lower".to_string()]
+        }
         IndicatorKind::INTRADAY_MOMENTUM => vec![format!("imi:oc:{}", indicator.period)],
         IndicatorKind::LINEAR_REG_SLOPE => vec![format!("linreg_slope:close:{}", indicator.period)],
         IndicatorKind::MA_DEVIATION => vec![
@@ -367,7 +379,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             });
             vec![format!("price_osc:close:{}:{}", p.fast, p.slow)]
         }
-        IndicatorKind::RAINBOW_OSCILLATOR => vec![format!("rainbow_osc:close:{}", indicator.period)],
+        IndicatorKind::RAINBOW_OSCILLATOR => {
+            vec![format!("rainbow_osc:close:{}", indicator.period)]
+        }
         IndicatorKind::RAVI => vec![format!(
             "ravi:close:{}:{}",
             indicator.period, indicator.stoch_period
@@ -384,7 +398,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 p.fast, p.slow, indicator.stoch_period
             )]
         }
-        IndicatorKind::STOCHASTIC_MOMENTUM => vec![format!("smi:hlc:{}:{}", indicator.period, indicator.smooth)],
+        IndicatorKind::STOCHASTIC_MOMENTUM => {
+            vec![format!("smi:hlc:{}:{}", indicator.period, indicator.smooth)]
+        }
         IndicatorKind::SWING_INDEX => vec!["swing_index:ohlc".to_string()],
         IndicatorKind::TREND_INTENSITY => vec![
             format!("sma:close:{}", indicator.period),
@@ -420,7 +436,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::QSTICK => vec![format!("qstick:oc:{}", indicator.period)],
         IndicatorKind::SHINOHARA_INTENSITY => vec![format!("shinohara:hlc:{}", indicator.period)],
         IndicatorKind::ULCER_INDEX => vec![format!("ulcer:close:{}", indicator.period)],
-        IndicatorKind::VERTICAL_HORIZONTAL_FILTER => vec![format!("vhf:close:{}", indicator.period)],
+        IndicatorKind::VERTICAL_HORIZONTAL_FILTER => {
+            vec![format!("vhf:close:{}", indicator.period)]
+        }
         IndicatorKind::VORTEX_INDICATOR => vec![format!("vortex:hlc:{}", indicator.period)],
         IndicatorKind::ZIGZAG => vec![format!("zigzag:hl:{}", indicator.multiplier)],
         IndicatorKind::BOLLINGER_BANDWIDTH => vec![format!(
@@ -1488,8 +1506,7 @@ pub(crate) fn validate_indicator(
         return Err(wasm_bindgen::JsValue::from_str(
             "stoch_period must be greater than zero",
         ));
-    } else if matches!(kind, IndicatorKind::STOCHASTIC | IndicatorKind::STOCH_RSI) && smooth == 0
-    {
+    } else if matches!(kind, IndicatorKind::STOCHASTIC | IndicatorKind::STOCH_RSI) && smooth == 0 {
         return Err(wasm_bindgen::JsValue::from_str(
             "smooth must be greater than zero",
         ));
@@ -1511,8 +1528,7 @@ pub(crate) fn validate_indicator(
             | IndicatorKind::ENVELOPE
             | IndicatorKind::STARC
             | IndicatorKind::ATR_BANDS
-    )
-        && (!multiplier.is_finite() || multiplier <= 0.0)
+    ) && (!multiplier.is_finite() || multiplier <= 0.0)
     {
         return Err(wasm_bindgen::JsValue::from_str(
             "multiplier must be greater than zero",

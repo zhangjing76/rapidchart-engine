@@ -71,19 +71,21 @@ pub fn latest_anchored_vwap_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "ANCHORED_VWAP",
-                name: "ANCHORED VWAP",
-                category: "Volume",
-                pane: "overlay",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "anchor",
-                    label: "Anchor Bar",
-                    default: 0.0,
-                    min: 0.0,
-                    step: "1",
-                }],
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "overlay", "#0f766e")],
-            }
+        kind: "ANCHORED_VWAP",
+        name: "ANCHORED VWAP",
+        category: "Volume",
+        pane: "overlay",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "anchor",
+            label: "Anchor Bar",
+            default: 0.0,
+            min: 0.0,
+            step: "1",
+        }],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "overlay", "#0f766e",
+        )],
+    }
 }
 
 #[cfg(test)]

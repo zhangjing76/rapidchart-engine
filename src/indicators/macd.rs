@@ -202,76 +202,76 @@ pub fn latest_ppo_store(
 
 pub(crate) fn macd_descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "MACD",
-                name: "MACD",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "fast",
-                        label: "Fast",
-                        default: 12.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "slow",
-                        label: "Slow",
-                        default: 26.0,
-                        min: 2.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "signal",
-                        label: "Signal",
-                        default: 9.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("macd", "line", "separate", "#2563eb"),
-                    crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
-                    crate::descriptors::output_descriptor("histogram", "histogram", "separate", "#86efac"),
-                ],
-            }
+        kind: "MACD",
+        name: "MACD",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "fast",
+                label: "Fast",
+                default: 12.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "slow",
+                label: "Slow",
+                default: 26.0,
+                min: 2.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "signal",
+                label: "Signal",
+                default: 9.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![
+            crate::descriptors::output_descriptor("macd", "line", "separate", "#2563eb"),
+            crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
+            crate::descriptors::output_descriptor("histogram", "histogram", "separate", "#86efac"),
+        ],
+    }
 }
 
 pub(crate) fn ppo_descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "PPO",
-                name: "PPO",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "fast",
-                        label: "Fast",
-                        default: 12.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "slow",
-                        label: "Slow",
-                        default: 26.0,
-                        min: 2.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "signal",
-                        label: "Signal",
-                        default: 9.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("ppo", "line", "separate", "#2563eb"),
-                    crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
-                    crate::descriptors::output_descriptor("histogram", "histogram", "separate", "#86efac"),
-                ],
-            }
+        kind: "PPO",
+        name: "PPO",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "fast",
+                label: "Fast",
+                default: 12.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "slow",
+                label: "Slow",
+                default: 26.0,
+                min: 2.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "signal",
+                label: "Signal",
+                default: 9.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![
+            crate::descriptors::output_descriptor("ppo", "line", "separate", "#2563eb"),
+            crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
+            crate::descriptors::output_descriptor("histogram", "histogram", "separate", "#86efac"),
+        ],
+    }
 }
 
 #[cfg(test)]
@@ -329,9 +329,33 @@ mod tests {
         };
         let outputs = macd_store(&store, params, &mut HashMap::new());
 
-        assert_eq!(&*outputs[0].values, &[0.0, 0.33333333333333215, 0.7222222222222214, 1.064814814814813]);
-        assert_eq!(&*outputs[1].values, &[0.0, 0.22222222222222143, 0.5555555555555548, 0.8950617283950604]);
-        assert_eq!(&*outputs[2].values, &[0.0, 0.11111111111111072, 0.16666666666666663, 0.16975308641975273]);
+        assert_eq!(
+            &*outputs[0].values,
+            &[
+                0.0,
+                0.33333333333333215,
+                0.7222222222222214,
+                1.064814814814813
+            ]
+        );
+        assert_eq!(
+            &*outputs[1].values,
+            &[
+                0.0,
+                0.22222222222222143,
+                0.5555555555555548,
+                0.8950617283950604
+            ]
+        );
+        assert_eq!(
+            &*outputs[2].values,
+            &[
+                0.0,
+                0.11111111111111072,
+                0.16666666666666663,
+                0.16975308641975273
+            ]
+        );
 
         let arena = IndicatorArena::from_named_outputs(outputs);
         let latest = latest_macd_store(&store, params, &arena);

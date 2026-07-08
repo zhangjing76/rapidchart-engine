@@ -72,32 +72,32 @@ pub fn latest_envelope_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "ENVELOPE",
-                name: "ENVELOPE",
-                category: "Averages/Bands",
-                pane: "overlay",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "period",
-                        label: "Period",
-                        default: 20.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "multiplier",
-                        label: "Multiplier %",
-                        default: 2.0,
-                        min: 0.1,
-                        step: "0.1",
-                    },
-                ],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("upper", "line", "overlay", "#2563eb"),
-                    crate::descriptors::output_descriptor("middle", "line", "overlay", "#64748b"),
-                    crate::descriptors::output_descriptor("lower", "line", "overlay", "#dc2626"),
-                ],
-            }
+        kind: "ENVELOPE",
+        name: "ENVELOPE",
+        category: "Averages/Bands",
+        pane: "overlay",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 20.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "multiplier",
+                label: "Multiplier %",
+                default: 2.0,
+                min: 0.1,
+                step: "0.1",
+            },
+        ],
+        outputs: vec![
+            crate::descriptors::output_descriptor("upper", "line", "overlay", "#2563eb"),
+            crate::descriptors::output_descriptor("middle", "line", "overlay", "#64748b"),
+            crate::descriptors::output_descriptor("lower", "line", "overlay", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]

@@ -405,7 +405,7 @@ Examples of hidden outputs:
 - VWAP: `cumulative_pv`, `cumulative_volume`
 - SUPERTREND: `upper_band`, `lower_band`, `trend`
 
-Hidden outputs stay in Rust and are filtered out by [`is_visible_output()`](/Users/jingzhang/Projects/chart/src/lib.rs:528) when JavaScript asks for renderable series.
+Hidden outputs stay in Rust and are filtered out by `is_visible_output()` in `src/dag.rs` when JavaScript asks for renderable series.
 
 ### Full recompute vs incremental update
 
@@ -423,7 +423,7 @@ Incremental update:
 - updates only the latest value for each indicator
 - avoids rebuilding the full history on every live tick/bar
 
-The incremental path lives in [`update_indicators_incremental()`](/Users/jingzhang/Projects/chart/src/lib.rs:340). Each supported indicator has a `latest_*` function that computes just the next value from prior outputs plus the newest bar.
+The engine calls `update_indicators_incremental()` from `src/lib.rs`; indicator-specific incremental dispatch lives in `update_indicator_incremental()` in `src/dispatch.rs`. Each supported indicator has a `latest_*` function that computes just the next value from prior outputs plus the newest bar.
 
 That is the main performance rule in the current engine:
 
@@ -723,8 +723,7 @@ Touch these core files:
 |------|-------------|
 | `src/types.rs` | Add the kind once in `indicator_kinds!`, plus any parameter flags |
 | `src/dag.rs` | Add `indicator_nodes()`, `indicator_edges()`, visibility, and validation if needed |
-| `src/dispatch.rs` | Match arm in `compute_indicator_store()` |
-| `src/lib.rs` | Match arm in `update_indicators_incremental()` |
+| `src/dispatch.rs` | Match arms in `compute_indicator_store()` and `update_indicator_incremental()` |
 
 If the indicator has hidden intermediate state used only for incremental updates, keep those outputs out of the UI by adding them to `is_visible_output()` in `src/dag.rs`.
 
@@ -766,8 +765,7 @@ Use this checklist:
 - add `pub mod`, `pub use`, and the descriptor call in `src/indicators/mod.rs`
 - add kind once to `indicator_kinds!` in `src/types.rs`
 - add `indicator_nodes()` and `indicator_edges()` in `src/dag.rs`
-- add match arm in `compute_indicator_store()` in `src/dispatch.rs`
-- add match arm in `update_indicators_incremental()` in `src/lib.rs`
+- add batch and incremental match arms in `src/dispatch.rs`
 - hide state outputs in `is_visible_output()` if needed
 - add `main.ts` label/param handling if needed
 - add 2-3 focused tests in `src/tests.rs`

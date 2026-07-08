@@ -71,22 +71,22 @@ pub fn latest_ehler_fisher_store(store: &CandleStore, period: usize) -> (Option<
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "EHLER_FISHER",
-                name: "EHLER FISHER TRANSFORM",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 10.0,
-                    min: 2.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("fisher", "line", "separate", "#2563eb"),
-                    crate::descriptors::output_descriptor("trigger", "line", "separate", "#dc2626"),
-                ],
-            }
+        kind: "EHLER_FISHER",
+        name: "EHLER FISHER TRANSFORM",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 10.0,
+            min: 2.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("fisher", "line", "separate", "#2563eb"),
+            crate::descriptors::output_descriptor("trigger", "line", "separate", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]

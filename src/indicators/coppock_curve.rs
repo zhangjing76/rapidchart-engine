@@ -67,13 +67,15 @@ pub fn latest_coppock_curve_store(store: &CandleStore) -> Option<f64> {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "COPPOCK_CURVE",
-                name: "COPPOCK CURVE",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
-            }
+        kind: "COPPOCK_CURVE",
+        name: "COPPOCK CURVE",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

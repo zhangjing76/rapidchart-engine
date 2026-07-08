@@ -73,12 +73,12 @@ pub fn latest_elder_impulse_store(store: &CandleStore, period: usize) -> Option<
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "ELDER_IMPULSE",
-                "ELDER IMPULSE SYSTEM",
-                "Trend Analysis",
-                "separate",
-                13,
-            )
+        "ELDER_IMPULSE",
+        "ELDER IMPULSE SYSTEM",
+        "Trend Analysis",
+        "separate",
+        13,
+    )
 }
 
 #[cfg(test)]
@@ -111,9 +111,9 @@ mod tests {
     #[test]
     fn elder_impulse_turns_bullish_on_accelerating_prices() {
         let store = close_store(&[
-            10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0,
-            10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
-            17.0, 18.0, 19.0, 20.0,
+            10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0,
+            10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0,
+            19.0, 20.0,
         ]);
         let values = elder_impulse_store(&store, 3, &mut HashMap::new());
 

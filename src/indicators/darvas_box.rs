@@ -81,16 +81,16 @@ pub fn latest_darvas_box_store(store: &CandleStore) -> (Option<f64>, Option<f64>
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "DARVAS_BOX",
-                name: "DARVAS BOX",
-                category: "Support/Resistance",
-                pane: "overlay",
-                params: Vec::new(),
-                outputs: vec![
-                    crate::descriptors::output_descriptor("top", "line", "overlay", "#059669"),
-                    crate::descriptors::output_descriptor("bottom", "line", "overlay", "#dc2626"),
-                ],
-            }
+        kind: "DARVAS_BOX",
+        name: "DARVAS BOX",
+        category: "Support/Resistance",
+        pane: "overlay",
+        params: Vec::new(),
+        outputs: vec![
+            crate::descriptors::output_descriptor("top", "line", "overlay", "#059669"),
+            crate::descriptors::output_descriptor("bottom", "line", "overlay", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]

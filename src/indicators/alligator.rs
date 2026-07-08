@@ -115,17 +115,17 @@ pub fn latest_alligator_store(store: &CandleStore) -> (Option<f64>, Option<f64>,
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "ALLIGATOR",
-                name: "ALLIGATOR",
-                category: "Averages/Bands",
-                pane: "overlay",
-                params: Vec::new(),
-                outputs: vec![
-                    crate::descriptors::output_descriptor("jaw", "line", "overlay", "#2563eb"),
-                    crate::descriptors::output_descriptor("teeth", "line", "overlay", "#dc2626"),
-                    crate::descriptors::output_descriptor("lips", "line", "overlay", "#059669"),
-                ],
-            }
+        kind: "ALLIGATOR",
+        name: "ALLIGATOR",
+        category: "Averages/Bands",
+        pane: "overlay",
+        params: Vec::new(),
+        outputs: vec![
+            crate::descriptors::output_descriptor("jaw", "line", "overlay", "#2563eb"),
+            crate::descriptors::output_descriptor("teeth", "line", "overlay", "#dc2626"),
+            crate::descriptors::output_descriptor("lips", "line", "overlay", "#059669"),
+        ],
+    }
 }
 
 #[cfg(test)]
@@ -221,7 +221,9 @@ mod tests {
 
     #[test]
     fn alligator_uses_shifted_smma_on_rising_prices() {
-        let store = ohlc_store(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]);
+        let store = ohlc_store(&[
+            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
+        ]);
         let values = alligator_store(&store, &mut HashMap::new());
 
         assert!((values[0].values[11] - 1.438324988620847).abs() < 1e-12);

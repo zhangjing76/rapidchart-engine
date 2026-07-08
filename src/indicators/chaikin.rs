@@ -155,38 +155,40 @@ pub fn latest_chaikin_oscillator_store(
 
 pub(crate) fn chaikin_volatility_descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "CHAIKIN_VOLATILITY",
-                "CHAIKIN VOLATILITY",
-                "Volatility",
-                "separate",
-                10,
-            )
+        "CHAIKIN_VOLATILITY",
+        "CHAIKIN VOLATILITY",
+        "Volatility",
+        "separate",
+        10,
+    )
 }
 
 pub(crate) fn chaikin_oscillator_descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "CHAIKIN_OSCILLATOR",
-                name: "CHAIKIN OSCILLATOR",
-                category: "Money Flow",
-                pane: "separate",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "fast",
-                        label: "Fast",
-                        default: 3.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "slow",
-                        label: "Slow",
-                        default: 10.0,
-                        min: 2.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#9333ea")],
-            }
+        kind: "CHAIKIN_OSCILLATOR",
+        name: "CHAIKIN OSCILLATOR",
+        category: "Money Flow",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "fast",
+                label: "Fast",
+                default: 3.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "slow",
+                label: "Slow",
+                default: 10.0,
+                min: 2.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#9333ea",
+        )],
+    }
 }
 
 #[cfg(test)]
@@ -300,7 +302,12 @@ mod tests {
         );
         let arena = IndicatorArena::from_named_outputs(vec![named_series(
             "hl_ema",
-            vec![2.0, 3.333333333333333, 6.444444444444445, 12.814814814814815],
+            vec![
+                2.0,
+                3.333333333333333,
+                6.444444444444445,
+                12.814814814814815,
+            ],
         )]);
         assert_eq!(
             latest_chaikin_volatility_store(&store, 2, &arena),

@@ -40,12 +40,12 @@ pub fn latest_psychological_line_store(store: &CandleStore, period: usize) -> Op
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "PSYCHOLOGICAL_LINE",
-                "PSYCHOLOGICAL LINE",
-                "Trend Analysis",
-                "separate",
-                12,
-            )
+        "PSYCHOLOGICAL_LINE",
+        "PSYCHOLOGICAL LINE",
+        "Trend Analysis",
+        "separate",
+        12,
+    )
 }
 
 #[cfg(test)]

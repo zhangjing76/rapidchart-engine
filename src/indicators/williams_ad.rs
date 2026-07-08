@@ -58,13 +58,15 @@ pub fn latest_williams_ad_store(store: &CandleStore, output: Option<&[f64]>) -> 
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "WILLIAMS_AD",
-                name: "WILLIAMS A/D",
-                category: "Volume",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#9333ea")],
-            }
+        kind: "WILLIAMS_AD",
+        name: "WILLIAMS A/D",
+        category: "Volume",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#9333ea",
+        )],
+    }
 }
 
 #[cfg(test)]

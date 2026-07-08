@@ -45,7 +45,13 @@ pub fn latest_ulcer_index_store(store: &CandleStore, period: usize) -> Option<f6
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("ULCER_INDEX", "ULCER INDEX", "Volatility", "separate", 14)
+    crate::descriptors::period_descriptor(
+        "ULCER_INDEX",
+        "ULCER INDEX",
+        "Volatility",
+        "separate",
+        14,
+    )
 }
 
 #[cfg(test)]

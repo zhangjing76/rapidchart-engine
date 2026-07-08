@@ -75,12 +75,12 @@ pub fn latest_rainbow_oscillator_store(store: &CandleStore, period: usize) -> Op
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "RAINBOW_OSCILLATOR",
-                "RAINBOW OSCILLATOR",
-                "Momentum/Oscillator",
-                "separate",
-                2,
-            )
+        "RAINBOW_OSCILLATOR",
+        "RAINBOW OSCILLATOR",
+        "Momentum/Oscillator",
+        "separate",
+        2,
+    )
 }
 
 #[cfg(test)]

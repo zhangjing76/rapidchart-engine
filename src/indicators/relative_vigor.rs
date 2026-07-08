@@ -89,22 +89,22 @@ pub fn latest_relative_vigor_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "RELATIVE_VIGOR",
-                name: "RELATIVE VIGOR INDEX",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 10.0,
-                    min: 1.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb"),
-                    crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
-                ],
-            }
+        kind: "RELATIVE_VIGOR",
+        name: "RELATIVE VIGOR INDEX",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 10.0,
+            min: 1.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb"),
+            crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]
@@ -188,8 +188,19 @@ mod tests {
         );
         assert_series_close(
             &values[1].values,
-            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.5],
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                0.5,
+            ],
         );
-        assert_eq!(latest_relative_vigor_store(&store, 1), (Some(0.5), Some(0.5)));
+        assert_eq!(
+            latest_relative_vigor_store(&store, 1),
+            (Some(0.5), Some(0.5))
+        );
     }
 }

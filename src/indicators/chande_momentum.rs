@@ -55,12 +55,12 @@ pub fn latest_chande_momentum_store(store: &CandleStore, period: usize) -> Optio
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "CHANDE_MOMENTUM",
-                "CHANDE MOMENTUM OSCILLATOR",
-                "Momentum/Oscillator",
-                "separate",
-                14,
-            )
+        "CHANDE_MOMENTUM",
+        "CHANDE MOMENTUM OSCILLATOR",
+        "Momentum/Oscillator",
+        "separate",
+        14,
+    )
 }
 
 #[cfg(test)]

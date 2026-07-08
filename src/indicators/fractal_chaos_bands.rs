@@ -82,16 +82,16 @@ pub fn latest_fractal_chaos_bands_store(store: &CandleStore) -> (Option<f64>, Op
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "FRACTAL_CHAOS_BANDS",
-                name: "FRACTAL CHAOS BANDS",
-                category: "Trend Analysis",
-                pane: "overlay",
-                params: Vec::new(),
-                outputs: vec![
-                    crate::descriptors::output_descriptor("upper", "line", "overlay", "#9333ea"),
-                    crate::descriptors::output_descriptor("lower", "line", "overlay", "#9333ea"),
-                ],
-            }
+        kind: "FRACTAL_CHAOS_BANDS",
+        name: "FRACTAL CHAOS BANDS",
+        category: "Trend Analysis",
+        pane: "overlay",
+        params: Vec::new(),
+        outputs: vec![
+            crate::descriptors::output_descriptor("upper", "line", "overlay", "#9333ea"),
+            crate::descriptors::output_descriptor("lower", "line", "overlay", "#9333ea"),
+        ],
+    }
 }
 
 #[cfg(test)]

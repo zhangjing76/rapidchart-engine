@@ -40,12 +40,12 @@ pub fn latest_volume_roc_store(store: &CandleStore, period: usize) -> Option<f64
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "VOLUME_ROC",
-                "VOLUME RATE OF CHANGE",
-                "Volume",
-                "separate",
-                14,
-            )
+        "VOLUME_ROC",
+        "VOLUME RATE OF CHANGE",
+        "Volume",
+        "separate",
+        14,
+    )
 }
 
 #[cfg(test)]

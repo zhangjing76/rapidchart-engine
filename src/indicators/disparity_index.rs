@@ -38,12 +38,12 @@ pub fn latest_disparity_index_store(store: &CandleStore, period: usize) -> Optio
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "DISPARITY_INDEX",
-                "DISPARITY INDEX",
-                "Momentum/Oscillator",
-                "separate",
-                14,
-            )
+        "DISPARITY_INDEX",
+        "DISPARITY INDEX",
+        "Momentum/Oscillator",
+        "separate",
+        14,
+    )
 }
 
 #[cfg(test)]

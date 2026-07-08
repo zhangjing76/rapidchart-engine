@@ -86,30 +86,30 @@ pub fn latest_rainbow_ma_store(store: &CandleStore, period: usize) -> Vec<(Strin
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "RAINBOW_MA",
-                name: "RAINBOW MOVING AVERAGE",
-                category: "Averages/Bands",
-                pane: "overlay",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 2.0,
-                    min: 1.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("r1", "line", "overlay", "#dc2626"),
-                    crate::descriptors::output_descriptor("r2", "line", "overlay", "#ea580c"),
-                    crate::descriptors::output_descriptor("r3", "line", "overlay", "#f59e0b"),
-                    crate::descriptors::output_descriptor("r4", "line", "overlay", "#84cc16"),
-                    crate::descriptors::output_descriptor("r5", "line", "overlay", "#059669"),
-                    crate::descriptors::output_descriptor("r6", "line", "overlay", "#0891b2"),
-                    crate::descriptors::output_descriptor("r7", "line", "overlay", "#2563eb"),
-                    crate::descriptors::output_descriptor("r8", "line", "overlay", "#7c3aed"),
-                    crate::descriptors::output_descriptor("r9", "line", "overlay", "#c026d3"),
-                    crate::descriptors::output_descriptor("r10", "line", "overlay", "#9333ea"),
-                ],
-            }
+        kind: "RAINBOW_MA",
+        name: "RAINBOW MOVING AVERAGE",
+        category: "Averages/Bands",
+        pane: "overlay",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 2.0,
+            min: 1.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("r1", "line", "overlay", "#dc2626"),
+            crate::descriptors::output_descriptor("r2", "line", "overlay", "#ea580c"),
+            crate::descriptors::output_descriptor("r3", "line", "overlay", "#f59e0b"),
+            crate::descriptors::output_descriptor("r4", "line", "overlay", "#84cc16"),
+            crate::descriptors::output_descriptor("r5", "line", "overlay", "#059669"),
+            crate::descriptors::output_descriptor("r6", "line", "overlay", "#0891b2"),
+            crate::descriptors::output_descriptor("r7", "line", "overlay", "#2563eb"),
+            crate::descriptors::output_descriptor("r8", "line", "overlay", "#7c3aed"),
+            crate::descriptors::output_descriptor("r9", "line", "overlay", "#c026d3"),
+            crate::descriptors::output_descriptor("r10", "line", "overlay", "#9333ea"),
+        ],
+    }
 }
 
 #[cfg(test)]
@@ -158,9 +158,18 @@ mod tests {
         let values = rainbow_ma_store(&store, 2, &mut std::collections::HashMap::new());
 
         assert_series_close(&values[0].values, &[f64::NAN, 11.0, 13.0, 15.0, 17.0, 19.0]);
-        assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, 12.0, 14.0, 16.0, 18.0]);
-        assert_series_close(&values[2].values, &[f64::NAN, f64::NAN, f64::NAN, 13.0, 15.0, 17.0]);
-        assert_series_close(&values[3].values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 14.0, 16.0]);
+        assert_series_close(
+            &values[1].values,
+            &[f64::NAN, f64::NAN, 12.0, 14.0, 16.0, 18.0],
+        );
+        assert_series_close(
+            &values[2].values,
+            &[f64::NAN, f64::NAN, f64::NAN, 13.0, 15.0, 17.0],
+        );
+        assert_series_close(
+            &values[3].values,
+            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 14.0, 16.0],
+        );
 
         let latest = latest_rainbow_ma_store(&store, 2);
         assert_eq!(latest[0], ("r1".to_string(), Some(19.0)));

@@ -35,13 +35,15 @@ pub fn latest_performance_index_store(store: &CandleStore) -> Option<f64> {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "PERFORMANCE_INDEX",
-                name: "PERFORMANCE INDEX",
-                category: "Trend Analysis",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
-            }
+        kind: "PERFORMANCE_INDEX",
+        name: "PERFORMANCE INDEX",
+        category: "Trend Analysis",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

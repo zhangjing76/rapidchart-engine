@@ -77,35 +77,37 @@ pub fn latest_ultimate_oscillator_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "ULTIMATE_OSCILLATOR",
-                name: "ULTIMATE OSCILLATOR",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "period",
-                        label: "Short",
-                        default: 7.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "stoch_period",
-                        label: "Medium",
-                        default: 14.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "smooth",
-                        label: "Long",
-                        default: 28.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
-            }
+        kind: "ULTIMATE_OSCILLATOR",
+        name: "ULTIMATE OSCILLATOR",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "period",
+                label: "Short",
+                default: 7.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "stoch_period",
+                label: "Medium",
+                default: 14.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "smooth",
+                label: "Long",
+                default: 28.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]
@@ -165,7 +167,10 @@ mod tests {
         ]);
         let values = ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 66.66666666666667]);
+        assert_series_close(
+            &values,
+            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 66.66666666666667],
+        );
         assert_eq!(
             latest_ultimate_oscillator_store(&store, 2, 3, 4),
             Some(66.66666666666667)

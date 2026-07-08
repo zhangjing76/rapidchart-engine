@@ -40,28 +40,30 @@ pub fn latest_volume_oscillator_store(store: &CandleStore, params: MacdParams) -
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "VOLUME_OSCILLATOR",
-                name: "VOLUME OSCILLATOR",
-                category: "Volume",
-                pane: "separate",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "fast",
-                        label: "Fast",
-                        default: 5.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "slow",
-                        label: "Slow",
-                        default: 10.0,
-                        min: 2.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
-            }
+        kind: "VOLUME_OSCILLATOR",
+        name: "VOLUME OSCILLATOR",
+        category: "Volume",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "fast",
+                label: "Fast",
+                default: 5.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "slow",
+                label: "Slow",
+                default: 10.0,
+                min: 2.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

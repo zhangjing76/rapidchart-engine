@@ -72,12 +72,12 @@ pub fn latest_correlation_coefficient_store(store: &CandleStore, period: usize) 
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "CORRELATION_COEFFICIENT",
-                "CORRELATION COEFFICIENT",
-                "Statistical",
-                "separate",
-                14,
-            )
+        "CORRELATION_COEFFICIENT",
+        "CORRELATION COEFFICIENT",
+        "Statistical",
+        "separate",
+        14,
+    )
 }
 
 #[cfg(test)]

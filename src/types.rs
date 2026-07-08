@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 macro_rules! indicator_kinds {
     ($($variant:ident => $name:literal),+ $(,)?) => {
         #[allow(non_camel_case_types)]
+        #[allow(clippy::upper_case_acronyms)]
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
         pub(crate) enum IndicatorKind {
             $($variant,)+

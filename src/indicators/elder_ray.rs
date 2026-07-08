@@ -48,22 +48,22 @@ pub fn latest_elder_ray_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "ELDER_RAY",
-                name: "ELDER RAY INDEX",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 13.0,
-                    min: 1.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("bull", "histogram", "separate", "#059669"),
-                    crate::descriptors::output_descriptor("bear", "histogram", "separate", "#dc2626"),
-                ],
-            }
+        kind: "ELDER_RAY",
+        name: "ELDER RAY INDEX",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 13.0,
+            min: 1.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("bull", "histogram", "separate", "#059669"),
+            crate::descriptors::output_descriptor("bear", "histogram", "separate", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]

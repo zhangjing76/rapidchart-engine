@@ -73,16 +73,16 @@ pub fn latest_gator_oscillator_store(store: &CandleStore) -> (Option<f64>, Optio
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "GATOR_OSCILLATOR",
-                name: "GATOR OSCILLATOR",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![
-                    crate::descriptors::output_descriptor("upper", "histogram", "separate", "#059669"),
-                    crate::descriptors::output_descriptor("lower", "histogram", "separate", "#dc2626"),
-                ],
-            }
+        kind: "GATOR_OSCILLATOR",
+        name: "GATOR OSCILLATOR",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![
+            crate::descriptors::output_descriptor("upper", "histogram", "separate", "#059669"),
+            crate::descriptors::output_descriptor("lower", "histogram", "separate", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]

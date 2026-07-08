@@ -74,22 +74,22 @@ pub fn latest_random_walk_index_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "RANDOM_WALK_INDEX",
-                name: "RANDOM WALK INDEX",
-                category: "Statistical",
-                pane: "separate",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 14.0,
-                    min: 2.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("high", "line", "separate", "#059669"),
-                    crate::descriptors::output_descriptor("low", "line", "separate", "#dc2626"),
-                ],
-            }
+        kind: "RANDOM_WALK_INDEX",
+        name: "RANDOM WALK INDEX",
+        category: "Statistical",
+        pane: "separate",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 14.0,
+            min: 2.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("high", "line", "separate", "#059669"),
+            crate::descriptors::output_descriptor("low", "line", "separate", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]
@@ -148,7 +148,10 @@ mod tests {
         ]);
         let values = random_walk_index_store(&store, 3, &mut HashMap::new());
 
-        assert_series_close(&values[0].values, &[f64::NAN, f64::NAN, f64::NAN, 1.539600717839002]);
+        assert_series_close(
+            &values[0].values,
+            &[f64::NAN, f64::NAN, f64::NAN, 1.539600717839002],
+        );
         assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, f64::NAN, 0.0]);
         assert_eq!(
             latest_random_walk_index_store(&store, 3),

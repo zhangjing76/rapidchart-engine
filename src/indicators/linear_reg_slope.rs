@@ -49,12 +49,12 @@ pub fn latest_linear_reg_slope_store(store: &CandleStore, period: usize) -> Opti
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "LINEAR_REG_SLOPE",
-                "LINEAR REG SLOPE",
-                "Statistical",
-                "separate",
-                14,
-            )
+        "LINEAR_REG_SLOPE",
+        "LINEAR REG SLOPE",
+        "Statistical",
+        "separate",
+        14,
+    )
 }
 
 #[cfg(test)]

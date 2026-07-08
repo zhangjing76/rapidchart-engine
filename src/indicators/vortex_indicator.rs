@@ -65,22 +65,22 @@ pub fn latest_vortex_indicator_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "VORTEX_INDICATOR",
-                name: "VORTEX INDICATOR",
-                category: "Trend Analysis",
-                pane: "separate",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 14.0,
-                    min: 2.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("plus", "line", "separate", "#059669"),
-                    crate::descriptors::output_descriptor("minus", "line", "separate", "#dc2626"),
-                ],
-            }
+        kind: "VORTEX_INDICATOR",
+        name: "VORTEX INDICATOR",
+        category: "Trend Analysis",
+        pane: "separate",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 14.0,
+            min: 2.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("plus", "line", "separate", "#059669"),
+            crate::descriptors::output_descriptor("minus", "line", "separate", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]

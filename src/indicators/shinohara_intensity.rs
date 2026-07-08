@@ -64,22 +64,22 @@ pub fn latest_shinohara_intensity_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "SHINOHARA_INTENSITY",
-                name: "SHINOHARA INTENSITY RATIO",
-                category: "Trend Analysis",
-                pane: "separate",
-                params: vec![crate::descriptors::ParamDescriptor {
-                    name: "period",
-                    label: "Period",
-                    default: 26.0,
-                    min: 1.0,
-                    step: "1",
-                }],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("strong", "line", "separate", "#2563eb"),
-                    crate::descriptors::output_descriptor("weak", "line", "separate", "#dc2626"),
-                ],
-            }
+        kind: "SHINOHARA_INTENSITY",
+        name: "SHINOHARA INTENSITY RATIO",
+        category: "Trend Analysis",
+        pane: "separate",
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 26.0,
+            min: 1.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("strong", "line", "separate", "#2563eb"),
+            crate::descriptors::output_descriptor("weak", "line", "separate", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]

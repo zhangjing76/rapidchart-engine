@@ -65,28 +65,30 @@ pub fn latest_stochastic_momentum_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "STOCHASTIC_MOMENTUM",
-                name: "STOCHASTIC MOMENTUM INDEX",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "period",
-                        label: "Period",
-                        default: 13.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "smooth",
-                        label: "Smooth",
-                        default: 3.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
-            }
+        kind: "STOCHASTIC_MOMENTUM",
+        name: "STOCHASTIC MOMENTUM INDEX",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 13.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "smooth",
+                label: "Smooth",
+                default: 3.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

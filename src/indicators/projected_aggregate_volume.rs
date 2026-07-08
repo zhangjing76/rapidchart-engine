@@ -55,12 +55,12 @@ pub fn latest_projected_aggregate_volume_store(store: &CandleStore, period: usiz
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "PROJECTED_AGGREGATE_VOLUME",
-                "PROJECTED AGGREGATE VOLUME",
-                "Volume",
-                "separate",
-                24,
-            )
+        "PROJECTED_AGGREGATE_VOLUME",
+        "PROJECTED AGGREGATE VOLUME",
+        "Volume",
+        "separate",
+        24,
+    )
 }
 
 #[cfg(test)]

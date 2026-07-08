@@ -125,7 +125,12 @@ mod tests {
 
         assert_series_close(
             &values,
-            &[f64::NAN, 2.499999999999991, 6.0975609756097615, 9.195402298850585],
+            &[
+                f64::NAN,
+                2.499999999999991,
+                6.0975609756097615,
+                9.195402298850585,
+            ],
         );
 
         let arena = IndicatorArena::from_named_outputs(vec![
@@ -135,7 +140,12 @@ mod tests {
         ]);
         assert_eq!(
             latest_trix_store(&store, 3, &arena),
-            (Some(9.195402298850585), Some(14.25), Some(12.875), Some(11.875))
+            (
+                Some(9.195402298850585),
+                Some(14.25),
+                Some(12.875),
+                Some(11.875)
+            )
         );
     }
 }

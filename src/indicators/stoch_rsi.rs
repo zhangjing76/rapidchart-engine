@@ -49,45 +49,45 @@ pub fn latest_stoch_rsi_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "STOCH_RSI",
-                name: "STOCH RSI",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "period",
-                        label: "Period",
-                        default: 14.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "stoch_period",
-                        label: "Stoch",
-                        default: 14.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "smooth",
-                        label: "%K",
-                        default: 3.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "signal",
-                        label: "%D",
-                        default: 3.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("k", "line", "separate", "#2563eb"),
-                    crate::descriptors::output_descriptor("d", "line", "separate", "#dc2626"),
-                ],
-            }
+        kind: "STOCH_RSI",
+        name: "STOCH RSI",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 14.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "stoch_period",
+                label: "Stoch",
+                default: 14.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "smooth",
+                label: "%K",
+                default: 3.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "signal",
+                label: "%D",
+                default: 3.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![
+            crate::descriptors::output_descriptor("k", "line", "separate", "#2563eb"),
+            crate::descriptors::output_descriptor("d", "line", "separate", "#dc2626"),
+        ],
+    }
 }
 
 #[cfg(test)]

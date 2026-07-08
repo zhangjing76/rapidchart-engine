@@ -31,13 +31,15 @@ pub fn latest_weighted_close_store(store: &CandleStore) -> Option<f64> {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "WEIGHTED_CLOSE",
-                name: "WEIGHTED CLOSE",
-                category: "Averages/Bands",
-                pane: "overlay",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "overlay", "#64748b")],
-            }
+        kind: "WEIGHTED_CLOSE",
+        name: "WEIGHTED CLOSE",
+        category: "Averages/Bands",
+        pane: "overlay",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "overlay", "#64748b",
+        )],
+    }
 }
 
 #[cfg(test)]

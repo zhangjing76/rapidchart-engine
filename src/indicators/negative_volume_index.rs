@@ -56,13 +56,15 @@ pub fn latest_negative_volume_index_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "NEGATIVE_VOLUME_INDEX",
-                name: "NEGATIVE VOLUME INDEX",
-                category: "Trend Analysis",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#dc2626")],
-            }
+        kind: "NEGATIVE_VOLUME_INDEX",
+        name: "NEGATIVE VOLUME INDEX",
+        category: "Trend Analysis",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#dc2626",
+        )],
+    }
 }
 
 #[cfg(test)]

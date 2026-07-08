@@ -103,35 +103,37 @@ pub fn latest_schaff_trend_cycle_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "SCHAFF_TREND_CYCLE",
-                name: "SCHAFF TREND CYCLE",
-                category: "Momentum/Oscillator",
-                pane: "separate",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "fast",
-                        label: "Fast",
-                        default: 23.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "slow",
-                        label: "Slow",
-                        default: 50.0,
-                        min: 2.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "stoch_period",
-                        label: "Cycle",
-                        default: 10.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb")],
-            }
+        kind: "SCHAFF_TREND_CYCLE",
+        name: "SCHAFF TREND CYCLE",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "fast",
+                label: "Fast",
+                default: 23.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "slow",
+                label: "Slow",
+                default: 50.0,
+                min: 2.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "stoch_period",
+                label: "Cycle",
+                default: 10.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

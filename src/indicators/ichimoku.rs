@@ -132,41 +132,41 @@ pub fn midpoint_store(store: &CandleStore, start: usize, end: usize) -> f64 {
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "ICHIMOKU",
-                name: "ICHIMOKU",
-                category: "Projection",
-                pane: "overlay",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "tenkan_period",
-                        label: "Tenkan",
-                        default: 9.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "kijun_period",
-                        label: "Kijun",
-                        default: 26.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "senkou_b_period",
-                        label: "Senkou B",
-                        default: 52.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("tenkan", "line", "overlay", "#2563eb"),
-                    crate::descriptors::output_descriptor("kijun", "line", "overlay", "#dc2626"),
-                    crate::descriptors::output_descriptor("senkou_a", "line", "overlay", "#059669"),
-                    crate::descriptors::output_descriptor("senkou_b", "line", "overlay", "#ea580c"),
-                    crate::descriptors::output_descriptor("chikou", "line", "overlay", "#64748b"),
-                ],
-            }
+        kind: "ICHIMOKU",
+        name: "ICHIMOKU",
+        category: "Projection",
+        pane: "overlay",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "tenkan_period",
+                label: "Tenkan",
+                default: 9.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "kijun_period",
+                label: "Kijun",
+                default: 26.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "senkou_b_period",
+                label: "Senkou B",
+                default: 52.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![
+            crate::descriptors::output_descriptor("tenkan", "line", "overlay", "#2563eb"),
+            crate::descriptors::output_descriptor("kijun", "line", "overlay", "#dc2626"),
+            crate::descriptors::output_descriptor("senkou_a", "line", "overlay", "#059669"),
+            crate::descriptors::output_descriptor("senkou_b", "line", "overlay", "#ea580c"),
+            crate::descriptors::output_descriptor("chikou", "line", "overlay", "#64748b"),
+        ],
+    }
 }
 
 #[cfg(test)]

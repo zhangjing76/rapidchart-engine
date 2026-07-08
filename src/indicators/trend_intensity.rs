@@ -55,12 +55,12 @@ pub fn latest_trend_intensity_store(store: &CandleStore, period: usize) -> Optio
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor(
-                "TREND_INTENSITY",
-                "TREND INTENSITY INDEX",
-                "Momentum/Oscillator",
-                "separate",
-                14,
-            )
+        "TREND_INTENSITY",
+        "TREND INTENSITY INDEX",
+        "Momentum/Oscillator",
+        "separate",
+        14,
+    )
 }
 
 #[cfg(test)]

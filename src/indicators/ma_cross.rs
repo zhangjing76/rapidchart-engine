@@ -48,32 +48,32 @@ pub fn latest_ma_cross_store(
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "MA_CROSS",
-                name: "MOVING AVERAGE CROSS",
-                category: "Trend Analysis",
-                pane: "overlay",
-                params: vec![
-                    crate::descriptors::ParamDescriptor {
-                        name: "fast",
-                        label: "Fast",
-                        default: 10.0,
-                        min: 1.0,
-                        step: "1",
-                    },
-                    crate::descriptors::ParamDescriptor {
-                        name: "slow",
-                        label: "Slow",
-                        default: 20.0,
-                        min: 2.0,
-                        step: "1",
-                    },
-                ],
-                outputs: vec![
-                    crate::descriptors::output_descriptor("fast", "line", "overlay", "#059669"),
-                    crate::descriptors::output_descriptor("slow", "line", "overlay", "#dc2626"),
-                    crate::descriptors::output_descriptor("histogram", "histogram", "separate", "#86efac"),
-                ],
-            }
+        kind: "MA_CROSS",
+        name: "MOVING AVERAGE CROSS",
+        category: "Trend Analysis",
+        pane: "overlay",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "fast",
+                label: "Fast",
+                default: 10.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "slow",
+                label: "Slow",
+                default: 20.0,
+                min: 2.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![
+            crate::descriptors::output_descriptor("fast", "line", "overlay", "#059669"),
+            crate::descriptors::output_descriptor("slow", "line", "overlay", "#dc2626"),
+            crate::descriptors::output_descriptor("histogram", "histogram", "separate", "#86efac"),
+        ],
+    }
 }
 
 #[cfg(test)]

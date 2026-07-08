@@ -77,18 +77,18 @@ pub fn latest_prime_number_oscillator_store(store: &CandleStore) -> Option<f64> 
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
-                kind: "PRIME_NUMBER_OSCILLATOR",
-                name: "PRIME NUMBER OSCILLATOR",
-                category: "Trend Analysis",
-                pane: "separate",
-                params: Vec::new(),
-                outputs: vec![crate::descriptors::output_descriptor(
-                    "value",
-                    "histogram",
-                    "separate",
-                    "#2563eb",
-                )],
-            }
+        kind: "PRIME_NUMBER_OSCILLATOR",
+        name: "PRIME NUMBER OSCILLATOR",
+        category: "Trend Analysis",
+        pane: "separate",
+        params: Vec::new(),
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value",
+            "histogram",
+            "separate",
+            "#2563eb",
+        )],
+    }
 }
 
 #[cfg(test)]

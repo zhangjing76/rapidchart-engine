@@ -130,7 +130,7 @@ mod tests {
     fn indicator_stub(kind: &str) -> Indicator {
         Indicator {
             id: 1,
-            kind: kind.to_string(),
+            kind: kind.parse().unwrap(),
             period: 14,
             stoch_period: 14,
             smooth: 28,
@@ -223,7 +223,7 @@ mod tests {
     fn rsi_has_a_computed_dag_node() {
         let indicator = Indicator {
             id: 1,
-            kind: "RSI".to_string(),
+            kind: "RSI".parse().unwrap(),
             period: 14,
             stoch_period: 14,
             smooth: 3,
@@ -245,7 +245,7 @@ mod tests {
     fn wma_has_a_computed_dag_node() {
         let indicator = Indicator {
             id: 1,
-            kind: "WMA".to_string(),
+            kind: "WMA".parse().unwrap(),
             period: 20,
             stoch_period: 20,
             smooth: 3,
@@ -268,7 +268,7 @@ mod tests {
     fn hma_has_computed_dag_nodes() {
         let indicator = Indicator {
             id: 1,
-            kind: "HMA".to_string(),
+            kind: "HMA".parse().unwrap(),
             period: 20,
             stoch_period: 20,
             smooth: 3,
@@ -689,7 +689,7 @@ mod tests {
         let mut engine = ChartEngine::new();
         engine.indicators.push(Indicator {
             id: 7,
-            kind: "RSI".to_string(),
+            kind: "RSI".parse().unwrap(),
             period: 0,
             stoch_period: 0,
             smooth: 0,
@@ -732,13 +732,27 @@ mod tests {
         let mut nodes: NodeCache = HashMap::new();
 
         let ema12 = compute_indicator_store(
-            &store, "EMA", 12, 0, 0, 0, 9, 26, 52, None, 2.0, 0.02, 0.2, 0, &mut nodes,
+            &store,
+            IndicatorKind::EMA,
+            12,
+            0,
+            0,
+            0,
+            9,
+            26,
+            52,
+            None,
+            2.0,
+            0.02,
+            0.2,
+            0,
+            &mut nodes,
         )[0]
         .values
         .clone();
         let macd = compute_indicator_store(
             &store,
-            "MACD",
+            IndicatorKind::MACD,
             0,
             0,
             0,

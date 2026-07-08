@@ -228,36 +228,32 @@ impl ChartEngine {
     }
 
     fn add_indicator_from_config(&mut self, config: IndicatorConfig) -> Result<u32, JsValue> {
-        let kind = config.kind.to_uppercase();
-        if !is_valid_kind(&kind) {
+        let kind_name = config.kind.to_uppercase();
+        let kind = kind_name.parse::<IndicatorKind>().map_err(|_| {
+            JsValue::from_str(&format!("unsupported indicator kind: {}", kind_name))
+        })?;
+        if !is_valid_kind(&kind_name) {
             return Err(JsValue::from_str(&format!(
                 "unsupported indicator kind: {}",
-                kind
+                kind_name
             )));
         }
-        let macd = if kind == "MACD"
-            || kind == "PPO"
-            || kind == "CHAIKIN_OSCILLATOR"
-            || kind == "MA_CROSS"
-            || kind == "PRICE_OSCILLATOR"
-            || kind == "VOLUME_OSCILLATOR"
-            || kind == "SCHAFF_TREND_CYCLE"
-        {
+        let macd = if kind.uses_macd_params() {
             Some(MacdParams {
-                fast: config.fast.unwrap_or(if kind == "CHAIKIN_OSCILLATOR" {
+                fast: config.fast.unwrap_or(if kind == IndicatorKind::CHAIKIN_OSCILLATOR {
                     3
-                } else if kind == "MA_CROSS" {
+                } else if kind == IndicatorKind::MA_CROSS {
                     10
-                } else if kind == "VOLUME_OSCILLATOR" {
+                } else if kind == IndicatorKind::VOLUME_OSCILLATOR {
                     5
                 } else {
                     12
                 }),
-                slow: config.slow.unwrap_or(if kind == "CHAIKIN_OSCILLATOR" {
+                slow: config.slow.unwrap_or(if kind == IndicatorKind::CHAIKIN_OSCILLATOR {
                     10
-                } else if kind == "MA_CROSS" {
+                } else if kind == IndicatorKind::MA_CROSS {
                     20
-                } else if kind == "VOLUME_OSCILLATOR" {
+                } else if kind == IndicatorKind::VOLUME_OSCILLATOR {
                     10
                 } else {
                     26
@@ -279,7 +275,7 @@ impl ChartEngine {
         let psar_max_step = config.psar_max_step.unwrap_or(0.2);
         let anchor = config.anchor.unwrap_or(0);
         validate_indicator(
-            &kind,
+            kind,
             period,
             stoch_period,
             smooth,
@@ -426,7 +422,7 @@ impl ChartEngine {
         for indicator in &mut self.indicators {
             indicator.outputs = IndicatorArena::from_outputs(compute_indicator_store(
                 &self.bars,
-                &indicator.kind,
+                indicator.kind,
                 indicator.period,
                 indicator.stoch_period,
                 indicator.smooth,
@@ -473,14 +469,14 @@ impl ChartEngine {
         let target_len = self.bars.len();
         for indicator in &mut self.indicators {
             indicator.outputs.ensure_len(target_len);
-            match indicator.kind.as_str() {
-                "SMA" => upsert_output(
+            match indicator.kind {
+                IndicatorKind::SMA => upsert_output(
                     &mut indicator.outputs,
                     "value",
                     target_len,
                     latest_sma_store(&self.bars, indicator.period),
                 ),
-                "EMA" => {
+                IndicatorKind::EMA => {
                     let value = latest_ema_store(
                         &self.bars,
                         indicator.period,
@@ -488,34 +484,34 @@ impl ChartEngine {
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "RSI" => {
+                IndicatorKind::RSI => {
                     let (value, avg_gain, avg_loss) =
                         latest_rsi_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                     upsert_output(&mut indicator.outputs, "avg_gain", target_len, avg_gain);
                     upsert_output(&mut indicator.outputs, "avg_loss", target_len, avg_loss);
                 }
-                "ROC" => {
+                IndicatorKind::ROC => {
                     let value = latest_roc_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "CCI" => {
+                IndicatorKind::CCI => {
                     let value = latest_cci_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "WILLIAMS_R" => {
+                IndicatorKind::WILLIAMS_R => {
                     let value = latest_williams_r_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "MFI" => {
+                IndicatorKind::MFI => {
                     let value = latest_mfi_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "CMF" => {
+                IndicatorKind::CMF => {
                     let value = latest_cmf_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "STOCH_RSI" => {
+                IndicatorKind::STOCH_RSI => {
                     let (k, d) = latest_stoch_rsi_store(
                         &self.bars,
                         indicator.period,
@@ -526,11 +522,11 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "k", target_len, k);
                     upsert_output(&mut indicator.outputs, "d", target_len, d);
                 }
-                "OBV" => {
+                IndicatorKind::OBV => {
                     let value = latest_obv_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "ATR" => {
+                IndicatorKind::ATR => {
                     let value = latest_atr_store(
                         &self.bars,
                         indicator.period,
@@ -538,7 +534,7 @@ impl ChartEngine {
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "ADX" => {
+                IndicatorKind::ADX => {
                     let (value, plus_di, minus_di, tr_avg, plus_dm_avg, minus_dm_avg, dx) =
                         latest_adx_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
@@ -559,7 +555,7 @@ impl ChartEngine {
                     );
                     upsert_output(&mut indicator.outputs, "dx", target_len, dx);
                 }
-                "SUPERTREND" => {
+                IndicatorKind::SUPERTREND => {
                     let (value, upper_band, lower_band, trend) = latest_supertrend_store(
                         &self.bars,
                         indicator.period,
@@ -571,7 +567,7 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "lower_band", target_len, lower_band);
                     upsert_output(&mut indicator.outputs, "trend", target_len, trend);
                 }
-                "KELTNER" => {
+                IndicatorKind::KELTNER => {
                     let (upper, middle, lower) = latest_keltner_store(
                         &self.bars,
                         indicator.period,
@@ -582,14 +578,14 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "DONCHIAN" => {
+                IndicatorKind::DONCHIAN => {
                     let (upper, middle, lower) =
                         latest_donchian_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "PARABOLIC_SAR" => {
+                IndicatorKind::PARABOLIC_SAR => {
                     let (value, ep, af, trend) = latest_parabolic_sar_store(
                         &self.bars,
                         indicator.psar_step,
@@ -601,7 +597,7 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "af", target_len, af);
                     upsert_output(&mut indicator.outputs, "trend", target_len, trend);
                 }
-                "ICHIMOKU" => {
+                IndicatorKind::ICHIMOKU => {
                     let (tenkan, kijun, senkou_a, senkou_b, chikou) = latest_ichimoku_store(
                         &self.bars,
                         indicator.tenkan_period,
@@ -614,7 +610,7 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "senkou_b", target_len, senkou_b);
                     upsert_output(&mut indicator.outputs, "chikou", target_len, chikou);
                 }
-                "PIVOT_POINTS" => {
+                IndicatorKind::PIVOT_POINTS => {
                     let (pp, r1, s1, r2, s2) = latest_pivot_points_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "pp", target_len, pp);
                     upsert_output(&mut indicator.outputs, "r1", target_len, r1);
@@ -622,36 +618,36 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "r2", target_len, r2);
                     upsert_output(&mut indicator.outputs, "s2", target_len, s2);
                 }
-                "AROON" => {
+                IndicatorKind::AROON => {
                     let (up, down, oscillator) = latest_aroon_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "up", target_len, up);
                     upsert_output(&mut indicator.outputs, "down", target_len, down);
                     upsert_output(&mut indicator.outputs, "oscillator", target_len, oscillator);
                 }
-                "ADL" => {
+                IndicatorKind::ADL => {
                     let value = latest_adl_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "WMA" => {
+                IndicatorKind::WMA => {
                     let value = latest_wma_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "HMA" => {
+                IndicatorKind::HMA => {
                     let value = latest_hma_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "LINEAR_REGRESSION" => {
+                IndicatorKind::LINEAR_REGRESSION => {
                     let value = latest_linear_regression_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "DEMA" => {
+                IndicatorKind::DEMA => {
                     let (value, ema1, ema2) =
                         latest_dema_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                     upsert_output(&mut indicator.outputs, "ema1", target_len, ema1);
                     upsert_output(&mut indicator.outputs, "ema2", target_len, ema2);
                 }
-                "TEMA" => {
+                IndicatorKind::TEMA => {
                     let (value, ema1, ema2, ema3) =
                         latest_tema_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
@@ -659,22 +655,22 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "ema2", target_len, ema2);
                     upsert_output(&mut indicator.outputs, "ema3", target_len, ema3);
                 }
-                "TRIMA" => {
+                IndicatorKind::TRIMA => {
                     let value = latest_trima_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "STDDEV" => {
+                IndicatorKind::STDDEV => {
                     let value = latest_stddev_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "ENVELOPE" => {
+                IndicatorKind::ENVELOPE => {
                     let (upper, middle, lower) =
                         latest_envelope_store(&self.bars, indicator.period, indicator.multiplier);
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "TRIX" => {
+                IndicatorKind::TRIX => {
                     let (value, ema1, ema2, ema3) =
                         latest_trix_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
@@ -682,7 +678,7 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "ema2", target_len, ema2);
                     upsert_output(&mut indicator.outputs, "ema3", target_len, ema3);
                 }
-                "TSI" => {
+                IndicatorKind::TSI => {
                     let (value, m_ema1, m_ema2, a_ema1, a_ema2) = latest_tsi_store(
                         &self.bars,
                         indicator.period,
@@ -695,23 +691,23 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "a_ema1", target_len, a_ema1);
                     upsert_output(&mut indicator.outputs, "a_ema2", target_len, a_ema2);
                 }
-                "KST" => {
+                IndicatorKind::KST => {
                     let value = latest_kst_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "BOP" => {
+                IndicatorKind::BOP => {
                     let value = latest_bop_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "DPO" => {
+                IndicatorKind::DPO => {
                     let value = latest_dpo_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "MOMENTUM" => {
+                IndicatorKind::MOMENTUM => {
                     let value = latest_momentum_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "ULTIMATE_OSCILLATOR" => {
+                IndicatorKind::ULTIMATE_OSCILLATOR => {
                     let value = latest_ultimate_oscillator_store(
                         &self.bars,
                         indicator.period,
@@ -720,7 +716,7 @@ impl ChartEngine {
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "CHAIKIN_OSCILLATOR" => {
+                IndicatorKind::CHAIKIN_OSCILLATOR => {
                     let params = indicator.macd.unwrap_or(MacdParams {
                         fast: 3,
                         slow: 10,
@@ -733,21 +729,21 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "fast_ema", target_len, fast_ema);
                     upsert_output(&mut indicator.outputs, "slow_ema", target_len, slow_ema);
                 }
-                "FORCE_INDEX" => {
+                IndicatorKind::FORCE_INDEX => {
                     let (value, fi_ema) =
                         latest_force_index_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                     upsert_output(&mut indicator.outputs, "fi_ema", target_len, fi_ema);
                 }
-                "VWMA" => {
+                IndicatorKind::VWMA => {
                     let value = latest_vwma_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "WILLIAMS_AD" => {
+                IndicatorKind::WILLIAMS_AD => {
                     let value = latest_williams_ad_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "CHAIKIN_VOLATILITY" => {
+                IndicatorKind::CHAIKIN_VOLATILITY => {
                     let (value, hl_ema) = latest_chaikin_volatility_store(
                         &self.bars,
                         indicator.period,
@@ -756,21 +752,21 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                     upsert_output(&mut indicator.outputs, "hl_ema", target_len, hl_ema);
                 }
-                "PRICE_CHANNEL" => {
+                IndicatorKind::PRICE_CHANNEL => {
                     let (upper, middle, lower) =
                         latest_price_channel_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "STARC" => {
+                IndicatorKind::STARC => {
                     let (upper, middle, lower) =
                         latest_starc_store(&self.bars, indicator.period, indicator.multiplier);
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "VWAP" => {
+                IndicatorKind::VWAP => {
                     let (value, cumulative_pv, cumulative_volume) =
                         latest_vwap_store(&self.bars, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
@@ -787,14 +783,14 @@ impl ChartEngine {
                         cumulative_volume,
                     );
                 }
-                "BB" => {
+                IndicatorKind::BB => {
                     let (upper, middle, lower) =
                         latest_bollinger_store(&self.bars, indicator.period, indicator.multiplier);
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "STOCHASTIC" => {
+                IndicatorKind::STOCHASTIC => {
                     let (k, d) = latest_stochastic_store(
                         &self.bars,
                         indicator.period,
@@ -804,7 +800,7 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "k", target_len, k);
                     upsert_output(&mut indicator.outputs, "d", target_len, d);
                 }
-                "MACD" => {
+                IndicatorKind::MACD => {
                     let macd = indicator.macd.unwrap_or(MacdParams {
                         fast: 12,
                         slow: 26,
@@ -818,7 +814,7 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "fast_ema", target_len, fast_ema);
                     upsert_output(&mut indicator.outputs, "slow_ema", target_len, slow_ema);
                 }
-                "PPO" => {
+                IndicatorKind::PPO => {
                     let params = indicator.macd.unwrap_or(MacdParams {
                         fast: 12,
                         slow: 26,
@@ -830,25 +826,25 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "signal", target_len, signal);
                     upsert_output(&mut indicator.outputs, "histogram", target_len, histogram);
                 }
-                "MEDIAN_PRICE" => {
+                IndicatorKind::MEDIAN_PRICE => {
                     let value = latest_median_price_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "HIGHEST_HIGH" => {
+                IndicatorKind::HIGHEST_HIGH => {
                     let value = latest_highest_high_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "LOWEST_LOW" => {
+                IndicatorKind::LOWEST_LOW => {
                     let value = latest_lowest_low_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "ALLIGATOR" => {
+                IndicatorKind::ALLIGATOR => {
                     let (jaw, teeth, lips) = latest_alligator_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "jaw", target_len, jaw);
                     upsert_output(&mut indicator.outputs, "teeth", target_len, teeth);
                     upsert_output(&mut indicator.outputs, "lips", target_len, lips);
                 }
-                "ATR_BANDS" => {
+                IndicatorKind::ATR_BANDS => {
                     let (upper, middle, lower) = latest_atr_bands_store(
                         &self.bars,
                         indicator.period,
@@ -859,33 +855,33 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "HIGH_LOW_BANDS" => {
+                IndicatorKind::HIGH_LOW_BANDS => {
                     let (upper, middle, lower) =
                         latest_high_low_bands_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "FRACTAL_CHAOS_BANDS" => {
+                IndicatorKind::FRACTAL_CHAOS_BANDS => {
                     let (upper, lower) = latest_fractal_chaos_bands_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "GMMA" => {
+                IndicatorKind::GMMA => {
                     let results = latest_gmma_store(&self.bars, &indicator.outputs);
                     for (name, value) in results {
                         upsert_output(&mut indicator.outputs, &name, target_len, value);
                     }
                 }
-                "LINEAR_REG_FORECAST" => {
+                IndicatorKind::LINEAR_REG_FORECAST => {
                     let value = latest_linear_reg_forecast_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "LINEAR_REG_INTERCEPT" => {
+                IndicatorKind::LINEAR_REG_INTERCEPT => {
                     let value = latest_linear_reg_intercept_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "ANCHORED_VWAP" => {
+                IndicatorKind::ANCHORED_VWAP => {
                     let (value, cum_pv, cum_vol) = latest_anchored_vwap_store(
                         &self.bars,
                         indicator.anchor,
@@ -900,15 +896,15 @@ impl ChartEngine {
                         cum_vol,
                     );
                 }
-                "TYPICAL_PRICE" => {
+                IndicatorKind::TYPICAL_PRICE => {
                     let value = latest_typical_price_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "WEIGHTED_CLOSE" => {
+                IndicatorKind::WEIGHTED_CLOSE => {
                     let value = latest_weighted_close_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "MA_CROSS" => {
+                IndicatorKind::MA_CROSS => {
                     let params = indicator.macd.unwrap_or(MacdParams {
                         fast: 10,
                         slow: 20,
@@ -920,22 +916,22 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "slow", target_len, slow);
                     upsert_output(&mut indicator.outputs, "histogram", target_len, histogram);
                 }
-                "RAINBOW_MA" => {
+                IndicatorKind::RAINBOW_MA => {
                     let results = latest_rainbow_ma_store(&self.bars, indicator.period);
                     for (name, value) in results {
                         upsert_output(&mut indicator.outputs, &name, target_len, value);
                     }
                 }
-                "PRIME_NUMBER_BANDS" => {
+                IndicatorKind::PRIME_NUMBER_BANDS => {
                     let (upper, lower) = latest_prime_number_bands_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "TIME_SERIES_FORECAST" => {
+                IndicatorKind::TIME_SERIES_FORECAST => {
                     let value = latest_linear_reg_forecast_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "VALUATION_LINES" => {
+                IndicatorKind::VALUATION_LINES => {
                     let (upper, middle, lower) = latest_valuation_lines_store(
                         &self.bars,
                         indicator.period,
@@ -945,27 +941,27 @@ impl ChartEngine {
                     upsert_output(&mut indicator.outputs, "middle", target_len, middle);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "BETA" => {
+                IndicatorKind::BETA => {
                     let value = latest_beta_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "CORRELATION_COEFFICIENT" => {
+                IndicatorKind::CORRELATION_COEFFICIENT => {
                     let value = latest_correlation_coefficient_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PERFORMANCE_INDEX" => {
+                IndicatorKind::PERFORMANCE_INDEX => {
                     let value = latest_performance_index_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PRICE_RELATIVE" => {
+                IndicatorKind::PRICE_RELATIVE => {
                     let value = latest_price_relative_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "AWESOME_OSCILLATOR" => {
+                IndicatorKind::AWESOME_OSCILLATOR => {
                     let value = latest_awesome_oscillator_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "BOLLINGER_PCT_B" => {
+                IndicatorKind::BOLLINGER_PCT_B => {
                     let value = latest_bollinger_pct_b_store(
                         &self.bars,
                         indicator.period,
@@ -973,67 +969,67 @@ impl ChartEngine {
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "CENTER_OF_GRAVITY" => {
+                IndicatorKind::CENTER_OF_GRAVITY => {
                     let value = latest_center_of_gravity_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "CHANDE_FORECAST" => {
+                IndicatorKind::CHANDE_FORECAST => {
                     let value = latest_chande_forecast_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "CHANDE_MOMENTUM" => {
+                IndicatorKind::CHANDE_MOMENTUM => {
                     let value = latest_chande_momentum_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "COPPOCK_CURVE" => {
+                IndicatorKind::COPPOCK_CURVE => {
                     let value = latest_coppock_curve_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "DISPARITY_INDEX" => {
+                IndicatorKind::DISPARITY_INDEX => {
                     let value = latest_disparity_index_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "EASE_OF_MOVEMENT" => {
+                IndicatorKind::EASE_OF_MOVEMENT => {
                     let value = latest_ease_of_movement_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "EHLER_FISHER" => {
+                IndicatorKind::EHLER_FISHER => {
                     let (fisher, trigger) = latest_ehler_fisher_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "fisher", target_len, fisher);
                     upsert_output(&mut indicator.outputs, "trigger", target_len, trigger);
                 }
-                "ELDER_RAY" => {
+                IndicatorKind::ELDER_RAY => {
                     let (bull, bear) =
                         latest_elder_ray_store(&self.bars, indicator.period, &indicator.outputs);
                     upsert_output(&mut indicator.outputs, "bull", target_len, bull);
                     upsert_output(&mut indicator.outputs, "bear", target_len, bear);
                 }
-                "FRACTAL_CHAOS_OSCILLATOR" => {
+                IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => {
                     let value = latest_fractal_chaos_oscillator_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "GATOR_OSCILLATOR" => {
+                IndicatorKind::GATOR_OSCILLATOR => {
                     let (upper, lower) = latest_gator_oscillator_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "upper", target_len, upper);
                     upsert_output(&mut indicator.outputs, "lower", target_len, lower);
                 }
-                "INTRADAY_MOMENTUM" => {
+                IndicatorKind::INTRADAY_MOMENTUM => {
                     let value = latest_intraday_momentum_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "LINEAR_REG_SLOPE" => {
+                IndicatorKind::LINEAR_REG_SLOPE => {
                     let value = latest_linear_reg_slope_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "MA_DEVIATION" => {
+                IndicatorKind::MA_DEVIATION => {
                     let value = latest_ma_deviation_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PRETTY_GOOD_OSCILLATOR" => {
+                IndicatorKind::PRETTY_GOOD_OSCILLATOR => {
                     let value = latest_pretty_good_oscillator_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PRICE_MOMENTUM_OSCILLATOR" => {
+                IndicatorKind::PRICE_MOMENTUM_OSCILLATOR => {
                     let value = latest_price_momentum_oscillator_store(
                         &self.bars,
                         indicator.period,
@@ -1041,7 +1037,7 @@ impl ChartEngine {
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PRICE_OSCILLATOR" => {
+                IndicatorKind::PRICE_OSCILLATOR => {
                     let params = indicator.macd.unwrap_or(MacdParams {
                         fast: 12,
                         slow: 26,
@@ -1050,21 +1046,21 @@ impl ChartEngine {
                     let value = latest_price_oscillator_store(&self.bars, params);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "RAINBOW_OSCILLATOR" => {
+                IndicatorKind::RAINBOW_OSCILLATOR => {
                     let value = latest_rainbow_oscillator_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "RAVI" => {
+                IndicatorKind::RAVI => {
                     let value =
                         latest_ravi_store(&self.bars, indicator.period, indicator.stoch_period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "RELATIVE_VIGOR" => {
+                IndicatorKind::RELATIVE_VIGOR => {
                     let (value, signal) = latest_relative_vigor_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                     upsert_output(&mut indicator.outputs, "signal", target_len, signal);
                 }
-                "SCHAFF_TREND_CYCLE" => {
+                IndicatorKind::SCHAFF_TREND_CYCLE => {
                     let params = indicator.macd.unwrap_or(MacdParams {
                         fast: 12,
                         slow: 26,
@@ -1078,7 +1074,7 @@ impl ChartEngine {
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "STOCHASTIC_MOMENTUM" => {
+                IndicatorKind::STOCHASTIC_MOMENTUM => {
                     let value = latest_stochastic_momentum_store(
                         &self.bars,
                         indicator.period,
@@ -1086,15 +1082,15 @@ impl ChartEngine {
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "SWING_INDEX" => {
+                IndicatorKind::SWING_INDEX => {
                     let value = latest_swing_index_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "TREND_INTENSITY" => {
+                IndicatorKind::TREND_INTENSITY => {
                     let value = latest_trend_intensity_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "VOLUME_OSCILLATOR" => {
+                IndicatorKind::VOLUME_OSCILLATOR => {
                     let params = indicator.macd.unwrap_or(MacdParams {
                         fast: 5,
                         slow: 10,
@@ -1103,124 +1099,124 @@ impl ChartEngine {
                     let value = latest_volume_oscillator_store(&self.bars, params);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "KLINGER_VOLUME" => {
+                IndicatorKind::KLINGER_VOLUME => {
                     let value = latest_klinger_volume_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "MARKET_FACILITATION" => {
+                IndicatorKind::MARKET_FACILITATION => {
                     let value = latest_market_facilitation_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "NEGATIVE_VOLUME_INDEX" => {
+                IndicatorKind::NEGATIVE_VOLUME_INDEX => {
                     let value = latest_negative_volume_index_store(
                         &self.bars,
                         indicator.outputs.get_slot(0),
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "POSITIVE_VOLUME_INDEX" => {
+                IndicatorKind::POSITIVE_VOLUME_INDEX => {
                     let value = latest_positive_volume_index_store(
                         &self.bars,
                         indicator.outputs.get_slot(0),
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PRICE_VOLUME_TREND" => {
+                IndicatorKind::PRICE_VOLUME_TREND => {
                     let value =
                         latest_price_volume_trend_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "TRADE_VOLUME_INDEX" => {
+                IndicatorKind::TRADE_VOLUME_INDEX => {
                     let value =
                         latest_trade_volume_index_store(&self.bars, indicator.outputs.get_slot(0));
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "TWIGGS_MONEY_FLOW" => {
+                IndicatorKind::TWIGGS_MONEY_FLOW => {
                     let value = latest_twiggs_money_flow_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PROJECTED_AGGREGATE_VOLUME" => {
+                IndicatorKind::PROJECTED_AGGREGATE_VOLUME => {
                     let value =
                         latest_projected_aggregate_volume_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PROJECTED_VOLUME_AT_TIME" => {
+                IndicatorKind::PROJECTED_VOLUME_AT_TIME => {
                     let value = latest_projected_volume_at_time_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "HISTORICAL_VOLATILITY" => {
+                IndicatorKind::HISTORICAL_VOLATILITY => {
                     let value = latest_historical_volatility_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "LINEAR_REG_R2" => {
+                IndicatorKind::LINEAR_REG_R2 => {
                     let value = latest_linear_reg_r2_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PRIME_NUMBER_OSCILLATOR" => {
+                IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
                     let value = latest_prime_number_oscillator_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "RANDOM_WALK_INDEX" => {
+                IndicatorKind::RANDOM_WALK_INDEX => {
                     let (high, low) = latest_random_walk_index_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "high", target_len, high);
                     upsert_output(&mut indicator.outputs, "low", target_len, low);
                 }
-                "DARVAS_BOX" => {
+                IndicatorKind::DARVAS_BOX => {
                     let (top, bottom) = latest_darvas_box_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "top", target_len, top);
                     upsert_output(&mut indicator.outputs, "bottom", target_len, bottom);
                 }
-                "VOLUME_PROFILE" => {
+                IndicatorKind::VOLUME_PROFILE => {
                     let (poc, vah, val) = latest_volume_profile_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "poc", target_len, poc);
                     upsert_output(&mut indicator.outputs, "vah", target_len, vah);
                     upsert_output(&mut indicator.outputs, "val", target_len, val);
                 }
-                "CHOPPINESS_INDEX" => {
+                IndicatorKind::CHOPPINESS_INDEX => {
                     let value = latest_choppiness_index_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "ELDER_IMPULSE" => {
+                IndicatorKind::ELDER_IMPULSE => {
                     let value = latest_elder_impulse_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "GONOGO_TREND" => {
+                IndicatorKind::GONOGO_TREND => {
                     let value = latest_gonogo_trend_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "PSYCHOLOGICAL_LINE" => {
+                IndicatorKind::PSYCHOLOGICAL_LINE => {
                     let value = latest_psychological_line_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "QSTICK" => {
+                IndicatorKind::QSTICK => {
                     let value = latest_qstick_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "SHINOHARA_INTENSITY" => {
+                IndicatorKind::SHINOHARA_INTENSITY => {
                     let (strong, weak) =
                         latest_shinohara_intensity_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "strong", target_len, strong);
                     upsert_output(&mut indicator.outputs, "weak", target_len, weak);
                 }
-                "ULCER_INDEX" => {
+                IndicatorKind::ULCER_INDEX => {
                     let value = latest_ulcer_index_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "VERTICAL_HORIZONTAL_FILTER" => {
+                IndicatorKind::VERTICAL_HORIZONTAL_FILTER => {
                     let value =
                         latest_vertical_horizontal_filter_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "VORTEX_INDICATOR" => {
+                IndicatorKind::VORTEX_INDICATOR => {
                     let (plus, minus) = latest_vortex_indicator_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "plus", target_len, plus);
                     upsert_output(&mut indicator.outputs, "minus", target_len, minus);
                 }
-                "ZIGZAG" => {
+                IndicatorKind::ZIGZAG => {
                     let value = latest_zigzag_store(&self.bars, indicator.multiplier);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "BOLLINGER_BANDWIDTH" => {
+                IndicatorKind::BOLLINGER_BANDWIDTH => {
                     let value = latest_bollinger_bandwidth_store(
                         &self.bars,
                         indicator.period,
@@ -1228,43 +1224,42 @@ impl ChartEngine {
                     );
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "DONCHIAN_WIDTH" => {
+                IndicatorKind::DONCHIAN_WIDTH => {
                     let value = latest_donchian_width_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "GOPALAKRISHNAN_RANGE" => {
+                IndicatorKind::GOPALAKRISHNAN_RANGE => {
                     let value = latest_gopalakrishnan_range_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "HIGH_MINUS_LOW" => {
+                IndicatorKind::HIGH_MINUS_LOW => {
                     let value = latest_high_minus_low_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "MASS_INDEX" => {
+                IndicatorKind::MASS_INDEX => {
                     let value = latest_mass_index_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "RELATIVE_VOLATILITY" => {
+                IndicatorKind::RELATIVE_VOLATILITY => {
                     let value = latest_relative_volatility_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "TRUE_RANGE" => {
+                IndicatorKind::TRUE_RANGE => {
                     let value = latest_true_range_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "VOLUME_CHART" => {
+                IndicatorKind::VOLUME_CHART => {
                     let value = latest_volume_chart_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "VOLUME_ROC" => {
+                IndicatorKind::VOLUME_ROC => {
                     let value = latest_volume_roc_store(&self.bars, indicator.period);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                "VOLUME_UNDERLAY" => {
+                IndicatorKind::VOLUME_UNDERLAY => {
                     let value = latest_volume_underlay_store(&self.bars);
                     upsert_output(&mut indicator.outputs, "value", target_len, value);
                 }
-                _ => return false,
             }
         }
         true

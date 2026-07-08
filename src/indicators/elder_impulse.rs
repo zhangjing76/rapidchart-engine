@@ -97,4 +97,17 @@ mod tests {
         assert_eq!(&*values[1..].to_vec(), &[0.0, 0.0, 0.0]);
         assert_eq!(latest_elder_impulse_store(&store, 3), Some(0.0));
     }
+
+    #[test]
+    fn elder_impulse_turns_bullish_on_accelerating_prices() {
+        let store = close_store(&[
+            10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0,
+            10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
+            17.0, 18.0, 19.0, 20.0,
+        ]);
+        let values = elder_impulse_store(&store, 3, &mut HashMap::new());
+
+        assert_eq!(&values[25..], &[1.0, 1.0, 1.0, 1.0, 1.0]);
+        assert_eq!(latest_elder_impulse_store(&store, 3), Some(1.0));
+    }
 }

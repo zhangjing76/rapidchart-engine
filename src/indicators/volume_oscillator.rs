@@ -79,4 +79,21 @@ mod tests {
         assert_series_close(&values, &[0.0, 0.0, 0.0]);
         assert_eq!(latest_volume_oscillator_store(&store, params), Some(0.0));
     }
+
+    #[test]
+    fn volume_oscillator_tracks_fast_minus_slow_volume_ema() {
+        let store = ohlcv_store(&[10.0, 20.0, 30.0]);
+        let params = MacdParams {
+            fast: 2,
+            slow: 3,
+            signal: 1,
+        };
+        let values = volume_oscillator_store(&store, params, &mut HashMap::new());
+
+        assert_series_close(&values, &[0.0, 11.111111111111095, 13.580246913580254]);
+        assert_eq!(
+            latest_volume_oscillator_store(&store, params),
+            Some(13.580246913580254)
+        );
+    }
 }

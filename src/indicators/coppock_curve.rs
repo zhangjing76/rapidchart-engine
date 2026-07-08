@@ -103,4 +103,16 @@ mod tests {
         assert_series_close(&output, &expected);
         assert_eq!(latest_coppock_curve_store(&store), Some(1_843_000.0));
     }
+
+    #[test]
+    fn coppock_curve_is_the_wma_of_the_two_long_rocs() {
+        let values: Vec<f64> = (1..=24).map(|v| v as f64).collect();
+        let store = close_store(&values);
+        let output = coppock_curve_store(&store, &mut HashMap::new());
+
+        let mut expected = vec![f64::NAN; 24];
+        expected[23] = 373.73742923742924;
+        assert_series_close(&output, &expected);
+        assert!((latest_coppock_curve_store(&store).unwrap() - 373.73742923742924).abs() < 1e-12);
+    }
 }

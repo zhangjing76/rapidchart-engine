@@ -90,6 +90,17 @@ mod tests {
         )
     }
 
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
     #[test]
     fn rainbow_oscillator_is_zero_for_constant_prices() {
         let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
@@ -97,5 +108,14 @@ mod tests {
 
         assert_eq!(&*values, &[0.0, 0.0, 0.0, 0.0]);
         assert_eq!(latest_rainbow_oscillator_store(&store, 1), Some(0.0));
+    }
+
+    #[test]
+    fn rainbow_oscillator_currently_stays_zero_on_rising_prices() {
+        let store = close_store(&[10.0, 12.0, 14.0, 16.0, 18.0, 20.0]);
+        let values = rainbow_oscillator_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        assert_eq!(latest_rainbow_oscillator_store(&store, 2), Some(0.0));
     }
 }

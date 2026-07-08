@@ -91,4 +91,20 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, f64::NAN, 3.0]);
         assert_eq!(latest_mass_index_store(&store, 3), Some(3.0));
     }
+
+    #[test]
+    fn mass_index_sums_the_ema_range_ratio() {
+        let store = CandleStore::from_raw_columns(
+            vec![0, 1, 2],
+            vec![1.0, 2.0, 3.0],
+            vec![2.0, 4.0, 6.0],
+            vec![1.0, 2.0, 3.0],
+            vec![1.0, 2.0, 3.0],
+            vec![1.0, 1.0, 1.0],
+        );
+        let values = mass_index_store(&store, 3, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 3.5174825174825175]);
+        assert!((latest_mass_index_store(&store, 3).unwrap() - 3.5174825174825175).abs() < 1e-12);
+    }
 }

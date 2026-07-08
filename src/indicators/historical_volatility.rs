@@ -91,4 +91,13 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0]);
         assert_eq!(latest_historical_volatility_store(&store, 2), Some(0.0));
     }
+
+    #[test]
+    fn historical_volatility_is_zero_for_constant_log_returns() {
+        let store = close_store(&[1.0, 2.0, 4.0]);
+        let values = historical_volatility_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0]);
+        assert_eq!(latest_historical_volatility_store(&store, 2), Some(0.0));
+    }
 }

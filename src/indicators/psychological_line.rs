@@ -74,4 +74,13 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, f64::NAN, 50.0, 50.0]);
         assert_eq!(latest_psychological_line_store(&store, 2), Some(50.0));
     }
+
+    #[test]
+    fn psychological_line_reaches_hundred_when_every_bar_is_up() {
+        let store = close_store(&[1.0, 2.0, 3.0, 4.0]);
+        let values = psychological_line_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 100.0, 100.0]);
+        assert_eq!(latest_psychological_line_store(&store, 2), Some(100.0));
+    }
 }

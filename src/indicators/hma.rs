@@ -90,6 +90,15 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 10.0]);
         assert_eq!(latest_hma_store(&store, 4), Some(10.0));
     }
+
+    #[test]
+    fn hma_matches_the_weighted_moving_average_pipeline() {
+        let store = close_store(&[10.0, 12.0, 14.0, 16.0, 18.0]);
+        let values = hma_store(&store, 4, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 18.0]);
+        assert_eq!(latest_hma_store(&store, 4), Some(18.0));
+    }
 }
 
 fn wma_window(values: &[f64], period: usize) -> Option<f64> {

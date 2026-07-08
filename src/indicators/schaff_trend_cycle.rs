@@ -137,4 +137,13 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, 50.0, 50.0, 50.0]);
         assert_eq!(latest_schaff_trend_cycle_store(&store, 2, 3, 2), Some(50.0));
     }
+
+    #[test]
+    fn schaff_trend_cycle_tracks_a_rising_macd_sequence() {
+        let store = close_store(&[10.0, 11.0, 12.0, 13.0]);
+        let values = schaff_trend_cycle_store(&store, 2, 3, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, 50.0, 50.0, 50.0]);
+        assert_eq!(latest_schaff_trend_cycle_store(&store, 2, 3, 2), Some(50.0));
+    }
 }

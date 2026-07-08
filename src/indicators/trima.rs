@@ -76,4 +76,13 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 10.0]);
         assert_eq!(latest_trima_store(&store, 3), Some(10.0));
     }
+
+    #[test]
+    fn trima_is_the_sma_of_the_sma() {
+        let store = close_store(&[10.0, 12.0, 14.0, 16.0, 18.0]);
+        let values = trima_store(&store, 3, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 14.0]);
+        assert_eq!(latest_trima_store(&store, 3), Some(14.0));
+    }
 }

@@ -76,4 +76,13 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, 0.0, 0.0]);
         assert_eq!(latest_donchian_width_store(&store, 2), Some(0.0));
     }
+
+    #[test]
+    fn donchian_width_is_the_channel_span_relative_to_middle() {
+        let store = ohlc_store(&[(2.0, 0.0, 1.0), (4.0, 2.0, 3.0), (6.0, 4.0, 5.0)]);
+        let values = donchian_width_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, 200.0, 100.0]);
+        assert_eq!(latest_donchian_width_store(&store, 2), Some(100.0));
+    }
 }

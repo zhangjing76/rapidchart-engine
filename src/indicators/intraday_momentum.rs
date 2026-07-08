@@ -89,4 +89,20 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, 50.0, 50.0]);
         assert_eq!(latest_intraday_momentum_store(&store, 2), Some(50.0));
     }
+
+    #[test]
+    fn intraday_momentum_uses_open_close_gains_and_losses() {
+        let store = CandleStore::from_raw_columns(
+            vec![0, 1, 2],
+            vec![10.0, 10.0, 10.0],
+            vec![12.0, 12.0, 13.0],
+            vec![9.0, 8.0, 9.0],
+            vec![12.0, 9.0, 13.0],
+            vec![1.0, 1.0, 1.0],
+        );
+        let values = intraday_momentum_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, 66.66666666666666, 75.0]);
+        assert_eq!(latest_intraday_momentum_store(&store, 2), Some(75.0));
+    }
 }

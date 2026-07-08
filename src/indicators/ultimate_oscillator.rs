@@ -120,4 +120,22 @@ mod tests {
             Some(50.0)
         );
     }
+
+    #[test]
+    fn ultimate_oscillator_matches_the_weighted_buying_pressure_ratio() {
+        let store = ohlc_store(&[
+            (2.0, 1.0, 1.5),
+            (3.0, 2.0, 2.5),
+            (4.0, 3.0, 3.5),
+            (5.0, 4.0, 4.5),
+            (6.0, 5.0, 5.5),
+        ]);
+        let values = ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 66.66666666666667]);
+        assert_eq!(
+            latest_ultimate_oscillator_store(&store, 2, 3, 4),
+            Some(66.66666666666667)
+        );
+    }
 }

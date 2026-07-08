@@ -84,4 +84,21 @@ mod tests {
             Some(0.0)
         );
     }
+
+    #[test]
+    fn williams_ad_accumulates_up_moves_and_subtracts_down_moves() {
+        let store = ohlcv_store(&[
+            (10.0, 8.0, 9.0),
+            (11.0, 9.0, 10.0),
+            (12.0, 10.0, 11.0),
+            (12.0, 9.0, 10.0),
+        ]);
+        let values = williams_ad_store(&store, &mut HashMap::new());
+
+        assert_eq!(&*values, &[0.0, 1.0, 2.0, 0.0]);
+        assert_eq!(
+            latest_williams_ad_store(&store, Some(&values[..])),
+            Some(0.0)
+        );
+    }
 }

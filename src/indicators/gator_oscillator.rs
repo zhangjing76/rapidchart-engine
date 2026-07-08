@@ -110,4 +110,17 @@ mod tests {
         assert!((latest.0.unwrap() - 0.0).abs() < 1e-12);
         assert!((latest.1.unwrap() - 0.0).abs() < 1e-12);
     }
+
+    #[test]
+    fn gator_oscillator_measures_spread_between_smoothed_lines() {
+        let store = ohlc_store(&(1..=14).map(|v| v as f64).collect::<Vec<_>>());
+        let values = gator_oscillator_store(&store, &mut HashMap::new());
+
+        assert!((values[0].values[13] - 1.994578601098711).abs() < 1e-12);
+        assert!((values[1].values[13] + 1.986221742802563).abs() < 1e-12);
+        assert_eq!(
+            latest_gator_oscillator_store(&store),
+            (Some(1.994578601098711), Some(-1.986221742802563))
+        );
+    }
 }

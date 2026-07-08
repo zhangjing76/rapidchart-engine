@@ -156,6 +156,8 @@ pub fn latest_chaikin_oscillator_store(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::named_series;
+    use crate::types::IndicatorArena;
     use std::collections::HashMap;
 
     fn ohlcv_store(values: &[(f64, f64, f64, f64)]) -> CandleStore {
@@ -203,6 +205,37 @@ mod tests {
     }
 
     #[test]
+    fn chaikin_oscillator_is_the_gap_between_fast_and_slow_adl_emas() {
+        let store = ohlcv_store(&[
+            (2.0, 0.0, 1.5, 10.0),
+            (3.0, 1.0, 2.5, 10.0),
+            (4.0, 2.0, 3.5, 10.0),
+        ]);
+        let params = MacdParams {
+            fast: 2,
+            slow: 3,
+            signal: 1,
+        };
+        let values = chaikin_oscillator_store(&store, params, &mut HashMap::new());
+
+        assert_series_close(&values, &[0.0, 0.8333333333333321, 1.5277777777777786]);
+        let arena = IndicatorArena::from_named_outputs(vec![
+            named_series("adl", vec![5.0, 10.0, 15.0]),
+            named_series("fast_ema", vec![5.0, 8.333333333333332, 12.777777777777779]),
+            named_series("slow_ema", vec![5.0, 7.5, 11.25]),
+        ]);
+        assert_eq!(
+            latest_chaikin_oscillator_store(&store, params, &arena),
+            (
+                Some(1.5277777777777786),
+                Some(15.0),
+                Some(12.777777777777779),
+                Some(11.25)
+            )
+        );
+    }
+
+    #[test]
     fn chaikin_volatility_is_zero_for_constant_ranges() {
         let store = ohlcv_store(&[
             (3.0, 1.0, 2.0, 10.0),
@@ -213,5 +246,29 @@ mod tests {
         let values = chaikin_volatility_store(&store, 2, &mut HashMap::new());
 
         assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn chaikin_volatility_is_the_period_change_in_range_ema() {
+        let store = ohlcv_store(&[
+            (3.0, 1.0, 2.0, 10.0),
+            (6.0, 2.0, 4.0, 10.0),
+            (10.0, 2.0, 6.0, 10.0),
+            (18.0, 2.0, 10.0, 10.0),
+        ]);
+        let values = chaikin_volatility_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(
+            &values,
+            &[f64::NAN, f64::NAN, 222.22222222222223, 284.44444444444446],
+        );
+        let arena = IndicatorArena::from_named_outputs(vec![named_series(
+            "hl_ema",
+            vec![2.0, 3.333333333333333, 6.444444444444445, 12.814814814814815],
+        )]);
+        assert_eq!(
+            latest_chaikin_volatility_store(&store, 2, &arena),
+            (Some(284.44444444444446), Some(12.814814814814815))
+        );
     }
 }

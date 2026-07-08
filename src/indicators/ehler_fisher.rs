@@ -106,4 +106,19 @@ mod tests {
         assert_series_close(&outputs[1].values, &[f64::NAN, 0.0, 0.0, 0.0]);
         assert_eq!(latest_ehler_fisher_store(&store, 2), (Some(0.0), Some(0.0)));
     }
+
+    #[test]
+    fn ehler_fisher_matches_the_two_bar_normalization() {
+        let store = ohlc_store(&[10.0, 20.0]);
+        let outputs = ehler_fisher_store(&store, 2, &mut HashMap::new());
+        let clamped = 0.33_f64;
+        let expected_fisher = 0.5_f64 * ((1.0_f64 + clamped) / (1.0_f64 - clamped)).ln();
+
+        assert_series_close(&outputs[0].values, &[f64::NAN, expected_fisher]);
+        assert_series_close(&outputs[1].values, &[f64::NAN, 0.0]);
+        assert_eq!(
+            latest_ehler_fisher_store(&store, 2),
+            (Some(expected_fisher), Some(0.0))
+        );
+    }
 }

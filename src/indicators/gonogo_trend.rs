@@ -87,4 +87,14 @@ mod tests {
         assert_eq!(&*values[1..].to_vec(), &[0.0, 0.0, 0.0]);
         assert_eq!(latest_gonogo_trend_store(&store, 3), Some(0.0));
     }
+
+    #[test]
+    fn gonogo_trend_is_strong_bullish_when_price_rises_above_ema() {
+        let store = close_store(&[10.0, 11.0, 12.0, 13.0]);
+        let values = gonogo_trend_store(&store, 3, &mut HashMap::new());
+
+        assert!(values[0].is_nan());
+        assert_eq!(&values[1..], &[1.0, 1.0, 1.0]);
+        assert_eq!(latest_gonogo_trend_store(&store, 3), Some(1.0));
+    }
 }

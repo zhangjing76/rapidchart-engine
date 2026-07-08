@@ -77,4 +77,26 @@ mod tests {
             (Some(0.0), Some(0.0))
         );
     }
+
+    #[test]
+    fn elder_ray_uses_high_and_low_distance_from_ema() {
+        let store = CandleStore::from_raw_columns(
+            vec![0, 1, 2],
+            vec![10.0, 12.0, 14.0],
+            vec![11.0, 13.0, 15.0],
+            vec![9.0, 11.0, 13.0],
+            vec![10.0, 12.0, 14.0],
+            vec![1.0, 1.0, 1.0],
+        );
+        let outputs = elder_ray_store(&store, 3, &mut HashMap::new());
+
+        assert_eq!(&*outputs[0].values, &[1.0, 2.0, 2.5]);
+        assert_eq!(&*outputs[1].values, &[-1.0, 0.0, 0.5]);
+
+        let arena = IndicatorArena::from_named_outputs(outputs);
+        assert_eq!(
+            latest_elder_ray_store(&store, 3, &arena),
+            (Some(2.5), Some(0.5))
+        );
+    }
 }

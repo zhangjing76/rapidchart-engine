@@ -90,4 +90,19 @@ mod tests {
         assert_eq!(&*values, &[0.0, 0.0, 0.0]);
         assert_eq!(latest_klinger_volume_store(&store), Some(0.0));
     }
+
+    #[test]
+    fn klinger_volume_tracks_the_gap_between_fast_and_slow_vf_emas() {
+        let input: Vec<_> = (0..60)
+            .map(|i| {
+                let base = 10.0 + i as f64;
+                (base + 1.0, base, base + 0.5, 1.0)
+            })
+            .collect();
+        let store = ohlcv_store(&input);
+        let values = klinger_volume_store(&store, &mut HashMap::new());
+
+        assert!((values[59] - 9.580894095402968).abs() < 1e-12);
+        assert_eq!(latest_klinger_volume_store(&store), Some(9.580894095402968));
+    }
 }

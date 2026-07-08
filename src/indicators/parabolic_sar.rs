@@ -251,4 +251,21 @@ mod tests {
             (Some(10.0), Some(10.0), Some(0.02), Some(1.0))
         );
     }
+
+    #[test]
+    fn parabolic_sar_accelerates_upward_in_an_uptrend() {
+        let store = ohlc_store(&[10.0, 11.0, 12.0, 13.0]);
+        let outputs = parabolic_sar_store(&store, 0.02, 0.2, &mut HashMap::new());
+
+        assert_series_close(&outputs[0].values, &[f64::NAN, 10.0, 10.0, 10.08]);
+        assert_series_close(&outputs[1].values, &[f64::NAN, 11.0, 12.0, 13.0]);
+        assert_series_close(&outputs[2].values, &[f64::NAN, 0.02, 0.04, 0.06]);
+        assert_series_close(&outputs[3].values, &[f64::NAN, 1.0, 1.0, 1.0]);
+
+        let arena = IndicatorArena::from_named_outputs(outputs);
+        assert_eq!(
+            latest_parabolic_sar_store(&store, 0.02, 0.2, &arena),
+            (Some(10.08), Some(13.0), Some(0.06), Some(1.0))
+        );
+    }
 }

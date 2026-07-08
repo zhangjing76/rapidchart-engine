@@ -74,4 +74,13 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, f64::NAN, 300.0]);
         assert_eq!(latest_volume_roc_store(&store, 2), Some(300.0));
     }
+
+    #[test]
+    fn volume_roc_uses_the_requested_lookback_period() {
+        let store = ohlcv_store(&[10.0, 15.0, 30.0]);
+        let values = volume_roc_store(&store, 1, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, 50.0, 100.0]);
+        assert_eq!(latest_volume_roc_store(&store, 1), Some(100.0));
+    }
 }

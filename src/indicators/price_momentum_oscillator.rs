@@ -96,4 +96,19 @@ mod tests {
             Some(0.0)
         );
     }
+
+    #[test]
+    fn pmo_matches_the_double_smoothed_roc() {
+        let store = close_store(&[10.0, 11.0, 12.0, 13.0]);
+        let values = price_momentum_oscillator_store(&store, 2, 2, &mut HashMap::new());
+
+        assert_series_close(
+            &values,
+            &[f64::NAN, 100.00000000000009, 95.95959595959596, 89.89898989898985],
+        );
+        assert_eq!(
+            latest_price_momentum_oscillator_store(&store, 2, 2),
+            Some(89.89898989898985)
+        );
+    }
 }

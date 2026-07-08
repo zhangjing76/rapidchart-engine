@@ -129,4 +129,29 @@ mod tests {
         );
         assert_eq!(latest_relative_volatility_store(&store, 2), Some(50.0));
     }
+
+    #[test]
+    fn relative_volatility_is_hundred_when_all_stddev_days_are_up() {
+        let store = close_store(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]);
+        let values = relative_volatility_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(
+            &values,
+            &[
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                f64::NAN,
+                100.0,
+            ],
+        );
+        assert_eq!(latest_relative_volatility_store(&store, 2), Some(100.0));
+    }
 }

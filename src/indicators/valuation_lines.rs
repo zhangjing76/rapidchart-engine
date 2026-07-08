@@ -97,4 +97,18 @@ mod tests {
             (Some(11.0), Some(10.0), Some(9.0))
         );
     }
+
+    #[test]
+    fn valuation_lines_offset_a_rising_sma() {
+        let store = close_store(&[10.0, 12.0, 14.0]);
+        let values = valuation_lines_store(&store, 2, 10.0, &mut HashMap::new());
+
+        assert_series_close(&values[0].values, &[f64::NAN, 12.1, 14.3]);
+        assert_series_close(&values[1].values, &[f64::NAN, 11.0, 13.0]);
+        assert_series_close(&values[2].values, &[f64::NAN, 9.9, 11.7]);
+        let latest = latest_valuation_lines_store(&store, 2, 10.0);
+        assert!((latest.0.unwrap() - 14.3).abs() < 1e-12);
+        assert!((latest.1.unwrap() - 13.0).abs() < 1e-12);
+        assert!((latest.2.unwrap() - 11.7).abs() < 1e-12);
+    }
 }

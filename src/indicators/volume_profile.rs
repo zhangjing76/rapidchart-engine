@@ -161,4 +161,18 @@ mod tests {
             (Some(10.0), Some(10.0), Some(10.0))
         );
     }
+
+    #[test]
+    fn volume_profile_prefers_the_heaviest_price_bin() {
+        let store = ohlcv_store(&[(10.0, 1.0), (20.0, 3.0)]);
+        let outputs = volume_profile_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&outputs[0].values, &[f64::NAN, 19.75]);
+        assert_series_close(&outputs[1].values, &[f64::NAN, 20.0]);
+        assert_series_close(&outputs[2].values, &[f64::NAN, 19.5]);
+        assert_eq!(
+            latest_volume_profile_store(&store, 2),
+            (Some(19.75), Some(20.0), Some(19.5))
+        );
+    }
 }

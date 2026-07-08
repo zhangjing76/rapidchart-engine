@@ -86,6 +86,8 @@ pub fn latest_tema_store(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::named_series;
+    use crate::types::IndicatorArena;
     use std::collections::HashMap;
 
     fn close_store(values: &[f64]) -> CandleStore {
@@ -106,5 +108,23 @@ mod tests {
         let values = tema_store(&store, 3, &mut HashMap::new());
 
         assert_eq!(&*values, &[10.0, 10.0, 10.0, 10.0]);
+    }
+
+    #[test]
+    fn tema_matches_manual_triple_ema_combination() {
+        let store = close_store(&[10.0, 12.0, 14.0, 16.0]);
+        let values = tema_store(&store, 3, &mut HashMap::new());
+
+        assert_eq!(&*values, &[10.0, 11.75, 13.875, 16.0]);
+
+        let arena = IndicatorArena::from_named_outputs(vec![
+            named_series("ema1", vec![10.0, 11.0, 12.5, 14.25]),
+            named_series("ema2", vec![10.0, 10.5, 11.5, 12.875]),
+            named_series("ema3", vec![10.0, 10.25, 10.875, 11.875]),
+        ]);
+        assert_eq!(
+            latest_tema_store(&store, 3, &arena),
+            (Some(16.0), Some(14.25), Some(12.875), Some(11.875))
+        );
     }
 }

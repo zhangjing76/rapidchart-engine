@@ -104,4 +104,13 @@ mod tests {
         assert_eq!(values[44], 0.0);
         assert_eq!(latest_kst_store(&store), Some(0.0));
     }
+
+    #[test]
+    fn kst_matches_the_weighted_sum_of_smoothed_rocs() {
+        let store = close_store(&(1..=45).map(|v| v as f64).collect::<Vec<_>>());
+        let values = kst_store(&store, &mut HashMap::new());
+
+        assert!((values[44] - 3105.477271557251).abs() < 1e-9);
+        assert!((latest_kst_store(&store).unwrap() - 3105.477271557251).abs() < 1e-9);
+    }
 }

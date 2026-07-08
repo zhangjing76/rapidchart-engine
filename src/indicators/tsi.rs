@@ -126,4 +126,15 @@ mod tests {
         let arena = IndicatorArena::from_outputs(vec![]);
         assert_eq!(latest_tsi_store(&store, 3, 2, &arena).0, Some(0.0));
     }
+
+    #[test]
+    fn tsi_is_hundred_when_all_momentum_is_positive() {
+        let store = close_store(&[10.0, 12.0, 15.0, 19.0]);
+        let values = tsi_store(&store, 3, 2, &mut HashMap::new());
+        assert!(values[0].is_nan());
+        assert_eq!(&values[1..], &[100.0, 100.0, 100.0]);
+
+        let arena = IndicatorArena::from_outputs(vec![]);
+        assert_eq!(latest_tsi_store(&store, 3, 2, &arena).0, Some(100.0));
+    }
 }

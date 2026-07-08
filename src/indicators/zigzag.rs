@@ -139,4 +139,13 @@ mod tests {
         assert_series_close(&values, &[10.0, 10.0, 10.0, 10.0]);
         assert_eq!(latest_zigzag_store(&store, 5.0), Some(10.0));
     }
+
+    #[test]
+    fn zigzag_marks_reversals_once_the_threshold_is_crossed() {
+        let store = ohlc_store(&[10.0, 12.0, 9.0, 13.0]);
+        let values = zigzag_store(&store, 10.0, &mut HashMap::new());
+
+        assert_series_close(&values, &[10.0, 12.0, 9.0, 13.0]);
+        assert_eq!(latest_zigzag_store(&store, 10.0), Some(13.0));
+    }
 }

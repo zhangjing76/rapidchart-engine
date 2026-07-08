@@ -203,4 +203,19 @@ mod tests {
         assert!((teeth.unwrap() - 10.0).abs() < 1e-12);
         assert!((lips.unwrap() - 10.0).abs() < 1e-12);
     }
+
+    #[test]
+    fn alligator_uses_shifted_smma_on_rising_prices() {
+        let store = ohlc_store(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]);
+        let values = alligator_store(&store, &mut HashMap::new());
+
+        assert!((values[0].values[11] - 1.438324988620847).abs() < 1e-12);
+        assert!((values[1].values[11] - 3.1415672302246094).abs() < 1e-12);
+        assert!((values[2].values[11] - 5.671088640000001).abs() < 1e-12);
+
+        let latest = latest_alligator_store(&store);
+        assert_eq!(latest.0, Some(values[0].values[11]));
+        assert_eq!(latest.1, Some(values[1].values[11]));
+        assert_eq!(latest.2, Some(values[2].values[11]));
+    }
 }

@@ -98,4 +98,22 @@ mod tests {
         assert_eq!(values[2], 0.0);
         assert_eq!(latest_swing_index_store(&store), Some(0.0));
     }
+
+    #[test]
+    fn swing_index_accumulates_negative_swings_in_a_rising_open_close_sequence() {
+        let store = CandleStore::from_raw_columns(
+            vec![0, 1, 2],
+            vec![10.0, 11.0, 12.0],
+            vec![12.0, 13.0, 14.0],
+            vec![9.0, 10.0, 11.0],
+            vec![11.0, 12.0, 13.0],
+            vec![1.0, 1.0, 1.0],
+        );
+        let values = swing_index_store(&store, &mut HashMap::new());
+
+        assert!(values[0].is_nan());
+        assert!((values[1] + 2.5641025641025643).abs() < 1e-12);
+        assert!((values[2] + 5.128205128205129).abs() < 1e-12);
+        assert!((latest_swing_index_store(&store).unwrap() + 5.128205128205129).abs() < 1e-12);
+    }
 }

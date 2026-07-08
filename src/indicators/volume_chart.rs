@@ -44,4 +44,17 @@ mod tests {
         assert_eq!(&*values, &[2.0, 3.0]);
         assert_eq!(latest_volume_chart_store(&store), Some(3.0));
     }
+
+    #[test]
+    fn volume_chart_preserves_varying_volumes() {
+        let store = ohlcv_store(&[
+            (1.0, 1.0, 1.0, 5.0),
+            (2.0, 2.0, 2.0, 7.0),
+            (3.0, 3.0, 3.0, 11.0),
+        ]);
+        let values = volume_chart_store(&store, &mut HashMap::new());
+
+        assert_eq!(&*values, &[5.0, 7.0, 11.0]);
+        assert_eq!(latest_volume_chart_store(&store), Some(11.0));
+    }
 }

@@ -244,4 +244,27 @@ mod tests {
         assert_eq!(latest.1, Some(0.0));
         assert_eq!(latest.2, Some(0.0));
     }
+
+    #[test]
+    fn macd_matches_manual_ema_differences_on_rising_prices() {
+        let store = close_store(&[10.0, 12.0, 14.0, 16.0]);
+        let params = MacdParams {
+            fast: 3,
+            slow: 5,
+            signal: 2,
+        };
+        let outputs = macd_store(&store, params, &mut HashMap::new());
+
+        assert_eq!(&*outputs[0].values, &[0.0, 0.33333333333333215, 0.7222222222222214, 1.064814814814813]);
+        assert_eq!(&*outputs[1].values, &[0.0, 0.22222222222222143, 0.5555555555555548, 0.8950617283950604]);
+        assert_eq!(&*outputs[2].values, &[0.0, 0.11111111111111072, 0.16666666666666663, 0.16975308641975273]);
+
+        let arena = IndicatorArena::from_named_outputs(outputs);
+        let latest = latest_macd_store(&store, params, &arena);
+        assert_eq!(latest.0, Some(1.064814814814813));
+        assert_eq!(latest.1, Some(0.8950617283950604));
+        assert_eq!(latest.2, Some(0.16975308641975273));
+        assert_eq!(latest.3, Some(14.25));
+        assert_eq!(latest.4, Some(13.185185185185187));
+    }
 }

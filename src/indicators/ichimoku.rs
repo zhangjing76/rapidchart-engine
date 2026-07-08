@@ -173,4 +173,20 @@ mod tests {
             (Some(10.0), Some(10.0), Some(10.0), Some(10.0), Some(10.0))
         );
     }
+
+    #[test]
+    fn ichimoku_uses_window_midpoints_on_rising_prices() {
+        let store = ohlc_store(&[10.0, 12.0, 14.0, 16.0]);
+        let values = ichimoku_store(&store, 2, 2, 2, &mut HashMap::new());
+
+        assert_series_close(&values[0].values, &[f64::NAN, 11.0, 13.0, 15.0]);
+        assert_series_close(&values[1].values, &[f64::NAN, 11.0, 13.0, 15.0]);
+        assert_series_close(&values[2].values, &[f64::NAN, 11.0, 13.0, 15.0]);
+        assert_series_close(&values[3].values, &[f64::NAN, 11.0, 13.0, 15.0]);
+        assert_series_close(&values[4].values, &[10.0, 12.0, 14.0, 16.0]);
+        assert_eq!(
+            latest_ichimoku_store(&store, 2, 2, 2),
+            (Some(15.0), Some(15.0), Some(15.0), Some(15.0), Some(16.0))
+        );
+    }
 }

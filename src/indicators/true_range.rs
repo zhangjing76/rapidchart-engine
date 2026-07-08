@@ -77,4 +77,13 @@ mod tests {
         assert_series_close(&values, &[2.0, 5.0, 4.0]);
         assert_eq!(latest_true_range_store(&store), Some(4.0));
     }
+
+    #[test]
+    fn true_range_uses_the_gap_from_previous_close() {
+        let store = ohlc_store(&[(10.0, 8.0, 9.0), (15.0, 14.0, 14.0)]);
+        let values = true_range_series_store(&store, &mut HashMap::new());
+
+        assert_series_close(&values, &[2.0, 6.0]);
+        assert_eq!(latest_true_range_store(&store), Some(6.0));
+    }
 }

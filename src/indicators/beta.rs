@@ -107,4 +107,13 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0, 0.0]);
         assert_eq!(latest_beta_store(&store, 2), Some(0.0));
     }
+
+    #[test]
+    fn beta_matches_the_return_stddev_proxy() {
+        let store = close_store(&[1.0, 2.0, 2.0, 4.0]);
+        let values = beta_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 1.0, 1.0]);
+        assert!((latest_beta_store(&store, 2).unwrap() - 1.0).abs() < 1e-12);
+    }
 }

@@ -123,4 +123,21 @@ mod tests {
             assert_eq!(value, Some(10.0));
         }
     }
+
+    #[test]
+    fn rainbow_ma_builds_recursive_sma_layers() {
+        let store = close_store(&[10.0, 12.0, 14.0, 16.0, 18.0, 20.0]);
+        let values = rainbow_ma_store(&store, 2, &mut std::collections::HashMap::new());
+
+        assert_series_close(&values[0].values, &[f64::NAN, 11.0, 13.0, 15.0, 17.0, 19.0]);
+        assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, 12.0, 14.0, 16.0, 18.0]);
+        assert_series_close(&values[2].values, &[f64::NAN, f64::NAN, f64::NAN, 13.0, 15.0, 17.0]);
+        assert_series_close(&values[3].values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 14.0, 16.0]);
+
+        let latest = latest_rainbow_ma_store(&store, 2);
+        assert_eq!(latest[0], ("r1".to_string(), Some(19.0)));
+        assert_eq!(latest[1], ("r2".to_string(), Some(18.0)));
+        assert_eq!(latest[2], ("r3".to_string(), Some(17.0)));
+        assert_eq!(latest[3], ("r4".to_string(), Some(16.0)));
+    }
 }

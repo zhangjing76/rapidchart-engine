@@ -117,4 +117,22 @@ mod tests {
             (Some(expected), Some(expected))
         );
     }
+
+    #[test]
+    fn random_walk_index_detects_an_uptrend_more_than_a_downtrend() {
+        let store = ohlc_store(&[
+            (2.0, 1.0, 1.5),
+            (3.0, 2.0, 2.5),
+            (4.0, 3.0, 3.5),
+            (5.0, 4.0, 4.5),
+        ]);
+        let values = random_walk_index_store(&store, 3, &mut HashMap::new());
+
+        assert_series_close(&values[0].values, &[f64::NAN, f64::NAN, f64::NAN, 1.539600717839002]);
+        assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, f64::NAN, 0.0]);
+        assert_eq!(
+            latest_random_walk_index_store(&store, 3),
+            (Some(1.539600717839002), Some(0.0))
+        );
+    }
 }

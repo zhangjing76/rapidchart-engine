@@ -108,4 +108,20 @@ mod tests {
             assert_eq!(value, Some(10.0));
         }
     }
+
+    #[test]
+    fn gmma_exposes_each_expected_ema_series() {
+        let store = close_store(&(1..=60).map(|v| v as f64).collect::<Vec<_>>());
+        let outputs = gmma_store(&store, &mut HashMap::new());
+
+        assert_eq!(outputs[0].values[59], 59.0);
+        assert!((outputs[5].values[59] - 53.00265199785418).abs() < 1e-12);
+        assert!((outputs[11].values[59] - 34.62696168835945).abs() < 1e-12);
+
+        let arena = IndicatorArena::from_named_outputs(outputs);
+        let latest = latest_gmma_store(&store, &arena);
+        assert_eq!(latest[0], ("short_3".to_string(), Some(59.0)));
+        assert_eq!(latest[5], ("short_15".to_string(), Some(53.00265199785418)));
+        assert_eq!(latest[11], ("long_60".to_string(), Some(34.62696168835945)));
+    }
 }

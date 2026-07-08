@@ -149,4 +149,27 @@ mod tests {
             (Some(0.0), Some(0.0))
         );
     }
+
+    #[test]
+    fn relative_vigor_is_positive_when_bodies_are_consistently_bullish() {
+        let store = CandleStore::from_raw_columns(
+            (0..7).collect(),
+            vec![10.0; 7],
+            vec![13.0; 7],
+            vec![9.0; 7],
+            vec![12.0; 7],
+            vec![1.0; 7],
+        );
+        let values = relative_vigor_store(&store, 1, &mut HashMap::new());
+
+        assert_series_close(
+            &values[0].values,
+            &[f64::NAN, f64::NAN, f64::NAN, 0.5, 0.5, 0.5, 0.5],
+        );
+        assert_series_close(
+            &values[1].values,
+            &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.5],
+        );
+        assert_eq!(latest_relative_vigor_store(&store, 1), (Some(0.5), Some(0.5)));
+    }
 }

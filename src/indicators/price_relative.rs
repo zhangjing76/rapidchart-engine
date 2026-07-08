@@ -77,4 +77,13 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, f64::NAN, 4.0]);
         assert_eq!(latest_price_relative_store(&store, 2), Some(4.0));
     }
+
+    #[test]
+    fn price_relative_uses_the_selected_lookback() {
+        let store = close_store(&[2.0, 3.0, 9.0]);
+        let values = price_relative_store(&store, 1, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, 1.5, 3.0]);
+        assert_eq!(latest_price_relative_store(&store, 1), Some(3.0));
+    }
 }

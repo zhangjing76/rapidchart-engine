@@ -72,4 +72,13 @@ mod tests {
         assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0, 0.0]);
         assert_eq!(latest_dpo_store(&store, 4), Some(0.0));
     }
+
+    #[test]
+    fn dpo_is_close_shifted_back_minus_the_current_sma() {
+        let store = close_store(&[10.0, 11.0, 12.0, 13.0, 14.0, 15.0]);
+        let values = dpo_store(&store, 4, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, -1.5, -1.5, -1.5]);
+        assert_eq!(latest_dpo_store(&store, 4), Some(-1.5));
+    }
 }

@@ -898,7 +898,7 @@ function renderIndicator(indicator: Indicator, shiftedTimesCache = new Map<numbe
         time: times ? times[index]! as number : currentColumns.time[index]!,
         value,
       };
-      renderedPoints.push(indicatorPoint(item.output, point));
+      renderedPoints.push(indicatorPoint(item, point));
       if (item.output === "senkou_a") cloudA.push(point);
       if (item.output === "senkou_b") cloudB.push(point);
       if (item.lastPoint === undefined || point.time >= item.lastPoint.time) {
@@ -932,7 +932,7 @@ function updateIndicator(indicator: Indicator) {
       if (item.output === "senkou_b") senkouB = point;
       continue;
     }
-    item.series.update(indicatorPoint(item.output, point));
+    item.series.update(indicatorPoint(item, point));
     item.lastPoint = point;
     if (item.output === "senkou_a") senkouA = point;
     if (item.output === "senkou_b") senkouB = point;
@@ -940,11 +940,17 @@ function updateIndicator(indicator: Indicator) {
   indicator.cloud?.primitive.updatePoints(senkouA, senkouB);
 }
 
-function indicatorPoint(output: string, point: IndicatorPoint) {
+function indicatorPoint(item: IndicatorSeries, point: IndicatorPoint) {
+  if (item.series.seriesType() !== "Histogram") {
+    return {
+      time: point.time as Time,
+      value: point.value!,
+    };
+  }
   return {
     time: point.time as Time,
     value: point.value!,
-    color: output === "histogram" && point.value! < 0 ? "#fca5a5" : "#86efac",
+    color: item.output === "histogram" && point.value! < 0 ? "#fca5a5" : "#86efac",
   };
 }
 

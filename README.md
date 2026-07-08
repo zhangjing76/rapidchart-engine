@@ -687,10 +687,11 @@ The shortest path is to copy the shape of an existing indicator with similar beh
 
 Create `src/indicators/new_indicator.rs` with:
 
-- `new_indicator_store(store: &CandleStore, ..., nodes: &mut NodeCache) -> Vec<IndicatorOutput>` — full-series compute
+- `new_indicator_store(store: &CandleStore, ..., nodes: &mut NodeCache) -> RcSeries` for one visible output, or `Vec<NamedSeries>` for multiple outputs/state
 - `latest_new_indicator_store(store: &CandleStore, ...) -> Option<f64>` — incremental single-value update
+- `descriptor()` — UI metadata for a single-indicator module
 
-The full-series function should return `Vec<IndicatorOutput>`. Visible lines use names like `value`, `signal`, `upper`, `plus_di`, and so on. Hidden state outputs can also live in the same return value.
+The full-series function should return series data, not JS-facing output objects. `src/dispatch.rs` converts it with `.into_outputs()`. Visible lines use names like `value`, `signal`, `upper`, `plus_di`, and so on. Hidden state outputs can also live in the same return value.
 
 If the indicator reuses computed series, cache them in `NodeCache`. Examples already in the repo:
 
@@ -708,16 +709,22 @@ pub mod new_indicator;
 pub use new_indicator::*;
 ```
 
+Also add the module descriptor to `indicator_descriptors()` in the same file:
+
+```rust
+new_indicator::descriptor(),
+```
+
 ### 3. Wire into the engine
 
-Touch these 4 files:
+Touch these core files:
 
 | File | What to add |
 |------|-------------|
-| `src/dag.rs` | Add the kind to `is_valid_kind()`, `indicator_nodes()`, and `indicator_edges()` |
+| `src/types.rs` | Add the kind once in `indicator_kinds!`, plus any parameter flags |
+| `src/dag.rs` | Add `indicator_nodes()`, `indicator_edges()`, visibility, and validation if needed |
 | `src/dispatch.rs` | Match arm in `compute_indicator_store()` |
 | `src/lib.rs` | Match arm in `update_indicators_incremental()` |
-| `src/descriptors.rs` | `IndicatorDescriptor` entry |
 
 If the indicator has hidden intermediate state used only for incremental updates, keep those outputs out of the UI by adding them to `is_visible_output()` in `src/dag.rs`.
 
@@ -755,12 +762,12 @@ npm run build
 Use this checklist:
 
 - create `src/indicators/new_indicator.rs` with `_store` compute and `latest_*_store` functions
-- add `pub mod` + `pub use` in `src/indicators/mod.rs`
-- add kind to `is_valid_kind()` in `src/dag.rs`
+- add `descriptor()` in the indicator file
+- add `pub mod`, `pub use`, and the descriptor call in `src/indicators/mod.rs`
+- add kind once to `indicator_kinds!` in `src/types.rs`
 - add `indicator_nodes()` and `indicator_edges()` in `src/dag.rs`
 - add match arm in `compute_indicator_store()` in `src/dispatch.rs`
 - add match arm in `update_indicators_incremental()` in `src/lib.rs`
-- add descriptor in `indicator_descriptors()` in `src/descriptors.rs`
 - hide state outputs in `is_visible_output()` if needed
 - add `main.ts` label/param handling if needed
 - add 2-3 focused tests in `src/tests.rs`

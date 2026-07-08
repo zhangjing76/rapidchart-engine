@@ -26,7 +26,6 @@ mod tests;
 
 pub(crate) use bar::*;
 pub(crate) use dag::*;
-pub(crate) use descriptors::*;
 pub(crate) use dispatch::*;
 pub(crate) use helpers::*;
 pub(crate) use indicators::*;

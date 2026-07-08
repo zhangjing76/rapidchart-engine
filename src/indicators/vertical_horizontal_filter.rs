@@ -41,3 +41,33 @@ pub fn latest_vertical_horizontal_filter_store(store: &CandleStore, period: usiz
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn vertical_horizontal_filter_is_one_for_a_perfect_trend() {
+        let store = close_store(&[1.0, 2.0, 3.0, 4.0]);
+        let values = vertical_horizontal_filter_store(&store, 2, &mut HashMap::new());
+
+        assert!(values[0].is_nan());
+        assert!(values[1].is_nan());
+        assert!((values[2] - 1.0).abs() < 1e-12);
+        assert!((values[3] - 1.0).abs() < 1e-12);
+        assert_eq!(latest_vertical_horizontal_filter_store(&store, 2), Some(1.0));
+    }
+}

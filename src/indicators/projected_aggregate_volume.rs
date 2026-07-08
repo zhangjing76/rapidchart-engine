@@ -52,3 +52,30 @@ pub fn latest_projected_aggregate_volume_store(store: &CandleStore, period: usiz
     let session_len = period.min(i + 1);
     Some(cum_vol / bars_elapsed as f64 * session_len as f64)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn volume_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+        )
+    }
+
+    #[test]
+    fn projected_aggregate_volume_scales_with_elapsed_bars() {
+        let store = volume_store(&[10.0, 20.0, 30.0]);
+        let values = projected_aggregate_volume_store(&store, 3, &mut HashMap::new());
+
+        assert_eq!(&*values, &[10.0, 30.0, 60.0]);
+        assert_eq!(latest_projected_aggregate_volume_store(&store, 3), Some(60.0));
+    }
+}

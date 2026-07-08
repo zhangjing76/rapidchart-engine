@@ -78,3 +78,42 @@ pub fn latest_darvas_box_store(store: &CandleStore) -> (Option<f64>, Option<f64>
         .and_then(|v| if v.is_nan() { None } else { Some(v) });
     (t, b)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, low)| *low).collect(),
+            values.iter().map(|(high, _)| *high).collect(),
+            values.iter().map(|(_, low)| *low).collect(),
+            values.iter().map(|(_, low)| *low).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn darvas_box_confirms_after_three_non_breaking_bars() {
+        let store = ohlc_store(&[(1.0, 0.0), (2.0, 0.0), (1.5, 0.0), (1.0, 0.0), (1.0, 0.0)]);
+        let values = darvas_box_store(&store, &mut HashMap::new());
+
+        assert_series_close(&values[0].values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 2.0]);
+        assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.0]);
+        assert_eq!(latest_darvas_box_store(&store), (Some(2.0), Some(0.0)));
+    }
+}

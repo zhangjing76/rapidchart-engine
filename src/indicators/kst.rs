@@ -77,3 +77,31 @@ pub fn sma_from_series(values: &[f64], period: usize) -> Series {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn kst_is_zero_for_constant_prices() {
+        let store = close_store(&[10.0; 45]);
+        let values = kst_store(&store, &mut HashMap::new());
+
+        assert!(values[0].is_nan());
+        assert_eq!(values[44], 0.0);
+        assert_eq!(latest_kst_store(&store), Some(0.0));
+    }
+}

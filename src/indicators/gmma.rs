@@ -74,3 +74,38 @@ pub fn latest_gmma_store(
     }
     results
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::IndicatorArena;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn gmma_is_flat_for_constant_prices() {
+        let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
+        let outputs = gmma_store(&store, &mut HashMap::new());
+        for series in &outputs {
+            assert_eq!(&*series.values, &[10.0, 10.0, 10.0, 10.0]);
+        }
+
+        let arena = IndicatorArena::from_named_outputs(outputs);
+        let latest = latest_gmma_store(&store, &arena);
+        assert_eq!(latest.len(), 12);
+        for (_, value) in latest {
+            assert_eq!(value, Some(10.0));
+        }
+    }
+}

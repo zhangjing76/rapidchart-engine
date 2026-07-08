@@ -60,3 +60,32 @@ pub fn latest_twiggs_money_flow_store(store: &CandleStore, period: usize) -> Opt
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn twiggs_money_flow_is_one_when_close_stays_at_the_true_high() {
+        let store = ohlcv_store(&[(2.0, 0.0, 2.0), (2.0, 0.0, 2.0), (2.0, 0.0, 2.0)]);
+        let values = twiggs_money_flow_store(&store, 2, &mut HashMap::new());
+
+        assert!(values[0].is_nan());
+        assert!((values[1] - 1.0).abs() < 1e-12);
+        assert!((values[2] - 1.0).abs() < 1e-12);
+        assert_eq!(latest_twiggs_money_flow_store(&store, 2), Some(1.0));
+    }
+}

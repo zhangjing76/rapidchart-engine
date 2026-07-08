@@ -70,3 +70,30 @@ pub fn latest_projected_volume_at_time_store(store: &CandleStore, period: usize)
         Some(store.volume[i])
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn volume_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+        )
+    }
+
+    #[test]
+    fn projected_volume_at_time_reuses_same_session_position() {
+        let store = volume_store(&[10.0, 20.0, 30.0, 40.0, 50.0]);
+        let values = projected_volume_at_time_store(&store, 2, &mut HashMap::new());
+
+        assert_eq!(&*values, &[10.0, 20.0, 10.0, 20.0, 20.0]);
+        assert_eq!(latest_projected_volume_at_time_store(&store, 2), Some(20.0));
+    }
+}

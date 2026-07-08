@@ -37,3 +37,30 @@ pub fn latest_pretty_good_oscillator_store(store: &CandleStore, period: usize) -
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn pretty_good_oscillator_is_zero_when_close_matches_the_sma() {
+        let store = ohlc_store(&[(3.0, 1.0, 2.0), (3.0, 1.0, 2.0), (3.0, 1.0, 2.0)]);
+        let values = pretty_good_oscillator_store(&store, 2, &mut HashMap::new());
+
+        assert!(values.last().unwrap().abs() < 1e-12);
+        assert!((latest_pretty_good_oscillator_store(&store, 2).unwrap() - 0.0).abs() < 1e-12);
+    }
+}

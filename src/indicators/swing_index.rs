@@ -66,3 +66,36 @@ pub fn latest_swing_index_store(store: &CandleStore) -> Option<f64> {
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(high, _, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _, _)| *low).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(_, _, _, volume)| *volume).collect(),
+        )
+    }
+
+    #[test]
+    fn swing_index_is_zero_for_flat_prices() {
+        let store = ohlc_store(&[
+            (10.0, 10.0, 10.0, 1.0),
+            (10.0, 10.0, 10.0, 1.0),
+            (10.0, 10.0, 10.0, 1.0),
+        ]);
+        let values = swing_index_store(&store, &mut HashMap::new());
+
+        assert!(values[0].is_nan());
+        assert_eq!(values[1], 0.0);
+        assert_eq!(values[2], 0.0);
+        assert_eq!(latest_swing_index_store(&store), Some(0.0));
+    }
+}

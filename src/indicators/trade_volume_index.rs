@@ -56,3 +56,41 @@ pub fn latest_trade_volume_index_store(store: &CandleStore, prev: Option<&[f64]>
         Some(prev_tvi)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(close, _)| *close).collect(),
+            values.iter().map(|(_, volume)| *volume).collect(),
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn trade_volume_index_accumulates_volume_by_direction() {
+        let store = ohlcv_store(&[(1.0, 10.0), (2.0, 20.0), (1.0, 30.0), (1.0, 40.0)]);
+        let values = trade_volume_index_store(&store, &mut HashMap::new());
+
+        assert_series_close(&values, &[0.0, 20.0, -10.0, -10.0]);
+        assert_eq!(latest_trade_volume_index_store(&store, Some(&values[..])), Some(-10.0));
+    }
+}

@@ -57,3 +57,39 @@ pub fn latest_dema_store(
     let ema2 = alpha * ema1 + (1.0 - alpha) * prev_ema2;
     (Some(2.0 * ema1 - ema2), Some(ema1), Some(ema2))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::IndicatorArena;
+    use crate::named_series;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn dema_is_the_input_when_prices_are_constant() {
+        let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
+        let outputs = dema_store(&store, 3, &mut HashMap::new());
+        assert_eq!(&*outputs, &[10.0, 10.0, 10.0, 10.0]);
+
+        let arena = IndicatorArena::from_named_outputs(vec![
+            named_series("ema1", vec![10.0, 10.0, 10.0, 10.0]),
+            named_series("ema2", vec![10.0, 10.0, 10.0, 10.0]),
+        ]);
+        assert_eq!(
+            latest_dema_store(&store, 3, &arena),
+            (Some(10.0), Some(10.0), Some(10.0))
+        );
+    }
+}

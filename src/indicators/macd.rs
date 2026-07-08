@@ -199,3 +199,49 @@ pub fn latest_ppo_store(
     let histogram = ppo.zip(signal).map(|(ppo, signal)| ppo - signal);
     (ppo, signal, histogram)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::IndicatorArena;
+    use crate::named_series;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn macd_is_zero_for_constant_prices() {
+        let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
+        let params = MacdParams {
+            fast: 3,
+            slow: 5,
+            signal: 2,
+        };
+        let outputs = macd_store(&store, params, &mut HashMap::new());
+        assert_eq!(&*outputs[0].values, &[0.0, 0.0, 0.0, 0.0]);
+        assert_eq!(&*outputs[1].values, &[0.0, 0.0, 0.0, 0.0]);
+        assert_eq!(&*outputs[2].values, &[0.0, 0.0, 0.0, 0.0]);
+
+        let arena = IndicatorArena::from_named_outputs(vec![
+            named_series("macd", vec![0.0, 0.0, 0.0, 0.0]),
+            named_series("signal", vec![0.0, 0.0, 0.0, 0.0]),
+            named_series("histogram", vec![0.0, 0.0, 0.0, 0.0]),
+            named_series("fast_ema", vec![10.0, 10.0, 10.0, 10.0]),
+            named_series("slow_ema", vec![10.0, 10.0, 10.0, 10.0]),
+        ]);
+        let latest = latest_macd_store(&store, params, &arena);
+        assert_eq!(latest.0, Some(0.0));
+        assert_eq!(latest.1, Some(0.0));
+        assert_eq!(latest.2, Some(0.0));
+    }
+}

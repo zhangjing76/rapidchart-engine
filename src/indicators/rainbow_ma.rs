@@ -83,3 +83,44 @@ pub fn latest_rainbow_ma_store(store: &CandleStore, period: usize) -> Vec<(Strin
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn rainbow_ma_stays_flat_for_constant_prices() {
+        let store = close_store(&[10.0; 6]);
+        let values = rainbow_ma_store(&store, 1, &mut std::collections::HashMap::new());
+        for series in &values {
+            assert_series_close(&series.values, &[10.0, 10.0, 10.0, 10.0, 10.0, 10.0]);
+        }
+        let latest = latest_rainbow_ma_store(&store, 1);
+        for (_, value) in latest {
+            assert_eq!(value, Some(10.0));
+        }
+    }
+}

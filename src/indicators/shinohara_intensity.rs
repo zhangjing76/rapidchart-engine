@@ -61,3 +61,31 @@ pub fn latest_shinohara_intensity_store(
         .and_then(|v| if v.is_nan() { None } else { Some(v) });
     (s, w)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn shinohara_intensity_is_hundred_for_midpoint_closes() {
+        let store = ohlc_store(&[(2.0, 0.0, 1.0), (2.0, 0.0, 1.0), (2.0, 0.0, 1.0)]);
+        let values = shinohara_intensity_store(&store, 2, &mut std::collections::HashMap::new());
+
+        assert!(values[0].values[0].is_nan());
+        assert!((values[0].values[2] - 100.0).abs() < 1e-12);
+        assert!((values[1].values[2] - 100.0).abs() < 1e-12);
+        assert_eq!(latest_shinohara_intensity_store(&store, 2), (Some(100.0), Some(100.0)));
+    }
+}

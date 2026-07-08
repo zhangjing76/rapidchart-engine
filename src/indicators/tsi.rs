@@ -95,3 +95,35 @@ pub fn latest_tsi_store(
         Some(a_ema2),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::IndicatorArena;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn tsi_is_zero_for_flat_prices() {
+        let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
+        let values = tsi_store(&store, 3, 2, &mut HashMap::new());
+        assert!(values[0].is_nan());
+        assert!((values[1] - 0.0).abs() < 1e-12);
+        assert!((values[2] - 0.0).abs() < 1e-12);
+        assert!((values[3] - 0.0).abs() < 1e-12);
+
+        let arena = IndicatorArena::from_outputs(vec![]);
+        assert_eq!(latest_tsi_store(&store, 3, 2, &arena).0, Some(0.0));
+    }
+}

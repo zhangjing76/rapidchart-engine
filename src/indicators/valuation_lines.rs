@@ -55,3 +55,43 @@ pub fn latest_valuation_lines_store(
         None => (None, None, None),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn valuation_lines_apply_the_percentage_offset() {
+        let store = close_store(&[10.0, 10.0, 10.0]);
+        let values = valuation_lines_store(&store, 2, 10.0, &mut HashMap::new());
+
+        assert_series_close(&values[0].values, &[f64::NAN, 11.0, 11.0]);
+        assert_series_close(&values[1].values, &[f64::NAN, 10.0, 10.0]);
+        assert_series_close(&values[2].values, &[f64::NAN, 9.0, 9.0]);
+        assert_eq!(latest_valuation_lines_store(&store, 2, 10.0), (Some(11.0), Some(10.0), Some(9.0)));
+    }
+}

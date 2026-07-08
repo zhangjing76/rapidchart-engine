@@ -62,3 +62,33 @@ pub fn latest_vortex_indicator_store(
         .and_then(|v| if v.is_nan() { None } else { Some(v) });
     (p, m)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn vortex_indicator_is_one_for_a_perfect_trend() {
+        let store = close_store(&[1.0, 2.0, 3.0, 4.0]);
+        let values = vortex_indicator_store(&store, 2, &mut HashMap::new());
+
+        assert!(values[0].values[0].is_nan());
+        assert!(values[1].values[0].is_nan());
+        assert!((values[0].values[2] - 1.0).abs() < 1e-12);
+        assert!((values[1].values[2] - 1.0).abs() < 1e-12);
+        assert_eq!(latest_vortex_indicator_store(&store, 2), (Some(1.0), Some(1.0)));
+    }
+}

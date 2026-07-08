@@ -64,3 +64,43 @@ pub fn latest_coppock_curve_store(store: &CandleStore) -> Option<f64> {
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn coppock_curve_is_constant_for_geometric_growth() {
+        let values: Vec<f64> = (0..24).map(|i| 2f64.powi(i)).collect();
+        let store = close_store(&values);
+        let output = coppock_curve_store(&store, &mut HashMap::new());
+
+        let mut expected = vec![f64::NAN; 24];
+        expected[23] = 1_843_000.0;
+        assert_series_close(&output, &expected);
+        assert_eq!(latest_coppock_curve_store(&store), Some(1_843_000.0));
+    }
+}

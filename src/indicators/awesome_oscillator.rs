@@ -54,3 +54,32 @@ pub fn latest_awesome_oscillator_store(store: &CandleStore) -> Option<f64> {
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn hl_store(values: &[(f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            vec![1.0; len],
+            values.iter().map(|(high, _)| *high).collect(),
+            values.iter().map(|(_, low)| *low).collect(),
+            vec![1.0; len],
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn awesome_oscillator_is_the_difference_of_two_midpoint_smas() {
+        let bars = vec![(10.0, 0.0); 34];
+        let store = hl_store(&bars);
+        let values = awesome_oscillator_store(&store, &mut HashMap::new());
+
+        assert!(values[..33].iter().all(|v| v.is_nan()));
+        assert_eq!(values[33], 0.0);
+        assert_eq!(latest_awesome_oscillator_store(&store), Some(0.0));
+    }
+}

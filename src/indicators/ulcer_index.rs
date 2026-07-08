@@ -43,3 +43,41 @@ pub fn latest_ulcer_index_store(store: &CandleStore, period: usize) -> Option<f6
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn ulcer_index_is_zero_when_prices_make_new_highs() {
+        let store = close_store(&[1.0, 1.0, 1.0]);
+        let values = ulcer_index_store(&store, 3, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0]);
+        assert_eq!(latest_ulcer_index_store(&store, 3), Some(0.0));
+    }
+}

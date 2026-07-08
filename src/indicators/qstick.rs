@@ -33,3 +33,32 @@ pub fn latest_qstick_store(store: &CandleStore, period: usize) -> Option<f64> {
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn qstick_is_average_body_size() {
+        let store = ohlc_store(&[(4.0, 2.0, 3.0), (5.0, 3.0, 4.0), (6.0, 4.0, 5.0)]);
+        let values = qstick_store(&store, 2, &mut HashMap::new());
+
+        assert!(values[0].is_nan());
+        assert_eq!(values[1], 0.0);
+        assert_eq!(values[2], 0.0);
+        assert_eq!(latest_qstick_store(&store, 2), Some(0.0));
+    }
+}

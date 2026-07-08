@@ -81,3 +81,31 @@ pub fn latest_prime_number_bands_store(store: &CandleStore) -> (Option<f64>, Opt
         Some(nearest_prime_down(store.low[i])),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn prime_number_bands_snap_to_nearest_primes() {
+        let store = ohlc_store(&[(4.1, 1.1, 2.0), (10.2, 8.9, 9.0)]);
+        let outputs = prime_number_bands_store(&store, &mut HashMap::new());
+
+        assert_eq!(&*outputs[0].values, &[5.0, 11.0]);
+        assert_eq!(&*outputs[1].values, &[2.0, 7.0]);
+        assert_eq!(latest_prime_number_bands_store(&store), (Some(11.0), Some(7.0)));
+    }
+}

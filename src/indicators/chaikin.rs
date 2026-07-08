@@ -152,3 +152,58 @@ pub fn latest_chaikin_oscillator_store(
         Some(slow_ema),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlcv_store(values: &[(f64, f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(high, _, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _, _)| *low).collect(),
+            values.iter().map(|(_, _, close, _)| *close).collect(),
+            values.iter().map(|(_, _, _, volume)| *volume).collect(),
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn chaikin_oscillator_is_zero_when_adl_is_constant() {
+        let store = ohlcv_store(&[
+            (2.0, 0.0, 1.0, 10.0),
+            (2.0, 0.0, 1.0, 10.0),
+            (2.0, 0.0, 1.0, 10.0),
+            (2.0, 0.0, 1.0, 10.0),
+        ]);
+        let values = chaikin_oscillator_store(&store, MacdParams { fast: 2, slow: 3, signal: 1 }, &mut HashMap::new());
+
+        assert_series_close(&values, &[0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn chaikin_volatility_is_zero_for_constant_ranges() {
+        let store = ohlcv_store(&[
+            (3.0, 1.0, 2.0, 10.0),
+            (4.0, 2.0, 3.0, 10.0),
+            (5.0, 3.0, 4.0, 10.0),
+            (6.0, 4.0, 5.0, 10.0),
+        ]);
+        let values = chaikin_volatility_store(&store, 2, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0, 0.0]);
+    }
+}

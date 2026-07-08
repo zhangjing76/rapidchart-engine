@@ -82,3 +82,29 @@ pub fn latest_tema_store(
         Some(ema3),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    #[test]
+    fn tema_is_the_input_when_prices_are_constant() {
+        let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
+        let values = tema_store(&store, 3, &mut HashMap::new());
+
+        assert_eq!(&*values, &[10.0, 10.0, 10.0, 10.0]);
+    }
+}

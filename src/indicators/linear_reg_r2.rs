@@ -64,3 +64,41 @@ pub fn latest_linear_reg_r2_store(store: &CandleStore, period: usize) -> Option<
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn close_store(values: &[f64]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            values.to_vec(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn linear_regression_r2_is_one_for_a_perfect_line() {
+        let store = close_store(&[2.0, 4.0, 6.0]);
+        let values = linear_reg_r2_store(&store, 3, &mut HashMap::new());
+
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 1.0]);
+        assert_eq!(latest_linear_reg_r2_store(&store, 3), Some(1.0));
+    }
+}

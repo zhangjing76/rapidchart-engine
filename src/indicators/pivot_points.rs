@@ -53,3 +53,45 @@ pub fn latest_pivot_points_store(store: &CandleStore) -> PivotPointsResult {
         Some(pivot - range),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn pivot_points_use_the_previous_bar() {
+        let store = ohlc_store(&[(5.0, 1.0, 3.0), (8.0, 4.0, 6.0)]);
+        let values = pivot_points_store(&store, &mut HashMap::new());
+
+        assert_series_close(&values[0].values, &[f64::NAN, 3.0]);
+        assert_series_close(&values[1].values, &[f64::NAN, 5.0]);
+        assert_series_close(&values[2].values, &[f64::NAN, 1.0]);
+        assert_series_close(&values[3].values, &[f64::NAN, 7.0]);
+        assert_series_close(&values[4].values, &[f64::NAN, -1.0]);
+        assert_eq!(latest_pivot_points_store(&store), (Some(3.0), Some(5.0), Some(1.0), Some(7.0), Some(-1.0)));
+    }
+}

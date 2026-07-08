@@ -87,3 +87,51 @@ pub fn latest_aroon_store(
         value_at_slice(outputs[2].values.as_slice(), index),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
+        let len = values.len();
+        CandleStore::from_raw_columns(
+            (0..len as u32).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            vec![1.0; len],
+        )
+    }
+
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan());
+            } else {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn aroon_is_the_manual_time_since_high_and_low() {
+        let store = ohlc_store(&[
+            (1.0, 1.0, 1.0),
+            (2.0, 2.0, 2.0),
+            (3.0, 3.0, 3.0),
+            (4.0, 4.0, 4.0),
+        ]);
+        let outputs = aroon_store(&store, 3, &mut HashMap::new());
+
+        assert_series_close(outputs[0].values.as_slice(), &[f64::NAN, f64::NAN, 100.0, 100.0]);
+        assert_series_close(outputs[1].values.as_slice(), &[f64::NAN, f64::NAN, 33.333333333333336, 33.333333333333336]);
+        assert_series_close(outputs[2].values.as_slice(), &[f64::NAN, f64::NAN, 66.66666666666666, 66.66666666666666]);
+        assert_eq!(
+            latest_aroon_store(&store, 3),
+            (Some(100.0), Some(33.333333333333336), Some(66.66666666666666))
+        );
+    }
+}

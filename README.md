@@ -85,14 +85,14 @@ const macdId = engine.addIndicator({
 ```ts
 const candles = engine.candles();
 const candleColumns = engine.candleColumns();
-const smaSeries = engine.indicatorSeries(smaId);
-const rsiSeries = engine.indicatorSeries(rsiId);
+const smaValues = engine.indicatorValueSeries(smaId);
+const rsiValues = engine.indicatorValueSeries(rsiId);
 const macdValues = engine.indicatorValueSeries(macdId);
 ```
 
-`indicatorSeries()` returns visible outputs only. Multi-output indicators such as `MACD`, `BB`, `KELTNER`, `DONCHIAN`, `ADX`, and `STOCHASTIC` return one series per output.
-
-The Rust/WASM layer returns raw indicator values. The TypeScript wrapper maps those values onto candle timestamps and applies visual shifts for chart-specific outputs such as `ICHIMOKU`.
+`indicatorValueSeries()` returns visible outputs only. Multi-output indicators
+such as `MACD`, `BB`, `KELTNER`, `DONCHIAN`, `ADX`, and `STOCHASTIC` return one
+entry per output.
 
 Rust owns the OHLCV history. Use `candles()` for convenient bar objects or
 `candleColumns()` for typed arrays; there is no separate `timeline()` API.
@@ -102,7 +102,9 @@ For zero-copy groundwork, the wrapper also exposes columnar read APIs:
 - `candleColumns()` returns typed arrays for `time`, `open`, `high`, `low`, `close`, and `volume`
 - `indicatorValueSeries(id)` returns typed arrays of raw visible output values, using `NaN` for gaps
 
-Those accessors still materialize typed arrays today, but they define the API shape we can later back with shared memory or zero-copy views.
+Those accessors return zero-copy views into WASM memory. Do not retain them
+across engine mutations or WASM memory growth; read them again after calls such
+as `upsertBarFast()`.
 
 ## Internal indicator contract
 
@@ -154,13 +156,16 @@ volumeSeries.setData(
   })),
 );
 
-const smaOutput = engine.indicatorSeries(smaId)[0];
+const smaOutput = engine.indicatorValueSeries(smaId)[0];
 if (smaOutput) {
-  smaLine.setData(
-    smaOutput.points.flatMap((point) =>
-      point.value === null ? [] : [{ time: point.time as Time, value: point.value }],
-    ),
-  );
+  const points = [];
+  for (let index = 0; index < candleColumns.time.length; index += 1) {
+    const value = smaOutput.values[index];
+    if (value !== undefined && !Number.isNaN(value)) {
+      points.push({ time: candleColumns.time[index] as Time, value });
+    }
+  }
+  smaLine.setData(points);
 }
 ```
 
@@ -204,7 +209,6 @@ boundary.
 - `addFormulaIndicator(config)`
 - `addFormulaIndicators(configs)`
 - `indicatorValueSeries(id)`
-- `indicatorSeries(id)`
 - `latestIndicatorValues(id)`
 - `latestIndicatorTime(id, output)`
 - `latestIndicatorPoints(id)`
@@ -475,10 +479,11 @@ Historical OHLCV input and raw series output use typed arrays:
 - `ingestColumnsZeroCopy()` writes typed arrays directly into allocated WASM memory
 - `candleColumns()`, `indicatorValueSeries()`, and `latestIndicatorValues()` return typed arrays
 
-Convenience and metadata APIs such as `candles()`, `indicatorSeries()`,
-`indicatorDescriptors()`, and `dagDebug()` return JavaScript objects. Typed-array
-reads still materialize arrays at the boundary; they are not shared views into
-the engine's internal vectors.
+Convenience and metadata APIs such as `candles()`, `latestIndicatorPoints()`,
+`indicatorDescriptors()`, and `dagDebug()` allocate JavaScript objects.
+`candleColumns()`, `indicatorValueSeries()`, and `latestIndicatorValues()` expose
+zero-copy typed-array views into WASM memory. Treat those views as ephemeral and
+read them again after mutating the engine.
 
 ### Rendering model
 
@@ -734,7 +739,6 @@ const id = engine.addFormulaIndicator({
 
 ### 2. Read outputs the same way as built-ins
 
-- `indicatorSeries(id)`
 - `indicatorValueSeries(id)`
 - `latestIndicatorValues(id)`
 - `latestIndicatorPoints(id)`

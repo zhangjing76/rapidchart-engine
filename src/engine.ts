@@ -13,18 +13,10 @@ export type Bar = {
   volume: number;
 };
 
-export type IndicatorPoint = {
+export type IndicatorOutputPoint = {
+  output: string;
   time: number;
   value: number | null;
-};
-
-export type IndicatorOutputPoint = IndicatorPoint & {
-  output: string;
-};
-
-export type IndicatorOutputSeries = {
-  output: string;
-  points: IndicatorPoint[];
 };
 
 export type CandleColumns = {
@@ -394,21 +386,6 @@ export class RapidChartEngine {
 
   latestIndicatorValues(id: number): Float64Array {
     return this.#engine.latest_indicator_values_fast(id) as Float64Array;
-  }
-
-  // Render mapping stays in TS: Rust owns raw candle/output data, TS pairs values with times.
-  indicatorSeries(id: number): IndicatorOutputSeries[] {
-    const outputs = this.indicatorValueSeries(id);
-    const candles = this.candleColumns();
-    const spacing = seriesSpacingSeconds(candles.time);
-    const config = this.#configs.get(id);
-    return outputs.map((output) => ({
-      output: output.output,
-      points: Array.from(candles.time, (time, index) => ({
-        time: shiftedOutputTime(time, spacing, indicatorOutputShift(config, output.output)),
-        value: Number.isNaN(output.values[index]!) ? null : output.values[index]!,
-      })),
-    }));
   }
 
   latestIndicatorPoints(id: number): IndicatorOutputPoint[] {

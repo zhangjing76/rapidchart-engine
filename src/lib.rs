@@ -328,7 +328,7 @@ impl ChartEngine {
             psar_step,
             psar_max_step,
             anchor,
-            outputs: IndicatorArena::from_outputs(Vec::new()),
+            outputs: IndicatorArena::default(),
         };
         self.indicators.push(indicator);
         Ok(id)
@@ -377,20 +377,6 @@ impl ChartEngine {
             Float64Array::view(&self.bars.volume)
         })?;
         Ok(out.into())
-    }
-
-    pub fn indicator_outputs_all(&self, id: u32) -> Result<JsValue, JsValue> {
-        let outputs: Vec<_> = self
-            .indicator_outputs_by_id(id)
-            .ok_or_else(|| JsValue::from_str("indicator not found"))?
-            .iter_slots()
-            .filter(|(name, _)| is_visible_output(name))
-            .map(|(name, values)| IndicatorOutput {
-                name: name.to_string(),
-                values: values.to_vec(),
-            })
-            .collect();
-        serde_wasm_bindgen::to_value(&outputs).map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
     pub fn indicator_output_values_fast(&self, id: u32) -> Result<JsValue, JsValue> {
@@ -445,7 +431,7 @@ impl ChartEngine {
             edges: Vec::new(),
         };
         for indicator in &mut self.indicators {
-            indicator.outputs = IndicatorArena::from_outputs(compute_indicator_store(
+            indicator.outputs = compute_indicator_store(
                 &self.bars,
                 indicator.kind,
                 indicator.period,
@@ -461,7 +447,7 @@ impl ChartEngine {
                 indicator.psar_max_step,
                 indicator.anchor,
                 &mut nodes,
-            ));
+            );
             let indicator_node = indicator_node(indicator);
             dag.nodes.push(indicator_node.clone());
             for node in indicator_nodes(indicator) {

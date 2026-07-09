@@ -151,7 +151,7 @@ mod tests {
         assert!((values[2] - 0.0).abs() < 1e-12);
         assert!((values[3] - 0.0).abs() < 1e-12);
 
-        let arena = IndicatorArena::from_outputs(vec![]);
+        let arena = IndicatorArena::default();
         assert_eq!(latest_tsi_store(&store, 3, 2, &arena).0, Some(0.0));
     }
 
@@ -162,7 +162,7 @@ mod tests {
         assert!(values[0].is_nan());
         assert_eq!(&values[1..], &[100.0, 100.0, 100.0]);
 
-        let arena = IndicatorArena::from_outputs(vec![]);
+        let arena = IndicatorArena::default();
         assert_eq!(latest_tsi_store(&store, 3, 2, &arena).0, Some(100.0));
     }
 }

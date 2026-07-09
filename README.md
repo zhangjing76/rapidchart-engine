@@ -111,9 +111,9 @@ Indicator store functions now use a consistent internal shape:
 
 - single-output `*_store(...)` functions return `RcSeries`
 - multi-output `*_store(...)` functions return `Vec<NamedSeries>`
-- `dispatch.rs` converts both shapes into `Vec<IndicatorOutput>` via `.into_outputs()`
+- `dispatch.rs` converts both shapes directly into `IndicatorArena` via `.into_arena()`
 
-This keeps the cache/DAG layer shared and zero-copy-friendly while preserving the existing public output API.
+This keeps the cache/DAG layer shared and avoids a temporary output type.
 
 ### Zero-copy rule
 
@@ -121,8 +121,7 @@ Inside indicator code, series data should stay in shared `Rc<Vec<f64>>` form for
 
 - use `Rc::clone(...)` on cache hits
 - use `named_series(name, values)` for multi-output internal results
-- do not build `IndicatorOutput` directly inside store functions
-- only convert to owned `Vec<f64>` at the final output boundary
+- let dispatch move completed series directly into `IndicatorArena`
 
 At that boundary, `rc_into_owned(...)` moves the underlying `Vec<f64>` when the `Rc` is uniquely owned, and only clones when the series is still shared elsewhere.
 
@@ -381,7 +380,7 @@ Every indicator instance is stored as:
 
 - identity: `id`, `kind`
 - parameters: `period`, `smooth`, `signal`, `multiplier`, `macd`
-- outputs: `Vec<IndicatorOutput>`
+- outputs: `IndicatorArena`
 
 An indicator may produce one visible series or many:
 
@@ -644,7 +643,10 @@ Create `src/indicators/new_indicator.rs` with:
 - `latest_new_indicator_store(store: &CandleStore, ...) -> Option<f64>` — incremental single-value update
 - `descriptor()` — UI metadata for a single-indicator module
 
-The full-series function should return series data, not JS-facing output objects. `src/dispatch.rs` converts it with `.into_outputs()`. Visible lines use names like `value`, `signal`, `upper`, `plus_di`, and so on. Hidden state outputs can also live in the same return value.
+The full-series function should return series data, not JS-facing output objects.
+`src/dispatch.rs` converts it directly into `IndicatorArena` with `.into_arena()`.
+Visible lines use names like `value`, `signal`, `upper`, `plus_di`, and so on.
+Hidden state outputs can also live in the same return value.
 
 If the indicator reuses computed series, cache them in `NodeCache`. Examples already in the repo:
 

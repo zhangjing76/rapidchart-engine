@@ -58,7 +58,7 @@ impl FormulaIndicator {
             outputs: config.outputs,
             program,
             runtime: FormulaRuntime::default(),
-            values: IndicatorArena::from_outputs(Vec::new()),
+            values: IndicatorArena::default(),
             last_len: 0,
         };
         indicator.recompute(store)?;

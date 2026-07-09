@@ -4,36 +4,25 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 use crate::bar::{Bar, CandleStore};
-use crate::series::{rc_into_owned, RcSeries, Series};
-use crate::types::{IndicatorArena, IndicatorOutput, NamedSeries};
+use crate::series::{RcSeries, Series};
+use crate::types::{IndicatorArena, NamedSeries};
 
-pub(crate) trait IntoIndicatorOutputs {
-    fn into_outputs(self) -> Vec<IndicatorOutput>;
+pub(crate) trait IntoIndicatorArena {
+    fn into_arena(self) -> IndicatorArena;
 }
 
-impl IntoIndicatorOutputs for RcSeries {
-    fn into_outputs(self) -> Vec<IndicatorOutput> {
-        vec![IndicatorOutput {
+impl IntoIndicatorArena for RcSeries {
+    fn into_arena(self) -> IndicatorArena {
+        IndicatorArena::from_named_outputs(vec![NamedSeries {
             name: "value".to_string(),
-            values: crate::series::rc_into_owned(self),
-        }]
+            values: self,
+        }])
     }
 }
 
-impl IntoIndicatorOutputs for Vec<IndicatorOutput> {
-    fn into_outputs(self) -> Vec<IndicatorOutput> {
-        self
-    }
-}
-
-impl IntoIndicatorOutputs for Vec<NamedSeries> {
-    fn into_outputs(self) -> Vec<IndicatorOutput> {
-        self.into_iter()
-            .map(|series| IndicatorOutput {
-                name: series.name,
-                values: rc_into_owned(series.values),
-            })
-            .collect()
+impl IntoIndicatorArena for Vec<NamedSeries> {
+    fn into_arena(self) -> IndicatorArena {
+        IndicatorArena::from_named_outputs(self)
     }
 }
 

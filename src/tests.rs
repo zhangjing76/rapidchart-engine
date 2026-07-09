@@ -140,16 +140,14 @@ mod tests {
             .unwrap()
             .to_vec();
 
-        engine
-            .bars
-            .push(Bar {
-                time: 5,
-                open: 16.0,
-                high: 17.0,
-                low: 15.0,
-                close: 16.0,
-                volume: 1.0,
-            });
+        engine.bars.push(Bar {
+            time: 5,
+            open: 16.0,
+            high: 17.0,
+            low: 15.0,
+            close: 16.0,
+            volume: 1.0,
+        });
         assert!(engine.update_indicators_incremental());
         let after = engine
             .indicator_outputs_by_id(id)
@@ -158,7 +156,11 @@ mod tests {
             .unwrap();
 
         let rebuilt = formula_engine(&[10.0, 12.0, 14.0, 13.0, 15.0, 16.0]);
-        let rebuilt_outputs = rebuilt.indicator_outputs_by_id(id).unwrap().get_slot(0).unwrap();
+        let rebuilt_outputs = rebuilt
+            .indicator_outputs_by_id(id)
+            .unwrap()
+            .get_slot(0)
+            .unwrap();
 
         assert_eq!(before.len(), 5);
         assert_eq!(after.len(), 6);
@@ -196,7 +198,7 @@ mod tests {
             psar_step: 0.02,
             psar_max_step: 0.2,
             anchor: 0,
-            outputs: IndicatorArena::from_outputs(Vec::new()),
+            outputs: IndicatorArena::default(),
         }
     }
 
@@ -289,7 +291,7 @@ mod tests {
             psar_step: 0.02,
             psar_max_step: 0.2,
             anchor: 0,
-            outputs: IndicatorArena::from_outputs(Vec::new()),
+            outputs: IndicatorArena::default(),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["rsi:close:14"]);
@@ -311,7 +313,7 @@ mod tests {
             psar_step: 0.02,
             psar_max_step: 0.2,
             anchor: 0,
-            outputs: IndicatorArena::from_outputs(Vec::new()),
+            outputs: IndicatorArena::default(),
         };
 
         assert_eq!(indicator_nodes(&indicator), vec!["wma:close:20"]);
@@ -334,7 +336,7 @@ mod tests {
             psar_step: 0.02,
             psar_max_step: 0.2,
             anchor: 0,
-            outputs: IndicatorArena::from_outputs(Vec::new()),
+            outputs: IndicatorArena::default(),
         };
 
         assert_eq!(
@@ -755,19 +757,10 @@ mod tests {
             psar_step: 0.0,
             psar_max_step: 0.0,
             anchor: 0,
-            outputs: IndicatorArena::from_outputs(vec![
-                IndicatorOutput {
-                    name: "value".to_string(),
-                    values: vec![1.25],
-                },
-                IndicatorOutput {
-                    name: "avg_gain".to_string(),
-                    values: vec![f64::NAN],
-                },
-                IndicatorOutput {
-                    name: "avg_loss".to_string(),
-                    values: vec![-0.5],
-                },
+            outputs: IndicatorArena::from_owned_outputs(vec![
+                ("value".to_string(), vec![1.25]),
+                ("avg_gain".to_string(), vec![f64::NAN]),
+                ("avg_loss".to_string(), vec![-0.5]),
             ]),
         });
 
@@ -800,9 +793,10 @@ mod tests {
             0.2,
             0,
             &mut nodes,
-        )[0]
-        .values
-        .clone();
+        )
+        .get_slot(0)
+        .unwrap()
+        .to_vec();
         let macd = compute_indicator_store(
             &store,
             IndicatorKind::MACD,
@@ -828,7 +822,7 @@ mod tests {
         assert!(nodes.len() >= 2);
         assert_vec_eq!(nodes["ema:close:12"], ema12);
         assert_eq!(
-            macd[0].values[29],
+            macd.get_slot(0).unwrap()[29],
             nodes["ema:close:12"][29] - nodes["ema:close:26"][29]
         );
     }
@@ -875,15 +869,9 @@ mod tests {
         let mut nodes = HashMap::new();
         let ema1_series = rc_into_owned(ema_close_store(&store, 5, &mut nodes));
         let ema2_series = ema_series(&ema1_series, 5);
-        let arena = IndicatorArena::from_outputs(vec![
-            IndicatorOutput {
-                name: "ema1".to_string(),
-                values: ema1_series,
-            },
-            IndicatorOutput {
-                name: "ema2".to_string(),
-                values: ema2_series,
-            },
+        let arena = IndicatorArena::from_owned_outputs(vec![
+            ("ema1".to_string(), ema1_series),
+            ("ema2".to_string(), ema2_series),
         ]);
         assert_eq!(
             latest_dema_store(&store, 5, &arena).0,
@@ -902,19 +890,10 @@ mod tests {
         let ema1_series = rc_into_owned(ema_close_store(&store, 5, &mut nodes));
         let ema2_series = ema_series(&ema1_series, 5);
         let ema3_series = ema_series(&ema2_series, 5);
-        let arena = IndicatorArena::from_outputs(vec![
-            IndicatorOutput {
-                name: "ema1".to_string(),
-                values: ema1_series,
-            },
-            IndicatorOutput {
-                name: "ema2".to_string(),
-                values: ema2_series,
-            },
-            IndicatorOutput {
-                name: "ema3".to_string(),
-                values: ema3_series,
-            },
+        let arena = IndicatorArena::from_owned_outputs(vec![
+            ("ema1".to_string(), ema1_series),
+            ("ema2".to_string(), ema2_series),
+            ("ema3".to_string(), ema3_series),
         ]);
         assert_eq!(
             latest_tema_store(&store, 5, &arena).0,

@@ -1,8 +1,8 @@
 use crate::bar::CandleStore;
-use crate::helpers::{upsert_output, IntoIndicatorOutputs};
+use crate::helpers::{upsert_output, IntoIndicatorArena};
 use crate::indicators::*;
 use crate::series::NodeCache;
-use crate::types::{Indicator, IndicatorKind, IndicatorOutput, MacdParams};
+use crate::types::{Indicator, IndicatorArena, IndicatorKind, MacdParams};
 
 use crate::indicators::adl::adl_store;
 use crate::indicators::adx::adx_store;
@@ -147,72 +147,71 @@ pub(crate) fn compute_indicator_store(
     psar_max_step: f64,
     anchor: usize,
     nodes: &mut NodeCache,
-) -> Vec<IndicatorOutput> {
+) -> IndicatorArena {
     match kind {
-        IndicatorKind::SMA => sma_close_store(store, period, nodes).into_outputs(),
-        IndicatorKind::EMA => ema_close_store(store, period, nodes).into_outputs(),
-        IndicatorKind::RSI => rsi_outputs_store(store, period, nodes).into_outputs(),
-        IndicatorKind::ROC => roc_store(store, period, nodes).into_outputs(),
-        IndicatorKind::CCI => cci_store(store, period, nodes).into_outputs(),
-        IndicatorKind::MFI => mfi_store(store, period, nodes).into_outputs(),
-        IndicatorKind::CMF => cmf_store(store, period, nodes).into_outputs(),
-        IndicatorKind::WILLIAMS_R => williams_r_store(store, period, nodes).into_outputs(),
-        IndicatorKind::OBV => obv_store(store, nodes).into_outputs(),
-        IndicatorKind::ADL => adl_store(store, nodes).into_outputs(),
-        IndicatorKind::VWAP => vwap_store(store, nodes).into_outputs(),
-        IndicatorKind::VWMA => vwma_store(store, period, nodes).into_outputs(),
-        IndicatorKind::WILLIAMS_AD => williams_ad_store(store, nodes).into_outputs(),
-        IndicatorKind::ATR => atr_store(store, period, nodes).into_outputs(),
-        IndicatorKind::ADX => adx_store(store, period, nodes).into_outputs(),
+        IndicatorKind::SMA => sma_close_store(store, period, nodes).into_arena(),
+        IndicatorKind::EMA => ema_close_store(store, period, nodes).into_arena(),
+        IndicatorKind::RSI => rsi_outputs_store(store, period, nodes).into_arena(),
+        IndicatorKind::ROC => roc_store(store, period, nodes).into_arena(),
+        IndicatorKind::CCI => cci_store(store, period, nodes).into_arena(),
+        IndicatorKind::MFI => mfi_store(store, period, nodes).into_arena(),
+        IndicatorKind::CMF => cmf_store(store, period, nodes).into_arena(),
+        IndicatorKind::WILLIAMS_R => williams_r_store(store, period, nodes).into_arena(),
+        IndicatorKind::OBV => obv_store(store, nodes).into_arena(),
+        IndicatorKind::ADL => adl_store(store, nodes).into_arena(),
+        IndicatorKind::VWAP => vwap_store(store, nodes).into_arena(),
+        IndicatorKind::VWMA => vwma_store(store, period, nodes).into_arena(),
+        IndicatorKind::WILLIAMS_AD => williams_ad_store(store, nodes).into_arena(),
+        IndicatorKind::ATR => atr_store(store, period, nodes).into_arena(),
+        IndicatorKind::ADX => adx_store(store, period, nodes).into_arena(),
         IndicatorKind::SUPERTREND => {
-            supertrend_store(store, period, multiplier, nodes).into_outputs()
+            supertrend_store(store, period, multiplier, nodes).into_arena()
         }
-        IndicatorKind::KELTNER => keltner_store(store, period, multiplier, nodes).into_outputs(),
-        IndicatorKind::STARC => starc_store(store, period, multiplier, nodes).into_outputs(),
-        IndicatorKind::WMA => wma_store(store, period, nodes).into_outputs(),
-        IndicatorKind::HMA => hma_store(store, period, nodes).into_outputs(),
+        IndicatorKind::KELTNER => keltner_store(store, period, multiplier, nodes).into_arena(),
+        IndicatorKind::STARC => starc_store(store, period, multiplier, nodes).into_arena(),
+        IndicatorKind::WMA => wma_store(store, period, nodes).into_arena(),
+        IndicatorKind::HMA => hma_store(store, period, nodes).into_arena(),
         IndicatorKind::LINEAR_REGRESSION => {
-            linear_regression_store(store, period, nodes).into_outputs()
+            linear_regression_store(store, period, nodes).into_arena()
         }
         IndicatorKind::LINEAR_REG_FORECAST => {
-            linear_reg_forecast_store(store, period, nodes).into_outputs()
+            linear_reg_forecast_store(store, period, nodes).into_arena()
         }
         IndicatorKind::LINEAR_REG_INTERCEPT => {
-            linear_reg_intercept_store(store, period, nodes).into_outputs()
+            linear_reg_intercept_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::DEMA => dema_store(store, period, nodes).into_outputs(),
-        IndicatorKind::TEMA => tema_store(store, period, nodes).into_outputs(),
-        IndicatorKind::TRIMA => trima_store(store, period, nodes).into_outputs(),
-        IndicatorKind::STDDEV => stddev_store(store, period, nodes).into_outputs(),
-        IndicatorKind::ENVELOPE => envelope_store(store, period, multiplier, nodes).into_outputs(),
-        IndicatorKind::TRIX => trix_store(store, period, nodes).into_outputs(),
-        IndicatorKind::TSI => tsi_store(store, period, stoch_period, nodes).into_outputs(),
-        IndicatorKind::KST => kst_store(store, nodes).into_outputs(),
-        IndicatorKind::BOP => bop_store(store, nodes).into_outputs(),
-        IndicatorKind::MOMENTUM => momentum_store(store, period, nodes).into_outputs(),
-        IndicatorKind::DPO => dpo_store(store, period, nodes).into_outputs(),
-        IndicatorKind::FORCE_INDEX => force_index_store(store, period, nodes).into_outputs(),
-        IndicatorKind::PRICE_CHANNEL => price_channel_store(store, period, nodes).into_outputs(),
-        IndicatorKind::STOCHASTIC => stochastic_store(store, period, smooth, nodes).into_outputs(),
-        IndicatorKind::BB => bollinger_store(store, period, multiplier, nodes).into_outputs(),
-        IndicatorKind::DONCHIAN => donchian_store(store, period, nodes).into_outputs(),
+        IndicatorKind::DEMA => dema_store(store, period, nodes).into_arena(),
+        IndicatorKind::TEMA => tema_store(store, period, nodes).into_arena(),
+        IndicatorKind::TRIMA => trima_store(store, period, nodes).into_arena(),
+        IndicatorKind::STDDEV => stddev_store(store, period, nodes).into_arena(),
+        IndicatorKind::ENVELOPE => envelope_store(store, period, multiplier, nodes).into_arena(),
+        IndicatorKind::TRIX => trix_store(store, period, nodes).into_arena(),
+        IndicatorKind::TSI => tsi_store(store, period, stoch_period, nodes).into_arena(),
+        IndicatorKind::KST => kst_store(store, nodes).into_arena(),
+        IndicatorKind::BOP => bop_store(store, nodes).into_arena(),
+        IndicatorKind::MOMENTUM => momentum_store(store, period, nodes).into_arena(),
+        IndicatorKind::DPO => dpo_store(store, period, nodes).into_arena(),
+        IndicatorKind::FORCE_INDEX => force_index_store(store, period, nodes).into_arena(),
+        IndicatorKind::PRICE_CHANNEL => price_channel_store(store, period, nodes).into_arena(),
+        IndicatorKind::STOCHASTIC => stochastic_store(store, period, smooth, nodes).into_arena(),
+        IndicatorKind::BB => bollinger_store(store, period, multiplier, nodes).into_arena(),
+        IndicatorKind::DONCHIAN => donchian_store(store, period, nodes).into_arena(),
         IndicatorKind::PARABOLIC_SAR => {
-            parabolic_sar_store(store, psar_step, psar_max_step, nodes).into_outputs()
+            parabolic_sar_store(store, psar_step, psar_max_step, nodes).into_arena()
         }
         IndicatorKind::ICHIMOKU => {
-            ichimoku_store(store, tenkan_period, kijun_period, senkou_b_period, nodes)
-                .into_outputs()
+            ichimoku_store(store, tenkan_period, kijun_period, senkou_b_period, nodes).into_arena()
         }
-        IndicatorKind::PIVOT_POINTS => pivot_points_store(store, nodes).into_outputs(),
-        IndicatorKind::AROON => aroon_store(store, period, nodes).into_outputs(),
+        IndicatorKind::PIVOT_POINTS => pivot_points_store(store, nodes).into_arena(),
+        IndicatorKind::AROON => aroon_store(store, period, nodes).into_arena(),
         IndicatorKind::ULTIMATE_OSCILLATOR => {
-            ultimate_oscillator_store(store, period, stoch_period, smooth, nodes).into_outputs()
+            ultimate_oscillator_store(store, period, stoch_period, smooth, nodes).into_arena()
         }
         IndicatorKind::CHAIKIN_VOLATILITY => {
-            chaikin_volatility_store(store, period, nodes).into_outputs()
+            chaikin_volatility_store(store, period, nodes).into_arena()
         }
         IndicatorKind::STOCH_RSI => {
-            stoch_rsi_store(store, period, stoch_period, smooth, signal, nodes).into_outputs()
+            stoch_rsi_store(store, period, stoch_period, smooth, signal, nodes).into_arena()
         }
         IndicatorKind::CHAIKIN_OSCILLATOR => chaikin_oscillator_store(
             store,
@@ -223,7 +222,7 @@ pub(crate) fn compute_indicator_store(
             }),
             nodes,
         )
-        .into_outputs(),
+        .into_arena(),
         IndicatorKind::MACD => macd_store(
             store,
             macd_params.unwrap_or(MacdParams {
@@ -233,7 +232,7 @@ pub(crate) fn compute_indicator_store(
             }),
             nodes,
         )
-        .into_outputs(),
+        .into_arena(),
         IndicatorKind::PPO => ppo_store(
             store,
             macd_params.unwrap_or(MacdParams {
@@ -243,81 +242,71 @@ pub(crate) fn compute_indicator_store(
             }),
             nodes,
         )
-        .into_outputs(),
-        IndicatorKind::MEDIAN_PRICE => median_price_store(store, nodes).into_outputs(),
-        IndicatorKind::HIGHEST_HIGH => highest_high_store(store, period, nodes).into_outputs(),
-        IndicatorKind::LOWEST_LOW => lowest_low_store(store, period, nodes).into_outputs(),
-        IndicatorKind::ALLIGATOR => alligator_store(store, nodes).into_outputs(),
-        IndicatorKind::ATR_BANDS => {
-            atr_bands_store(store, period, multiplier, nodes).into_outputs()
-        }
-        IndicatorKind::HIGH_LOW_BANDS => high_low_bands_store(store, period, nodes).into_outputs(),
-        IndicatorKind::FRACTAL_CHAOS_BANDS => {
-            fractal_chaos_bands_store(store, nodes).into_outputs()
-        }
-        IndicatorKind::GMMA => gmma_store(store, nodes).into_outputs(),
-        IndicatorKind::ANCHORED_VWAP => anchored_vwap_store(store, anchor, nodes).into_outputs(),
-        IndicatorKind::TYPICAL_PRICE => typical_price_store(store, nodes).into_outputs(),
-        IndicatorKind::WEIGHTED_CLOSE => weighted_close_store(store, nodes).into_outputs(),
+        .into_arena(),
+        IndicatorKind::MEDIAN_PRICE => median_price_store(store, nodes).into_arena(),
+        IndicatorKind::HIGHEST_HIGH => highest_high_store(store, period, nodes).into_arena(),
+        IndicatorKind::LOWEST_LOW => lowest_low_store(store, period, nodes).into_arena(),
+        IndicatorKind::ALLIGATOR => alligator_store(store, nodes).into_arena(),
+        IndicatorKind::ATR_BANDS => atr_bands_store(store, period, multiplier, nodes).into_arena(),
+        IndicatorKind::HIGH_LOW_BANDS => high_low_bands_store(store, period, nodes).into_arena(),
+        IndicatorKind::FRACTAL_CHAOS_BANDS => fractal_chaos_bands_store(store, nodes).into_arena(),
+        IndicatorKind::GMMA => gmma_store(store, nodes).into_arena(),
+        IndicatorKind::ANCHORED_VWAP => anchored_vwap_store(store, anchor, nodes).into_arena(),
+        IndicatorKind::TYPICAL_PRICE => typical_price_store(store, nodes).into_arena(),
+        IndicatorKind::WEIGHTED_CLOSE => weighted_close_store(store, nodes).into_arena(),
         IndicatorKind::MA_CROSS => ma_cross_store(
             store,
             macd_params.map_or(period, |m| m.fast),
             macd_params.map_or(stoch_period, |m| m.slow),
             nodes,
         )
-        .into_outputs(),
-        IndicatorKind::RAINBOW_MA => rainbow_ma_store(store, period, nodes).into_outputs(),
-        IndicatorKind::PRIME_NUMBER_BANDS => prime_number_bands_store(store, nodes).into_outputs(),
+        .into_arena(),
+        IndicatorKind::RAINBOW_MA => rainbow_ma_store(store, period, nodes).into_arena(),
+        IndicatorKind::PRIME_NUMBER_BANDS => prime_number_bands_store(store, nodes).into_arena(),
         IndicatorKind::TIME_SERIES_FORECAST => {
-            linear_reg_forecast_store(store, period, nodes).into_outputs()
+            linear_reg_forecast_store(store, period, nodes).into_arena()
         }
         IndicatorKind::VALUATION_LINES => {
-            valuation_lines_store(store, period, multiplier, nodes).into_outputs()
+            valuation_lines_store(store, period, multiplier, nodes).into_arena()
         }
-        IndicatorKind::BETA => beta_store(store, period, nodes).into_outputs(),
+        IndicatorKind::BETA => beta_store(store, period, nodes).into_arena(),
         IndicatorKind::CORRELATION_COEFFICIENT => {
-            correlation_coefficient_store(store, period, nodes).into_outputs()
+            correlation_coefficient_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::PERFORMANCE_INDEX => performance_index_store(store, nodes).into_outputs(),
-        IndicatorKind::PRICE_RELATIVE => price_relative_store(store, period, nodes).into_outputs(),
-        IndicatorKind::AWESOME_OSCILLATOR => awesome_oscillator_store(store, nodes).into_outputs(),
+        IndicatorKind::PERFORMANCE_INDEX => performance_index_store(store, nodes).into_arena(),
+        IndicatorKind::PRICE_RELATIVE => price_relative_store(store, period, nodes).into_arena(),
+        IndicatorKind::AWESOME_OSCILLATOR => awesome_oscillator_store(store, nodes).into_arena(),
         IndicatorKind::BOLLINGER_PCT_B => {
-            bollinger_pct_b_store(store, period, multiplier, nodes).into_outputs()
+            bollinger_pct_b_store(store, period, multiplier, nodes).into_arena()
         }
         IndicatorKind::CENTER_OF_GRAVITY => {
-            center_of_gravity_store(store, period, nodes).into_outputs()
+            center_of_gravity_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::CHANDE_FORECAST => {
-            chande_forecast_store(store, period, nodes).into_outputs()
-        }
-        IndicatorKind::CHANDE_MOMENTUM => {
-            chande_momentum_store(store, period, nodes).into_outputs()
-        }
-        IndicatorKind::COPPOCK_CURVE => coppock_curve_store(store, nodes).into_outputs(),
-        IndicatorKind::DISPARITY_INDEX => {
-            disparity_index_store(store, period, nodes).into_outputs()
-        }
+        IndicatorKind::CHANDE_FORECAST => chande_forecast_store(store, period, nodes).into_arena(),
+        IndicatorKind::CHANDE_MOMENTUM => chande_momentum_store(store, period, nodes).into_arena(),
+        IndicatorKind::COPPOCK_CURVE => coppock_curve_store(store, nodes).into_arena(),
+        IndicatorKind::DISPARITY_INDEX => disparity_index_store(store, period, nodes).into_arena(),
         IndicatorKind::EASE_OF_MOVEMENT => {
-            ease_of_movement_store(store, period, nodes).into_outputs()
+            ease_of_movement_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::EHLER_FISHER => ehler_fisher_store(store, period, nodes).into_outputs(),
-        IndicatorKind::ELDER_RAY => elder_ray_store(store, period, nodes).into_outputs(),
+        IndicatorKind::EHLER_FISHER => ehler_fisher_store(store, period, nodes).into_arena(),
+        IndicatorKind::ELDER_RAY => elder_ray_store(store, period, nodes).into_arena(),
         IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => {
-            fractal_chaos_oscillator_store(store, nodes).into_outputs()
+            fractal_chaos_oscillator_store(store, nodes).into_arena()
         }
-        IndicatorKind::GATOR_OSCILLATOR => gator_oscillator_store(store, nodes).into_outputs(),
+        IndicatorKind::GATOR_OSCILLATOR => gator_oscillator_store(store, nodes).into_arena(),
         IndicatorKind::INTRADAY_MOMENTUM => {
-            intraday_momentum_store(store, period, nodes).into_outputs()
+            intraday_momentum_store(store, period, nodes).into_arena()
         }
         IndicatorKind::LINEAR_REG_SLOPE => {
-            linear_reg_slope_store(store, period, nodes).into_outputs()
+            linear_reg_slope_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::MA_DEVIATION => ma_deviation_store(store, period, nodes).into_outputs(),
+        IndicatorKind::MA_DEVIATION => ma_deviation_store(store, period, nodes).into_arena(),
         IndicatorKind::PRETTY_GOOD_OSCILLATOR => {
-            pretty_good_oscillator_store(store, period, nodes).into_outputs()
+            pretty_good_oscillator_store(store, period, nodes).into_arena()
         }
         IndicatorKind::PRICE_MOMENTUM_OSCILLATOR => {
-            price_momentum_oscillator_store(store, period, smooth, nodes).into_outputs()
+            price_momentum_oscillator_store(store, period, smooth, nodes).into_arena()
         }
         IndicatorKind::PRICE_OSCILLATOR => price_oscillator_store(
             store,
@@ -328,12 +317,12 @@ pub(crate) fn compute_indicator_store(
             }),
             nodes,
         )
-        .into_outputs(),
+        .into_arena(),
         IndicatorKind::RAINBOW_OSCILLATOR => {
-            rainbow_oscillator_store(store, period, nodes).into_outputs()
+            rainbow_oscillator_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::RAVI => ravi_store(store, period, stoch_period, nodes).into_outputs(),
-        IndicatorKind::RELATIVE_VIGOR => relative_vigor_store(store, period, nodes).into_outputs(),
+        IndicatorKind::RAVI => ravi_store(store, period, stoch_period, nodes).into_arena(),
+        IndicatorKind::RELATIVE_VIGOR => relative_vigor_store(store, period, nodes).into_arena(),
         IndicatorKind::SCHAFF_TREND_CYCLE => schaff_trend_cycle_store(
             store,
             macd_params.map_or(12, |m| m.fast),
@@ -341,14 +330,12 @@ pub(crate) fn compute_indicator_store(
             stoch_period,
             nodes,
         )
-        .into_outputs(),
+        .into_arena(),
         IndicatorKind::STOCHASTIC_MOMENTUM => {
-            stochastic_momentum_store(store, period, smooth, nodes).into_outputs()
+            stochastic_momentum_store(store, period, smooth, nodes).into_arena()
         }
-        IndicatorKind::SWING_INDEX => swing_index_store(store, nodes).into_outputs(),
-        IndicatorKind::TREND_INTENSITY => {
-            trend_intensity_store(store, period, nodes).into_outputs()
-        }
+        IndicatorKind::SWING_INDEX => swing_index_store(store, nodes).into_arena(),
+        IndicatorKind::TREND_INTENSITY => trend_intensity_store(store, period, nodes).into_arena(),
         IndicatorKind::VOLUME_OSCILLATOR => volume_oscillator_store(
             store,
             macd_params.unwrap_or(MacdParams {
@@ -358,76 +345,74 @@ pub(crate) fn compute_indicator_store(
             }),
             nodes,
         )
-        .into_outputs(),
-        IndicatorKind::KLINGER_VOLUME => klinger_volume_store(store, nodes).into_outputs(),
-        IndicatorKind::MARKET_FACILITATION => {
-            market_facilitation_store(store, nodes).into_outputs()
-        }
+        .into_arena(),
+        IndicatorKind::KLINGER_VOLUME => klinger_volume_store(store, nodes).into_arena(),
+        IndicatorKind::MARKET_FACILITATION => market_facilitation_store(store, nodes).into_arena(),
         IndicatorKind::NEGATIVE_VOLUME_INDEX => {
-            negative_volume_index_store(store, nodes).into_outputs()
+            negative_volume_index_store(store, nodes).into_arena()
         }
         IndicatorKind::POSITIVE_VOLUME_INDEX => {
-            positive_volume_index_store(store, nodes).into_outputs()
+            positive_volume_index_store(store, nodes).into_arena()
         }
-        IndicatorKind::PRICE_VOLUME_TREND => price_volume_trend_store(store, nodes).into_outputs(),
-        IndicatorKind::TRADE_VOLUME_INDEX => trade_volume_index_store(store, nodes).into_outputs(),
+        IndicatorKind::PRICE_VOLUME_TREND => price_volume_trend_store(store, nodes).into_arena(),
+        IndicatorKind::TRADE_VOLUME_INDEX => trade_volume_index_store(store, nodes).into_arena(),
         IndicatorKind::TWIGGS_MONEY_FLOW => {
-            twiggs_money_flow_store(store, period, nodes).into_outputs()
+            twiggs_money_flow_store(store, period, nodes).into_arena()
         }
         IndicatorKind::PROJECTED_AGGREGATE_VOLUME => {
-            projected_aggregate_volume_store(store, period, nodes).into_outputs()
+            projected_aggregate_volume_store(store, period, nodes).into_arena()
         }
         IndicatorKind::PROJECTED_VOLUME_AT_TIME => {
-            projected_volume_at_time_store(store, period, nodes).into_outputs()
+            projected_volume_at_time_store(store, period, nodes).into_arena()
         }
         IndicatorKind::HISTORICAL_VOLATILITY => {
-            historical_volatility_store(store, period, nodes).into_outputs()
+            historical_volatility_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::LINEAR_REG_R2 => linear_reg_r2_store(store, period, nodes).into_outputs(),
+        IndicatorKind::LINEAR_REG_R2 => linear_reg_r2_store(store, period, nodes).into_arena(),
         IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
-            prime_number_oscillator_store(store, nodes).into_outputs()
+            prime_number_oscillator_store(store, nodes).into_arena()
         }
         IndicatorKind::RANDOM_WALK_INDEX => {
-            random_walk_index_store(store, period, nodes).into_outputs()
+            random_walk_index_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::DARVAS_BOX => darvas_box_store(store, nodes).into_outputs(),
-        IndicatorKind::VOLUME_PROFILE => volume_profile_store(store, period, nodes).into_outputs(),
+        IndicatorKind::DARVAS_BOX => darvas_box_store(store, nodes).into_arena(),
+        IndicatorKind::VOLUME_PROFILE => volume_profile_store(store, period, nodes).into_arena(),
         IndicatorKind::CHOPPINESS_INDEX => {
-            choppiness_index_store(store, period, nodes).into_outputs()
+            choppiness_index_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::ELDER_IMPULSE => elder_impulse_store(store, period, nodes).into_outputs(),
-        IndicatorKind::GONOGO_TREND => gonogo_trend_store(store, period, nodes).into_outputs(),
+        IndicatorKind::ELDER_IMPULSE => elder_impulse_store(store, period, nodes).into_arena(),
+        IndicatorKind::GONOGO_TREND => gonogo_trend_store(store, period, nodes).into_arena(),
         IndicatorKind::PSYCHOLOGICAL_LINE => {
-            psychological_line_store(store, period, nodes).into_outputs()
+            psychological_line_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::QSTICK => qstick_store(store, period, nodes).into_outputs(),
+        IndicatorKind::QSTICK => qstick_store(store, period, nodes).into_arena(),
         IndicatorKind::SHINOHARA_INTENSITY => {
-            shinohara_intensity_store(store, period, nodes).into_outputs()
+            shinohara_intensity_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::ULCER_INDEX => ulcer_index_store(store, period, nodes).into_outputs(),
+        IndicatorKind::ULCER_INDEX => ulcer_index_store(store, period, nodes).into_arena(),
         IndicatorKind::VERTICAL_HORIZONTAL_FILTER => {
-            vertical_horizontal_filter_store(store, period, nodes).into_outputs()
+            vertical_horizontal_filter_store(store, period, nodes).into_arena()
         }
         IndicatorKind::VORTEX_INDICATOR => {
-            vortex_indicator_store(store, period, nodes).into_outputs()
+            vortex_indicator_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::ZIGZAG => zigzag_store(store, multiplier, nodes).into_outputs(),
+        IndicatorKind::ZIGZAG => zigzag_store(store, multiplier, nodes).into_arena(),
         IndicatorKind::BOLLINGER_BANDWIDTH => {
-            bollinger_bandwidth_store(store, period, multiplier, nodes).into_outputs()
+            bollinger_bandwidth_store(store, period, multiplier, nodes).into_arena()
         }
-        IndicatorKind::DONCHIAN_WIDTH => donchian_width_store(store, period, nodes).into_outputs(),
+        IndicatorKind::DONCHIAN_WIDTH => donchian_width_store(store, period, nodes).into_arena(),
         IndicatorKind::GOPALAKRISHNAN_RANGE => {
-            gopalakrishnan_range_store(store, period, nodes).into_outputs()
+            gopalakrishnan_range_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::HIGH_MINUS_LOW => high_minus_low_store(store, nodes).into_outputs(),
-        IndicatorKind::MASS_INDEX => mass_index_store(store, period, nodes).into_outputs(),
+        IndicatorKind::HIGH_MINUS_LOW => high_minus_low_store(store, nodes).into_arena(),
+        IndicatorKind::MASS_INDEX => mass_index_store(store, period, nodes).into_arena(),
         IndicatorKind::RELATIVE_VOLATILITY => {
-            relative_volatility_store(store, period, nodes).into_outputs()
+            relative_volatility_store(store, period, nodes).into_arena()
         }
-        IndicatorKind::TRUE_RANGE => true_range_series_store(store, nodes).into_outputs(),
-        IndicatorKind::VOLUME_CHART => volume_chart_store(store, nodes).into_outputs(),
-        IndicatorKind::VOLUME_ROC => volume_roc_store(store, period, nodes).into_outputs(),
-        IndicatorKind::VOLUME_UNDERLAY => volume_underlay_store(store, nodes).into_outputs(),
+        IndicatorKind::TRUE_RANGE => true_range_series_store(store, nodes).into_arena(),
+        IndicatorKind::VOLUME_CHART => volume_chart_store(store, nodes).into_arena(),
+        IndicatorKind::VOLUME_ROC => volume_roc_store(store, period, nodes).into_arena(),
+        IndicatorKind::VOLUME_UNDERLAY => volume_underlay_store(store, nodes).into_arena(),
     }
 }
 

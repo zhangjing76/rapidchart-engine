@@ -275,12 +275,6 @@ pub(crate) struct IndicatorConfig {
     pub anchor: Option<usize>,
 }
 
-#[derive(Clone, Serialize)]
-pub(crate) struct IndicatorOutput {
-    pub name: String,
-    pub values: Vec<f64>,
-}
-
 #[derive(Clone)]
 pub(crate) struct NamedSeries {
     pub name: String,
@@ -291,16 +285,6 @@ pub(crate) struct NamedSeries {
 pub(crate) trait NamedOutputLike {
     fn name(&self) -> &str;
     fn values(&self) -> &[f64];
-}
-
-impl NamedOutputLike for IndicatorOutput {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn values(&self) -> &[f64] {
-        &self.values
-    }
 }
 
 impl NamedOutputLike for NamedSeries {
@@ -315,6 +299,7 @@ impl NamedOutputLike for NamedSeries {
 
 /// Per-slot Vec storage for indicator outputs. Each slot is an independent
 /// Vec<f64> that can be appended to without copying other slots.
+#[derive(Default)]
 pub(crate) struct IndicatorArena {
     names: Vec<String>,
     values: Vec<Vec<f64>>,
@@ -327,13 +312,13 @@ impl IndicatorArena {
         Self { names, values }
     }
 
-    /// Create from a Vec<IndicatorOutput>.
-    pub(crate) fn from_outputs(outputs: Vec<IndicatorOutput>) -> Self {
+    #[cfg(test)]
+    pub(crate) fn from_owned_outputs(outputs: Vec<(String, Vec<f64>)>) -> Self {
         let mut names = Vec::with_capacity(outputs.len());
         let mut values = Vec::with_capacity(outputs.len());
-        for output in outputs {
-            names.push(output.name);
-            values.push(output.values);
+        for (name, output_values) in outputs {
+            names.push(name);
+            values.push(output_values);
         }
         Self { names, values }
     }

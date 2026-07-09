@@ -145,6 +145,7 @@ const volumeSeries = chart.addSeries(HistogramSeries, {
 });
 const smaLine = chart.addSeries(LineSeries);
 
+const candleColumns = engine.candleColumns();
 const candleData = [];
 const volumeData = [];
 for (let index = 0; index < candleColumns.time.length; index += 1) {

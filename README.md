@@ -83,7 +83,6 @@ const macdId = engine.addIndicator({
 ### Read computed series
 
 ```ts
-const candles = engine.candles();
 const candleColumns = engine.candleColumns();
 const smaValues = engine.indicatorValueSeries(smaId);
 const rsiValues = engine.indicatorValueSeries(rsiId);
@@ -97,7 +96,7 @@ entry per output.
 Rust owns the OHLCV history. Use `candles()` for convenient bar objects or
 `candleColumns()` for typed arrays; there is no separate `timeline()` API.
 
-For zero-copy groundwork, the wrapper also exposes columnar read APIs:
+The wrapper exposes zero-copy columnar read APIs:
 
 - `candleColumns()` returns typed arrays for `time`, `open`, `high`, `low`, `close`, and `volume`
 - `indicatorValueSeries(id)` returns typed arrays of raw visible output values, using `NaN` for gaps
@@ -146,15 +145,27 @@ const volumeSeries = chart.addSeries(HistogramSeries, {
 });
 const smaLine = chart.addSeries(LineSeries);
 
-const bars = engine.candles();
-candleSeries.setData(bars.map((bar) => ({ ...bar, time: bar.time as Time })));
-volumeSeries.setData(
-  bars.map((bar) => ({
-    time: bar.time as Time,
-    value: bar.volume,
-    color: bar.close >= bar.open ? "#26a69a" : "#ef5350",
-  })),
-);
+const candleData = [];
+const volumeData = [];
+for (let index = 0; index < candleColumns.time.length; index += 1) {
+  const time = candleColumns.time[index] as Time;
+  const open = candleColumns.open[index]!;
+  const close = candleColumns.close[index]!;
+  candleData.push({
+    time,
+    open,
+    high: candleColumns.high[index]!,
+    low: candleColumns.low[index]!,
+    close,
+  });
+  volumeData.push({
+    time,
+    value: candleColumns.volume[index]!,
+    color: close >= open ? "#26a69a" : "#ef5350",
+  });
+}
+candleSeries.setData(candleData);
+volumeSeries.setData(volumeData);
 
 const smaOutput = engine.indicatorValueSeries(smaId)[0];
 if (smaOutput) {

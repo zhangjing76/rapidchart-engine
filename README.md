@@ -2,6 +2,11 @@
 
 Rust/WASM chart engine with a Vite test app using TradingView Lightweight Charts and Binance market data.
 
+## Documentation
+
+- [Formula script reference](docs/formula-script-reference.md)
+- [Zero-copy design](docs/zero-copy-design.md)
+
 ## Library usage
 
 `rapidchart-engine` exposes a typed TypeScript wrapper from [src/index.ts](src/index.ts). The Rust engine computes candles and indicators; your app renders the returned series.
@@ -730,6 +735,9 @@ Use this checklist:
 
 Use the formula API when you want end users to define indicators from the browser without shipping arbitrary JavaScript execution.
 
+See the [formula script reference](docs/formula-script-reference.md) for the
+complete syntax, built-in data, operators, functions, and limitations.
+
 ### 1. Register the formula
 
 ```ts
@@ -760,7 +768,7 @@ const id = engine.addFormulaIndicator({
 ### 3. Keep the script small
 
 - Assignments are intermediate unless their name appears in `outputs`
-- Supported helpers are the built-in numeric/series functions documented in the code
+- Supported helpers are listed in the [formula script reference](docs/formula-script-reference.md)
 - No loops, imports, or arbitrary JavaScript execution
 
 ## Notes

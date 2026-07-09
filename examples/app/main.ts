@@ -710,7 +710,7 @@ function openStream(symbol: string, interval: string) {
     const bar = barFromStream(JSON.parse(event.data));
     if (!bar) return;
     try {
-      applyBarUpdate(bar);
+      updateChart(bar);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Live update failed", "error");
       if (stream === socket) stream = undefined;
@@ -739,7 +739,7 @@ function benchmarkTick() {
   const high = Math.max(open, close) + 6;
   const low = Math.min(open, close) - 6;
   const volumeValue = columns.volume[lastIndex]! + 5;
-  applyBarUpdate({
+  updateChart({
     time: lastTime + Math.max(currentSpacing, 60),
     open,
     high,
@@ -750,7 +750,7 @@ function benchmarkTick() {
   return true;
 }
 
-function applyBarUpdate(bar: Bar) {
+function updateChart(bar: Bar) {
   const totalStart = performance.now();
   const engineStart = performance.now();
   engine.upsertBarFast(bar);

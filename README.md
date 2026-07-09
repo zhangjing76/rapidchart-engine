@@ -4,7 +4,7 @@ Rust/WASM chart engine with a Vite test app using TradingView Lightweight Charts
 
 ## Library usage
 
-`rapidchart-engine` now exposes a small typed TypeScript wrapper from [src/index.ts](/Users/jingzhang/Projects/chart/src/index.ts). The Rust engine computes candles and indicators; your app renders the returned series.
+`rapidchart-engine` exposes a typed TypeScript wrapper from [src/index.ts](src/index.ts). The Rust engine computes candles and indicators; your app renders the returned series.
 
 ### Build the WASM package
 
@@ -18,7 +18,7 @@ This generates the browser-facing package in `pkg/`.
 ### Import and initialize
 
 ```ts
-import { RapidChartEngine, initEngine } from "rapidchart-engine";
+import { RapidChartEngine, initEngine, type Bar } from "rapidchart-engine";
 
 await initEngine();
 
@@ -90,11 +90,12 @@ const rsiSeries = engine.indicatorSeries(rsiId);
 const macdValues = engine.indicatorValueSeries(macdId);
 ```
 
-`indicatorSeries()` returns visible outputs only. Multi-output indicators such as `MACD`, `BOLLINGER`, `KELTNER`, `DONCHIAN`, `ADX`, and `STOCHASTIC` return one series per output.
+`indicatorSeries()` returns visible outputs only. Multi-output indicators such as `MACD`, `BB`, `KELTNER`, `DONCHIAN`, `ADX`, and `STOCHASTIC` return one series per output.
 
 The Rust/WASM layer returns raw indicator values. The TypeScript wrapper maps those values onto candle timestamps and applies visual shifts for chart-specific outputs such as `ICHIMOKU`.
 
-`candles()` remains the canonical market-data API. There is no separate `timeline()` API: Rust owns the full OHLCV history, and the TypeScript side reads candle times from `candles()` when it needs to build chart-ready points.
+Rust owns the OHLCV history. Use `candles()` for convenient bar objects or
+`candleColumns()` for typed arrays; there is no separate `timeline()` API.
 
 For zero-copy groundwork, the wrapper also exposes columnar read APIs:
 
@@ -124,26 +125,12 @@ Inside indicator code, series data should stay in shared `Rc<Vec<f64>>` form for
 
 At that boundary, `rc_into_owned(...)` moves the underlying `Vec<f64>` when the `Rc` is uniquely owned, and only clones when the series is still shared elsewhere.
 
-### Push live updates
-
-```ts
-engine.upsertBarFast({
-  time: 1719837600,
-  open: 62450,
-  high: 62700,
-  low: 62350,
-  close: 62620,
-  volume: 1100,
-});
-
-const latestRsi = engine.latestIndicatorPoints(rsiId);
-```
-
 ### Render with Lightweight Charts
 
 ```ts
 import {
   CandlestickSeries,
+  HistogramSeries,
   LineSeries,
   createChart,
   type Time,
@@ -151,33 +138,71 @@ import {
 
 const chart = createChart(document.getElementById("chart")!);
 const candleSeries = chart.addSeries(CandlestickSeries);
+const volumeSeries = chart.addSeries(HistogramSeries, {
+  priceFormat: { type: "volume" },
+  priceScaleId: "",
+});
 const smaLine = chart.addSeries(LineSeries);
 
-candleSeries.setData(
-  engine.candles().map((bar: any) => ({
-    ...bar,
+const bars = engine.candles();
+candleSeries.setData(bars.map((bar) => ({ ...bar, time: bar.time as Time })));
+volumeSeries.setData(
+  bars.map((bar) => ({
     time: bar.time as Time,
+    value: bar.volume,
+    color: bar.close >= bar.open ? "#26a69a" : "#ef5350",
   })),
 );
 
 const smaOutput = engine.indicatorSeries(smaId)[0];
-smaLine.setData(
-  smaOutput.points
-    .filter((point: any) => point.value !== null)
-    .map((point: any) => ({
-      time: point.time as Time,
-      value: point.value,
-    })),
-);
+if (smaOutput) {
+  smaLine.setData(
+    smaOutput.points.flatMap((point) =>
+      point.value === null ? [] : [{ time: point.time as Time, value: point.value }],
+    ),
+  );
+}
 ```
+
+For live data, expose one app-level function that updates the engine first and
+then fans the result out to the independent Lightweight Charts series:
+
+```ts
+function updateChart(bar: Bar) {
+  engine.upsertBarFast(bar);
+
+  candleSeries.update({ ...bar, time: bar.time as Time });
+  volumeSeries.update({
+    time: bar.time as Time,
+    value: bar.volume,
+    color: bar.close >= bar.open ? "#26a69a" : "#ef5350",
+  });
+
+  for (const point of engine.latestIndicatorPoints(smaId)) {
+    if (point.value !== null) {
+      smaLine.update({ time: point.time as Time, value: point.value });
+    }
+  }
+}
+```
+
+Candles, volume, and indicators are separate Lightweight Charts series because
+they use different data shapes and renderers. `updateChart()` is the unified
+application boundary; the individual `.update()` calls are the renderer
+boundary.
 
 ### Wrapper API
 
+- `initEngine(moduleOrPath?)`
 - `new RapidChartEngine()`
 - `ingestColumnsFast(columns)`
+- `ingestColumnsZeroCopy(columns)`
 - `candles()`
 - `candleColumns()`
 - `addIndicator(config)`
+- `addIndicators(configs)`
+- `addFormulaIndicator(config)`
+- `addFormulaIndicators(configs)`
 - `indicatorValueSeries(id)`
 - `indicatorSeries(id)`
 - `latestIndicatorValues(id)`
@@ -188,59 +213,14 @@ smaLine.setData(
 - `dagDebug()`
 - `upsertBarFast(bar)`
 
-The local implementation lives in [src/engine.ts](/Users/jingzhang/Projects/chart/src/engine.ts), but consumers should import from the package root instead of reaching into `src/`.
+The local implementation lives in [src/engine.ts](src/engine.ts), but consumers should import from the package root instead of reaching into `src/`.
 
 ### Supported indicator configs
 
-All configs require `kind`.
-
-- `SMA`: `{ kind: "SMA", period }`
-- `EMA`: `{ kind: "EMA", period }`
-- `RSI`: `{ kind: "RSI", period }`
-- `CCI`: `{ kind: "CCI", period }`
-- `MFI`: `{ kind: "MFI", period }`
-- `WILLIAMS_R`: `{ kind: "WILLIAMS_R", period }`
-- `ATR`: `{ kind: "ATR", period }`
-- `ADX`: `{ kind: "ADX", period }`
-- `TRIX`: `{ kind: "TRIX", period }`
-- `DEMA`: `{ kind: "DEMA", period }`
-- `TEMA`: `{ kind: "TEMA", period }`
-- `TRIMA`: `{ kind: "TRIMA", period }`
-- `STDDEV`: `{ kind: "STDDEV", period }`
-- `ENVELOPE`: `{ kind: "ENVELOPE", period, multiplier }`
-- `TSI`: `{ kind: "TSI", period, stoch_period }`
-- `KST`: `{ kind: "KST" }`
-- `BOP`: `{ kind: "BOP" }`
-- `DPO`: `{ kind: "DPO", period }`
-- `MOMENTUM`: `{ kind: "MOMENTUM", period }`
-- `ULTIMATE_OSCILLATOR`: `{ kind: "ULTIMATE_OSCILLATOR", period, stoch_period, smooth }`
-- `CHAIKIN_OSCILLATOR`: `{ kind: "CHAIKIN_OSCILLATOR", fast, slow }`
-- `FORCE_INDEX`: `{ kind: "FORCE_INDEX", period }`
-- `VWMA`: `{ kind: "VWMA", period }`
-- `WILLIAMS_AD`: `{ kind: "WILLIAMS_AD" }`
-- `CHAIKIN_VOLATILITY`: `{ kind: "CHAIKIN_VOLATILITY", period }`
-- `PRICE_CHANNEL`: `{ kind: "PRICE_CHANNEL", period }`
-- `STARC`: `{ kind: "STARC", period, multiplier }`
-- `STOCHASTIC`: `{ kind: "STOCHASTIC", period, smooth }`
-- `STOCH_RSI`: `{ kind: "STOCH_RSI", period, stoch_period, smooth, signal }`
-- `MACD`: `{ kind: "MACD", fast, slow, signal }`
-- `PPO`: `{ kind: "PPO", fast, slow, signal }`
-- `BB`: `{ kind: "BB", period, multiplier }`
-- `SUPERTREND`: `{ kind: "SUPERTREND", period, multiplier }`
-- `KELTNER`: `{ kind: "KELTNER", period, multiplier }`
-- `DONCHIAN`: `{ kind: "DONCHIAN", period }`
-- `PARABOLIC_SAR`: `{ kind: "PARABOLIC_SAR", psar_step, psar_max_step }`
-- `ICHIMOKU`: `{ kind: "ICHIMOKU", tenkan_period, kijun_period, senkou_b_period }`
-- `PIVOT_POINTS`: `{ kind: "PIVOT_POINTS" }`
-- `ROC`: `{ kind: "ROC", period }`
-- `AROON`: `{ kind: "AROON", period }`
-- `CMF`: `{ kind: "CMF", period }`
-- `ADL`: `{ kind: "ADL" }`
-- `WMA`: `{ kind: "WMA", period }`
-- `HMA`: `{ kind: "HMA", period }`
-- `LINEAR_REGRESSION`: `{ kind: "LINEAR_REGRESSION", period }`
-- `OBV`: `{ kind: "OBV" }`
-- `VWAP`: `{ kind: "VWAP" }`
+Every built-in config requires `kind`; the remaining fields are typed by
+`IndicatorConfig`. Read `engine.indicatorDescriptors()` to build a picker or
+parameter form from the current defaults and constraints instead of maintaining
+a second indicator catalog in application code.
 
 ## What it does
 
@@ -351,7 +331,7 @@ ChartEngine (Rust/WASM)
   - expose DAG debug data
 ```
 
-The main runtime object is [`ChartEngine`](/Users/jingzhang/Projects/chart/src/lib.rs:110). It stores:
+The main runtime object is [`ChartEngine`](src/lib.rs). It stores:
 
 - `symbol`
 - `timeframe`
@@ -376,7 +356,7 @@ Current flow:
 2. JavaScript writes the data into typed arrays and calls `engine.ingestColumnsFast(...)` or `engine.ingestColumnsZeroCopy(...)`.
 3. Rust stores the bars and recomputes indicator state.
 4. JavaScript opens a WebSocket stream.
-5. Each live kline update is passed to `engine.upsert_bar_fast(...)`.
+5. Each live kline update is passed to the public wrapper method `engine.upsertBarFast(...)`.
 6. Rust updates the last bar or appends a new one, then incrementally updates indicators.
 
 ### Indicator model
@@ -419,7 +399,7 @@ Full recompute:
 
 Incremental update:
 
-- used after `upsert_bar_fast()`
+- used after `upsertBarFast()` (which calls the internal WASM method `upsert_bar_fast()`)
 - updates only the latest value for each indicator
 - avoids rebuilding the full history on every live tick/bar
 
@@ -485,22 +465,20 @@ The DAG debug output is exposed through `dag_debug()` and rendered by the test a
 
 ### JavaScript/WASM boundary
 
-The current boundary is intentionally simple:
+The public TypeScript wrapper hides the generated snake-case WASM methods.
+Applications call methods such as `upsertBarFast()`; only the wrapper calls
+`upsert_bar_fast()`.
 
-JavaScript sends plain objects into WASM:
+Historical OHLCV input and raw series output use typed arrays:
 
-- bars
-- indicator config objects
+- `ingestColumnsFast()` passes typed arrays through `wasm-bindgen`
+- `ingestColumnsZeroCopy()` writes typed arrays directly into allocated WASM memory
+- `candleColumns()`, `indicatorValueSeries()`, and `latestIndicatorValues()` return typed arrays
 
-Rust returns plain objects back to JavaScript:
-
-- candles
-- indicator output series
-- latest indicator points
-- indicator descriptors
-- DAG debug data
-
-This is not zero-copy. It is the simple version that is easy to debug and good enough for the current test app. The design docs aim for typed-array and lower-copy flows later, but the repo today optimizes first for correctness and incremental compute behavior.
+Convenience and metadata APIs such as `candles()`, `indicatorSeries()`,
+`indicatorDescriptors()`, and `dagDebug()` return JavaScript objects. Typed-array
+reads still materialize arrays at the boundary; they are not shared views into
+the engine's internal vectors.
 
 ### Rendering model
 
@@ -574,62 +552,19 @@ That target is still useful, but the current repo takes the lazy path first:
 
 ## Implemented indicators
 
-- `SMA`
-- `EMA`
-- `RSI`
-- `MACD`
-- `BOLLINGER`
-- `OBV`
-- `ATR`
-- `VWAP`
-- `STOCHASTIC`
-- `ADX` with `ADX`, `+DI`, and `-DI`
-- `TRIX`
-- `DEMA`
-- `TEMA`
-- `TRIMA`
-- `STDDEV`
-- `ENVELOPE`
-- `TSI`
-- `KST`
-- `BOP`
-- `DPO`
-- `MOMENTUM`
-- `ULTIMATE OSCILLATOR`
-- `CHAIKIN OSCILLATOR`
-- `FORCE INDEX`
-- `VWMA`
-- `WILLIAMS A/D`
-- `CHAIKIN VOLATILITY`
-- `PRICE CHANNEL`
-- `STARC`
-- `SUPERTREND`
-- `KELTNER`
-- `DONCHIAN`
-- `CCI`
-- `MFI`
-- `WILLIAMS %R`
-- `STOCH RSI`
-- `PARABOLIC SAR`
-- `ICHIMOKU`
-- `PIVOT POINTS`
-- `ROC`
-- `AROON`
-- `CMF`
-- `ADL`
-- `WMA`
-- `HMA`
-- `LINEAR REGRESSION`
-- `PPO`
+Call `engine.indicatorDescriptors()` for the current list, parameter defaults,
+output names, renderers, panes, and colors. The compile-time TypeScript union
+`IndicatorKind` in `src/engine.ts` is the source of truth for accepted built-in
+indicator names.
 
 ## Project layout
 
-- [src/lib.rs](/Users/jingzhang/Projects/chart/src/lib.rs): Rust/WASM chart engine
-- [src/engine.ts](/Users/jingzhang/Projects/chart/src/engine.ts): npm-facing TypeScript wrapper
-- [src/index.ts](/Users/jingzhang/Projects/chart/src/index.ts): package entrypoint
-- [examples/app](/Users/jingzhang/Projects/chart/examples/app): GitHub Pages example app UI, fixtures, and styles
-- [Cargo.toml](/Users/jingzhang/Projects/chart/Cargo.toml): Rust crate config
-- [package.json](/Users/jingzhang/Projects/chart/package.json): package metadata and build scripts
+- [src/lib.rs](src/lib.rs): Rust/WASM chart engine
+- [src/engine.ts](src/engine.ts): npm-facing TypeScript wrapper
+- [src/index.ts](src/index.ts): package entrypoint
+- [examples/app](examples/app): GitHub Pages example app UI, fixtures, and styles
+- [Cargo.toml](Cargo.toml): Rust crate config
+- [package.json](package.json): package metadata and build scripts
 
 ## Requirements
 
@@ -655,7 +590,7 @@ npm run build
 
 ## Deploy to GitHub Pages
 
-The repo includes a GitHub Actions workflow at [.github/workflows/deploy-pages.yml](/Users/jingzhang/Projects/chart/.github/workflows/deploy-pages.yml).
+The repo includes a GitHub Actions workflow at [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml).
 
 To enable auto-deploy:
 
@@ -742,7 +677,8 @@ If the descriptor is enough, the picker and series rendering work without extra 
 
 ### 5. Add one small test set
 
-Add the smallest checks that prove the indicator is wired correctly in the test module in `src/tests.rs`:
+Add the smallest checks that prove the indicator is wired correctly in a
+`#[cfg(test)] mod tests` beside the implementation:
 
 - DAG node test
 - Full-series output shape test
@@ -769,7 +705,7 @@ Use this checklist:
 - add batch and incremental match arms in `src/dispatch.rs`
 - hide state outputs in `is_visible_output()` if needed
 - add `main.ts` label/param handling if needed
-- add 2-3 focused tests in `src/tests.rs`
+- add 2-3 focused tests beside the indicator implementation
 
 ## Add a formula indicator
 
@@ -812,4 +748,3 @@ const id = engine.addFormulaIndicator({
 ## Notes
 
 - The repo ignores generated output such as `node_modules/`, `target/`, `dist/`, and `pkg/`.
-- The two design docs are intentionally excluded from git.

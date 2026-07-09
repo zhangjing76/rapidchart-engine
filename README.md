@@ -771,6 +771,44 @@ Use this checklist:
 - add `main.ts` label/param handling if needed
 - add 2-3 focused tests in `src/tests.rs`
 
+## Add a formula indicator
+
+Use the formula API when you want end users to define indicators from the browser without shipping arbitrary JavaScript execution.
+
+### 1. Register the formula
+
+```ts
+const id = engine.addFormulaIndicator({
+  name: "EMA Trend Strength",
+  pane: "separate",
+  params: { fast: 12, slow: 34, signal: 9 },
+  outputs: [
+    { name: "spread", renderer: "line", pane: "separate", color: "#38bdf8" },
+    { name: "histogram", renderer: "histogram", pane: "separate", color: "#f59e0b" },
+  ],
+  script: `
+    fast_ma = ema(close, fast)
+    slow_ma = ema(close, slow)
+    spread = fast_ma - slow_ma
+    signal_line = ema(spread, signal)
+    histogram = spread - signal_line
+  `,
+});
+```
+
+### 2. Read outputs the same way as built-ins
+
+- `indicatorSeries(id)`
+- `indicatorValueSeries(id)`
+- `latestIndicatorValues(id)`
+- `latestIndicatorPoints(id)`
+
+### 3. Keep the script small
+
+- Assignments are intermediate unless their name appears in `outputs`
+- Supported helpers are the built-in numeric/series functions documented in the code
+- No loops, imports, or arbitrary JavaScript execution
+
 ## Notes
 
 - The repo ignores generated output such as `node_modules/`, `target/`, `dist/`, and `pkg/`.

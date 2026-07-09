@@ -71,6 +71,43 @@ mod tests {
         store
     }
 
+    fn formula_engine(closes: &[f64]) -> ChartEngine {
+        let mut engine = ChartEngine::default();
+        let bars = closes
+            .iter()
+            .enumerate()
+            .map(|(i, close)| Bar {
+                time: i as u32,
+                open: *close,
+                high: *close,
+                low: *close,
+                close: *close,
+                volume: 1.0,
+            })
+            .collect::<Vec<_>>();
+        engine.bars = store_from_bars(bars);
+        let config = FormulaIndicatorConfig {
+            name: "trend".to_string(),
+            pane: "separate".to_string(),
+            params: HashMap::from([("fast".to_string(), 2.0), ("slow".to_string(), 3.0)]),
+            outputs: vec![FormulaOutputConfig {
+                name: "spread".to_string(),
+                renderer: "line".to_string(),
+                pane: "separate".to_string(),
+                color: "#2563eb".to_string(),
+            }],
+            script: r#"
+                fast_ma = ema(close, fast)
+                slow_ma = ema(close, slow)
+                spread = fast_ma - slow_ma
+            "#
+            .to_string(),
+        };
+        engine.add_formula_indicator_from_config(config).unwrap();
+        engine.recompute_indicators();
+        engine
+    }
+
     #[test]
     fn candle_store_from_columns_matches_from_bars() {
         let bars = bars(&[10.0, 11.0, 12.0]);
@@ -90,6 +127,42 @@ mod tests {
         assert_eq!(from_columns.low, from_bars.low);
         assert_eq!(from_columns.close, from_bars.close);
         assert_eq!(from_columns.volume, from_bars.volume);
+    }
+
+    #[test]
+    fn formula_indicator_engine_full_load_and_incremental_update_match_reload() {
+        let mut engine = formula_engine(&[10.0, 12.0, 14.0, 13.0, 15.0]);
+        let id = 1;
+        let before = engine
+            .indicator_outputs_by_id(id)
+            .unwrap()
+            .get_slot(0)
+            .unwrap()
+            .to_vec();
+
+        engine
+            .bars
+            .push(Bar {
+                time: 5,
+                open: 16.0,
+                high: 17.0,
+                low: 15.0,
+                close: 16.0,
+                volume: 1.0,
+            });
+        assert!(engine.update_indicators_incremental());
+        let after = engine
+            .indicator_outputs_by_id(id)
+            .unwrap()
+            .get_slot(0)
+            .unwrap();
+
+        let rebuilt = formula_engine(&[10.0, 12.0, 14.0, 13.0, 15.0, 16.0]);
+        let rebuilt_outputs = rebuilt.indicator_outputs_by_id(id).unwrap().get_slot(0).unwrap();
+
+        assert_eq!(before.len(), 5);
+        assert_eq!(after.len(), 6);
+        assert_series_eq(after, rebuilt_outputs);
     }
 
     fn ohlc(values: &[(f64, f64, f64)]) -> Vec<Bar> {

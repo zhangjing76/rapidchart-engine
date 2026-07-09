@@ -321,6 +321,12 @@ pub(crate) struct IndicatorArena {
 }
 
 impl IndicatorArena {
+    /// Create empty slots with known names.
+    pub(crate) fn with_names(names: Vec<String>) -> Self {
+        let values = (0..names.len()).map(|_| Vec::new()).collect();
+        Self { names, values }
+    }
+
     /// Create from a Vec<IndicatorOutput>.
     pub(crate) fn from_outputs(outputs: Vec<IndicatorOutput>) -> Self {
         let mut names = Vec::with_capacity(outputs.len());
@@ -368,6 +374,14 @@ impl IndicatorArena {
             if slot.len() < target_len {
                 slot.resize(target_len, f64::NAN);
             }
+        }
+    }
+
+    /// Append one row of values in slot order.
+    pub(crate) fn push_row(&mut self, row: &[f64]) {
+        assert_eq!(self.values.len(), row.len(), "formula output count changed");
+        for (slot, value) in self.values.iter_mut().zip(row.iter().copied()) {
+            slot.push(value);
         }
     }
 

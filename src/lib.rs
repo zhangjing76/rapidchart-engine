@@ -16,6 +16,7 @@ mod bar;
 mod dag;
 mod descriptors;
 mod dispatch;
+mod formula;
 mod helpers;
 mod indicators;
 mod series;
@@ -27,6 +28,7 @@ mod tests;
 pub(crate) use bar::*;
 pub(crate) use dag::*;
 pub(crate) use dispatch::*;
+pub(crate) use formula::*;
 pub(crate) use helpers::*;
 pub(crate) use indicators::*;
 pub(crate) use series::*;
@@ -37,6 +39,7 @@ pub(crate) use types::*;
 pub struct ChartEngine {
     bars: CandleStore,
     indicators: Vec<Indicator>,
+    formula_indicators: Vec<FormulaIndicator>,
     next_indicator_id: u32,
     dag: DagDebug,
     latest_values_scratch: Vec<f64>,
@@ -47,6 +50,7 @@ impl Default for ChartEngine {
         Self {
             bars: CandleStore::default(),
             indicators: Vec::new(),
+            formula_indicators: Vec::new(),
             next_indicator_id: 1,
             dag: DagDebug::default(),
             latest_values_scratch: Vec::new(),
@@ -215,6 +219,27 @@ impl ChartEngine {
         serde_wasm_bindgen::to_value(&ids).map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
+    pub fn add_formula_indicator_config(&mut self, config: JsValue) -> Result<u32, JsValue> {
+        let config: FormulaIndicatorConfig = serde_wasm_bindgen::from_value(config)
+            .map_err(|err| JsValue::from_str(&err.to_string()))?;
+        let id = self.add_formula_indicator_from_config(config)?;
+        self.recompute_indicators();
+        Ok(id)
+    }
+
+    pub fn add_formula_indicator_configs(&mut self, configs: JsValue) -> Result<JsValue, JsValue> {
+        let configs: Vec<FormulaIndicatorConfig> = serde_wasm_bindgen::from_value(configs)
+            .map_err(|err| JsValue::from_str(&err.to_string()))?;
+        let mut ids = Vec::with_capacity(configs.len());
+        for config in configs {
+            ids.push(self.add_formula_indicator_from_config(config)?);
+        }
+        if !ids.is_empty() {
+            self.recompute_indicators();
+        }
+        serde_wasm_bindgen::to_value(&ids).map_err(|err| JsValue::from_str(&err.to_string()))
+    }
+
     pub fn indicator_descriptors(&self) -> Result<JsValue, JsValue> {
         serde_wasm_bindgen::to_value(&indicator_descriptors())
             .map_err(|err| JsValue::from_str(&err.to_string()))
@@ -309,10 +334,25 @@ impl ChartEngine {
         Ok(id)
     }
 
+    fn add_formula_indicator_from_config(
+        &mut self,
+        config: FormulaIndicatorConfig,
+    ) -> Result<u32, JsValue> {
+        let id = self.next_indicator_id;
+        self.next_indicator_id += 1;
+        let indicator = FormulaIndicator::new(id, config, &self.bars)?;
+        self.formula_indicators.push(indicator);
+        Ok(id)
+    }
+
     pub fn remove_indicator(&mut self, id: u32) -> bool {
         let old_len = self.indicators.len();
         self.indicators.retain(|indicator| indicator.id != id);
-        let removed = self.indicators.len() != old_len;
+        let old_formula_len = self.formula_indicators.len();
+        self.formula_indicators
+            .retain(|indicator| indicator.id != id);
+        let removed =
+            self.indicators.len() != old_len || self.formula_indicators.len() != old_formula_len;
         if removed {
             self.recompute_indicators();
         }
@@ -340,13 +380,9 @@ impl ChartEngine {
     }
 
     pub fn indicator_outputs_all(&self, id: u32) -> Result<JsValue, JsValue> {
-        let indicator = self
-            .indicators
-            .iter()
-            .find(|indicator| indicator.id == id)
-            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let outputs: Vec<_> = indicator
-            .outputs
+        let outputs: Vec<_> = self
+            .indicator_outputs_by_id(id)
+            .ok_or_else(|| JsValue::from_str("indicator not found"))?
             .iter_slots()
             .filter(|(name, _)| is_visible_output(name))
             .map(|(name, values)| IndicatorOutput {
@@ -358,14 +394,10 @@ impl ChartEngine {
     }
 
     pub fn indicator_output_values_fast(&self, id: u32) -> Result<JsValue, JsValue> {
-        let indicator = self
-            .indicators
-            .iter()
-            .find(|indicator| indicator.id == id)
-            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
         let outputs = Array::new();
-        for (name, values) in indicator
-            .outputs
+        for (name, values) in self
+            .indicator_outputs_by_id(id)
+            .ok_or_else(|| JsValue::from_str("indicator not found"))?
             .iter_slots()
             .filter(|(name, _)| is_visible_output(name))
         {
@@ -378,13 +410,9 @@ impl ChartEngine {
     }
 
     pub fn latest_indicator_values(&self, id: u32) -> Result<JsValue, JsValue> {
-        let indicator = self
-            .indicators
-            .iter()
-            .find(|indicator| indicator.id == id)
-            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        let points: Vec<_> = indicator
-            .outputs
+        let points: Vec<_> = self
+            .indicator_outputs_by_id(id)
+            .ok_or_else(|| JsValue::from_str("indicator not found"))?
             .iter_slots()
             .filter(|(name, _)| is_visible_output(name))
             .map(|(name, values)| IndicatorLatestValue {
@@ -444,6 +472,17 @@ impl ChartEngine {
             dag.edges
                 .extend(indicator_edges(indicator, &indicator_node));
         }
+        for formula in &mut self.formula_indicators {
+            if let Err(err) = formula.recompute(&self.bars) {
+                panic!(
+                    "formula indicator {} failed to recompute: {:?}",
+                    formula.id, err
+                );
+            }
+            let indicator_node =
+                format!("FORMULA({}:{})#{}", formula.name, formula.pane, formula.id);
+            dag.nodes.push(indicator_node);
+        }
         // Add derived series (hl2, hlc3) as DAG nodes if any indicator used them.
         for (key, sources) in [
             ("hl2", &["high", "low"][..]),
@@ -467,23 +506,35 @@ impl ChartEngine {
         for indicator in &mut self.indicators {
             update_indicator_incremental(&self.bars, indicator, target_len);
         }
+        for formula in &mut self.formula_indicators {
+            if formula.update(&self.bars).is_err() {
+                return false;
+            }
+        }
         true
     }
 
     fn latest_indicator_values_slice(&mut self, id: u32) -> Result<&[f64], JsValue> {
-        let indicator = self
-            .indicators
+        let outputs = self
+            .indicator_outputs_by_id(id)
+            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
+        let values: Vec<f64> = outputs
+            .iter_slots()
+            .filter(|(name, _)| is_visible_output(name))
+            .map(|(_, values)| values.last().copied().unwrap_or(f64::NAN))
+            .collect();
+        self.latest_values_scratch.clear();
+        self.latest_values_scratch.extend(values);
+        Ok(self.latest_values_scratch.as_slice())
+    }
+
+    fn indicator_outputs_by_id(&self, id: u32) -> Option<&IndicatorArena> {
+        if let Some(indicator) = self.indicators.iter().find(|indicator| indicator.id == id) {
+            return Some(&indicator.outputs);
+        }
+        self.formula_indicators
             .iter()
             .find(|indicator| indicator.id == id)
-            .ok_or_else(|| JsValue::from_str("indicator not found"))?;
-        self.latest_values_scratch.clear();
-        self.latest_values_scratch.extend(
-            indicator
-                .outputs
-                .iter_slots()
-                .filter(|(name, _)| is_visible_output(name))
-                .map(|(_, values)| values.last().copied().unwrap_or(f64::NAN)),
-        );
-        Ok(self.latest_values_scratch.as_slice())
+            .map(|indicator| &indicator.values)
     }
 }

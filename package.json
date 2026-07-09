@@ -19,6 +19,7 @@
     "bench:load-browser": "npm run build && node scripts/bench-load-browser.mjs",
     "bench:snapshot-browser": "npm run build && node scripts/bench-snapshot-browser.mjs",
     "bench:compare": "node scripts/bench-compare.mjs",
+    "check:formula-browser": "node scripts/check-formula-browser.mjs",
     "dev": "npm run build:wasm && vite --host 127.0.0.1",
     "build": "npm run build:wasm && tsc && vite build"
   },

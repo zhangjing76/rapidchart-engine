@@ -200,6 +200,21 @@ export type IndicatorConfig = {
   anchor?: number;
 };
 
+export type FormulaOutputConfig = {
+  name: string;
+  renderer: "line" | "histogram";
+  pane: "overlay" | "separate";
+  color: string;
+};
+
+export type FormulaIndicatorConfig = {
+  name: string;
+  pane: "overlay" | "separate";
+  params?: Record<string, number>;
+  outputs: FormulaOutputConfig[];
+  script: string;
+};
+
 export type ParamDescriptor = {
   name: string;
   label: string;
@@ -245,7 +260,7 @@ export function getWasmMemory(): WebAssembly.Memory {
 
 export class RapidChartEngine {
   readonly #engine: WasmChartEngine;
-  #configs = new Map<number, IndicatorConfig>();
+  #configs = new Map<number, IndicatorConfig | FormulaIndicatorConfig>();
   #lastBarTime: number | undefined;
   #seriesSpacing = 60;
 
@@ -327,6 +342,31 @@ export class RapidChartEngine {
     ids.forEach((id, index) => {
       const config = configs[index];
       if (config) this.#configs.set(id, { ...config });
+    });
+    return ids;
+  }
+
+  addFormulaIndicator(config: FormulaIndicatorConfig): number {
+    const id = this.#engine.add_formula_indicator_config(config);
+    this.#configs.set(id, {
+      ...config,
+      params: config.params ? { ...config.params } : undefined,
+      outputs: config.outputs.map((output) => ({ ...output })),
+    });
+    return id;
+  }
+
+  addFormulaIndicators(configs: FormulaIndicatorConfig[]): number[] {
+    const ids = this.#engine.add_formula_indicator_configs(configs) as number[];
+    ids.forEach((id, index) => {
+      const config = configs[index];
+      if (config) {
+        this.#configs.set(id, {
+          ...config,
+          params: config.params ? { ...config.params } : undefined,
+          outputs: config.outputs.map((output) => ({ ...output })),
+        });
+      }
     });
     return ids;
   }
@@ -428,8 +468,11 @@ export function seriesSpacingFromBars(bars: Bar[]) {
   return spacing;
 }
 
-export function indicatorOutputShift(config: IndicatorConfig | undefined, output: string) {
-  if (config?.kind !== "ICHIMOKU") return 0;
+export function indicatorOutputShift(
+  config: IndicatorConfig | FormulaIndicatorConfig | undefined,
+  output: string,
+) {
+  if (!config || !("kind" in config) || config.kind !== "ICHIMOKU") return 0;
   const shift = config.kijun_period ?? 26;
   if (output === "senkou_a" || output === "senkou_b") return shift;
   if (output === "chikou") return -shift;

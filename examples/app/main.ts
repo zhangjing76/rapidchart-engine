@@ -19,6 +19,7 @@ import {
   type IndicatorConfig,
   type IndicatorDescriptor,
   type IndicatorKind,
+  type FormulaIndicatorConfig,
   type IndicatorOutputPoint,
   type OutputDescriptor,
   type ParamDescriptor,
@@ -48,8 +49,8 @@ type IndicatorCloud = {
 };
 
 type Indicator = {
-  kind: IndicatorKind;
-  config: IndicatorConfig;
+  kind?: IndicatorKind;
+  config: AppIndicatorConfig;
   engineId?: number;
   series: IndicatorSeries[];
   cloud?: IndicatorCloud;
@@ -59,13 +60,15 @@ type LayoutState = {
   name: string;
   symbol: string;
   interval: string;
-  indicators: IndicatorConfig[];
+  indicators: AppIndicatorConfig[];
 };
 
 type IndicatorPreset = {
   name: string;
-  indicators: IndicatorConfig[];
+  indicators: AppIndicatorConfig[];
 };
+
+type AppIndicatorConfig = IndicatorConfig | FormulaIndicatorConfig;
 
 type PerfSample = {
   engineMs: number;
@@ -130,6 +133,27 @@ const presets: IndicatorPreset[] = [
       { kind: "BB", period: 20, multiplier: 2 },
       { kind: "STARC", period: 15, multiplier: 2 },
       { kind: "RSI", period: 14 },
+    ],
+  },
+  {
+    name: "Formula Demo",
+    indicators: [
+      {
+        name: "EMA Trend Strength",
+        pane: "separate",
+        params: { fast: 12, slow: 34, signal: 9 },
+        outputs: [
+          { name: "spread", renderer: "line", pane: "separate", color: "#38bdf8" },
+          { name: "histogram", renderer: "histogram", pane: "separate", color: "#f59e0b" },
+        ],
+        script: `
+          fast_ma = ema(close, fast)
+          slow_ma = ema(close, slow)
+          spread = fast_ma - slow_ma
+          signal_line = ema(spread, signal)
+          histogram = spread - signal_line
+        `,
+      },
     ],
   },
 ];
@@ -591,7 +615,13 @@ function addIndicator(kind: IndicatorKind) {
   renderDag();
 }
 
-function indicatorFromConfig(config: IndicatorConfig): Indicator {
+function indicatorFromConfig(config: AppIndicatorConfig): Indicator {
+  if (isFormulaIndicatorConfig(config)) {
+    return {
+      config,
+      series: [],
+    };
+  }
   return {
     kind: config.kind,
     config: { ...config },
@@ -600,14 +630,19 @@ function indicatorFromConfig(config: IndicatorConfig): Indicator {
 }
 
 function attachIndicator(indicator: Indicator, index: number) {
-  indicator.engineId = engine.addIndicator(indicatorConfig(indicator));
+  indicator.engineId = isFormulaIndicatorConfig(indicator.config)
+    ? engine.addFormulaIndicator(indicator.config)
+    : engine.addIndicator(indicatorConfig(indicator));
   currentColumns = engine.candleColumns();
   attachIndicatorSeries(indicator, index);
   renderIndicator(indicator);
 }
 
 function attachIndicatorSeries(indicator: Indicator, index: number) {
-  indicator.series = descriptorFor(indicator.kind).outputs.map((output, outputIndex) =>
+  const outputs = isFormulaIndicatorConfig(indicator.config)
+    ? indicator.config.outputs
+    : descriptorFor(indicator.kind!).outputs;
+  indicator.series = outputs.map((output, outputIndex) =>
     addOutputSeries(output, colors[(index + outputIndex) % colors.length]),
   );
   if (indicator.kind === "ICHIMOKU") attachIchimokuCloud(indicator);
@@ -661,12 +696,9 @@ function addRsiGuides(series: ISeriesApi<"Line">) {
 }
 
 function attachIndicators() {
-  const configs = indicators.map((indicator) => indicatorConfig(indicator));
-  const ids = engine.addIndicators(configs);
   currentColumns = engine.candleColumns();
   indicators.forEach((indicator, index) => {
-    indicator.engineId = ids[index];
-    attachIndicatorSeries(indicator, index);
+    attachIndicator(indicator, index);
   });
   renderIndicators(indicators);
 }
@@ -1047,36 +1079,40 @@ function formatDagToken(token: string) {
 }
 
 function indicatorLabel(indicator: Indicator) {
+  if (isFormulaIndicatorConfig(indicator.config)) {
+    return indicator.config.name;
+  }
+  const config = indicator.config;
   if (indicator.kind === "MACD" || indicator.kind === "PPO") {
     const label = indicator.kind === "MACD" ? "MACD" : "PPO";
-    return `${label} ${indicator.config.fast}/${indicator.config.slow}/${indicator.config.signal}`;
+    return `${label} ${config.fast}/${config.slow}/${config.signal}`;
   }
   if (indicator.kind === "CHAIKIN_OSCILLATOR") {
-    return `CHAIKIN OSCILLATOR ${indicator.config.fast}/${indicator.config.slow}`;
+    return `CHAIKIN OSCILLATOR ${config.fast}/${config.slow}`;
   }
   if (indicator.kind === "ULTIMATE_OSCILLATOR") {
-    return `ULTIMATE OSCILLATOR ${indicator.config.period}/${indicator.config.stoch_period}/${indicator.config.smooth}`;
+    return `ULTIMATE OSCILLATOR ${config.period}/${config.stoch_period}/${config.smooth}`;
   }
   if (indicator.kind === "TRIX") {
-    return `TRIX ${indicator.config.period}`;
+    return `TRIX ${config.period}`;
   }
   if (indicator.kind === "DEMA") {
-    return `DEMA ${indicator.config.period}`;
+    return `DEMA ${config.period}`;
   }
   if (indicator.kind === "TEMA") {
-    return `TEMA ${indicator.config.period}`;
+    return `TEMA ${config.period}`;
   }
   if (indicator.kind === "TRIMA") {
-    return `TRIMA ${indicator.config.period}`;
+    return `TRIMA ${config.period}`;
   }
   if (indicator.kind === "STDDEV") {
-    return `STDDEV ${indicator.config.period}`;
+    return `STDDEV ${config.period}`;
   }
   if (indicator.kind === "ENVELOPE") {
-    return `ENVELOPE ${indicator.config.period}/${indicator.config.multiplier}`;
+    return `ENVELOPE ${config.period}/${config.multiplier}`;
   }
   if (indicator.kind === "TSI") {
-    return `TSI ${indicator.config.period}/${indicator.config.stoch_period}`;
+    return `TSI ${config.period}/${config.stoch_period}`;
   }
   if (indicator.kind === "KST") {
     return "KST";
@@ -1085,90 +1121,90 @@ function indicatorLabel(indicator: Indicator) {
     return "BOP";
   }
   if (indicator.kind === "DPO") {
-    return `DPO ${indicator.config.period}`;
+    return `DPO ${config.period}`;
   }
   if (indicator.kind === "MOMENTUM") {
-    return `MOMENTUM ${indicator.config.period}`;
+    return `MOMENTUM ${config.period}`;
   }
   if (indicator.kind === "FORCE_INDEX") {
-    return `FORCE INDEX ${indicator.config.period}`;
+    return `FORCE INDEX ${config.period}`;
   }
   if (indicator.kind === "VWMA") {
-    return `VWMA ${indicator.config.period}`;
+    return `VWMA ${config.period}`;
   }
   if (indicator.kind === "WILLIAMS_AD") {
     return "WILLIAMS A/D";
   }
   if (indicator.kind === "CHAIKIN_VOLATILITY") {
-    return `CHAIKIN VOLATILITY ${indicator.config.period}`;
+    return `CHAIKIN VOLATILITY ${config.period}`;
   }
   if (indicator.kind === "PRICE_CHANNEL") {
-    return `PRICE CHANNEL ${indicator.config.period}`;
+    return `PRICE CHANNEL ${config.period}`;
   }
   if (indicator.kind === "STARC") {
-    return `STARC ${indicator.config.period}/${indicator.config.multiplier}`;
+    return `STARC ${config.period}/${config.multiplier}`;
   }
   if (indicator.kind === "BB") {
-    return `BOLLINGER ${indicator.config.period}/${indicator.config.multiplier}`;
+    return `BOLLINGER ${config.period}/${config.multiplier}`;
   }
   if (indicator.kind === "KELTNER") {
-    return `KELTNER ${indicator.config.period}/${indicator.config.multiplier}`;
+    return `KELTNER ${config.period}/${config.multiplier}`;
   }
   if (indicator.kind === "DONCHIAN") {
-    return `DONCHIAN ${indicator.config.period}`;
+    return `DONCHIAN ${config.period}`;
   }
   if (indicator.kind === "PARABOLIC_SAR") {
-    return `PARABOLIC SAR ${indicator.config.psar_step}/${indicator.config.psar_max_step}`;
+    return `PARABOLIC SAR ${config.psar_step}/${config.psar_max_step}`;
   }
   if (indicator.kind === "ICHIMOKU") {
-    return `ICHIMOKU ${indicator.config.tenkan_period}/${indicator.config.kijun_period}/${indicator.config.senkou_b_period}`;
+    return `ICHIMOKU ${config.tenkan_period}/${config.kijun_period}/${config.senkou_b_period}`;
   }
   if (indicator.kind === "PIVOT_POINTS") {
     return "PIVOT POINTS";
   }
   if (indicator.kind === "ROC") {
-    return `ROC ${indicator.config.period}`;
+    return `ROC ${config.period}`;
   }
   if (indicator.kind === "AROON") {
-    return `AROON ${indicator.config.period}`;
+    return `AROON ${config.period}`;
   }
   if (indicator.kind === "CMF") {
-    return `CMF ${indicator.config.period}`;
+    return `CMF ${config.period}`;
   }
   if (indicator.kind === "ADL") {
     return "ADL";
   }
   if (indicator.kind === "WMA") {
-    return `WMA ${indicator.config.period}`;
+    return `WMA ${config.period}`;
   }
   if (indicator.kind === "HMA") {
-    return `HMA ${indicator.config.period}`;
+    return `HMA ${config.period}`;
   }
   if (indicator.kind === "LINEAR_REGRESSION") {
-    return `LINEAR REGRESSION ${indicator.config.period}`;
+    return `LINEAR REGRESSION ${config.period}`;
   }
   if (indicator.kind === "ADX") {
-    return `ADX ${indicator.config.period}`;
+    return `ADX ${config.period}`;
   }
   if (indicator.kind === "SUPERTREND") {
-    return `SUPERTREND ${indicator.config.period}/${indicator.config.multiplier}`;
+    return `SUPERTREND ${config.period}/${config.multiplier}`;
   }
   if (indicator.kind === "CCI") {
-    return `CCI ${indicator.config.period}`;
+    return `CCI ${config.period}`;
   }
   if (indicator.kind === "MFI") {
-    return `MFI ${indicator.config.period}`;
+    return `MFI ${config.period}`;
   }
   if (indicator.kind === "WILLIAMS_R") {
-    return `WILLIAMS %R ${indicator.config.period}`;
+    return `WILLIAMS %R ${config.period}`;
   }
   if (indicator.kind === "STOCH_RSI") {
-    return `STOCH RSI ${indicator.config.period}/${indicator.config.stoch_period}/${indicator.config.smooth}/${indicator.config.signal}`;
+    return `STOCH RSI ${config.period}/${config.stoch_period}/${config.smooth}/${config.signal}`;
   }
   if (indicator.kind === "STOCHASTIC") {
-    return `STOCHASTIC ${indicator.config.period}/${indicator.config.smooth}`;
+    return `STOCHASTIC ${config.period}/${config.smooth}`;
   }
-  return indicator.config.period ? `${indicator.kind} ${indicator.config.period}` : indicator.kind;
+  return config.period ? `${indicator.kind} ${config.period}` : indicator.kind;
 }
 
 function syncIndicatorForm() {
@@ -1422,7 +1458,7 @@ function readIndicatorConfig(kind: IndicatorKind) {
 }
 
 function indicatorConfig(indicator: Indicator) {
-  return indicator.config;
+  return indicator.config as IndicatorConfig;
 }
 
 function setConfigParam(config: IndicatorConfig, name: string, value: number) {
@@ -1447,6 +1483,10 @@ function setConfigParam(config: IndicatorConfig, name: string, value: number) {
 
 function descriptorFor(kind: string) {
   return descriptors.find((descriptor) => descriptor.kind === kind)!;
+}
+
+function isFormulaIndicatorConfig(config: AppIndicatorConfig): config is FormulaIndicatorConfig {
+  return "script" in config;
 }
 
 function setStatus(message: string, state: "info" | "error" = "info") {

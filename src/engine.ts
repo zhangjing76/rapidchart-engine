@@ -231,6 +231,19 @@ export type IndicatorDescriptor = {
   outputs: OutputDescriptor[];
 };
 
+/**
+ * Volume traded at each price level over a range of bars. Bucket `i` covers
+ * `low + i * size` to `low + (i + 1) * size`, where `size = (high - low) / up.length`.
+ */
+export type VolumeProfile = {
+  low: number;
+  high: number;
+  /** Volume from bars that closed at or above their open. */
+  up: Float64Array;
+  /** Volume from bars that closed below their open. */
+  down: Float64Array;
+};
+
 export type DagDebug = {
   nodes: string[];
   edges: { from: string; to: string }[];
@@ -412,6 +425,16 @@ export class RapidChartEngine {
       this.#seriesSpacing,
       indicatorOutputShift(this.#configs.get(id), output),
     );
+  }
+
+  /**
+   * Volume by price over bar indexes `from..to` (inclusive) in `buckets` equal price buckets.
+   * Returns null for an empty range. The arrays are copies and stay valid after other calls.
+   */
+  volumeProfile(from: number, to: number, buckets = 30): VolumeProfile | null {
+    const start = Math.max(0, Math.floor(from));
+    const end = Math.max(0, Math.floor(to));
+    return this.#engine.volume_profile(start, end, Math.max(1, Math.floor(buckets))) as VolumeProfile | null;
   }
 
   dagDebug(): DagDebug {

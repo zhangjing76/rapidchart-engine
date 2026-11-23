@@ -229,6 +229,7 @@ boundary.
 - `latestIndicatorTime(id, output)`
 - `latestIndicatorPoints(id)`
 - `removeIndicator(id)`
+- `volumeProfile(from, to, buckets?)` - volume by price over a bar range, split into up/down volume
 - `indicatorDescriptors()`
 - `dagDebug()`
 - `upsertBarFast(bar)`

@@ -1,6 +1,7 @@
 use crate::indicators::roc::roc_store;
 use crate::NodeCache;
-use crate::{CandleStore, RcSeries, Series};
+use crate::{CandleStore, NamedSeries, RcSeries, Series};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn kst_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
@@ -63,6 +64,33 @@ pub fn latest_kst_store(store: &CandleStore) -> Option<f64> {
     let s4 = sma_roc(30, 15)?;
     Some(s1 + 2.0 * s2 + 3.0 * s3 + 4.0 * s4)
 }
+/// KST with its signal line: SMA(signal) of KST.
+pub fn kst_outputs(store: &CandleStore, signal: usize, nodes: &mut NodeCache) -> Vec<NamedSeries> {
+    let kst = kst_store(store, nodes);
+    let signal_line = sma_from_series(&kst, signal);
+    vec![
+        crate::named_series("value", kst),
+        crate::named_series("signal", signal_line),
+    ]
+}
+
+pub fn latest_kst_signal(store: &CandleStore, signal: usize) -> Option<f64> {
+    let kst = kst_store(store, &mut HashMap::new());
+    last_sma(&kst, signal)
+}
+
+/// Average of the last `period` values, or None if there are fewer or any is NaN.
+pub(crate) fn last_sma(values: &[f64], period: usize) -> Option<f64> {
+    if period == 0 || values.len() < period {
+        return None;
+    }
+    let window = &values[values.len() - period..];
+    if window.iter().any(|value| value.is_nan()) {
+        return None;
+    }
+    Some(window.iter().sum::<f64>() / period as f64)
+}
+
 pub fn sma_from_series(values: &[f64], period: usize) -> Series {
     let mut out = vec![f64::NAN; values.len()];
     if period == 0 || values.len() < period {
@@ -84,10 +112,17 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         name: "KST",
         category: "Momentum/Oscillator",
         pane: "separate",
-        params: Vec::new(),
-        outputs: vec![crate::descriptors::output_descriptor(
-            "value", "line", "separate", "#2563eb",
-        )],
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "signal",
+            label: "Signal",
+            default: 9.0,
+            min: 1.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb"),
+            crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
+        ],
     }
 }
 

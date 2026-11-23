@@ -16,7 +16,7 @@ use crate::indicators::beta::beta_store;
 use crate::indicators::bollinger::bollinger_store;
 use crate::indicators::bollinger_bandwidth::bollinger_bandwidth_store;
 use crate::indicators::bollinger_pct_b::bollinger_pct_b_store;
-use crate::indicators::bop::bop_store;
+use crate::indicators::bop::bop_smoothed_store;
 use crate::indicators::cci::cci_store;
 use crate::indicators::center_of_gravity::center_of_gravity_store;
 use crate::indicators::chaikin::{chaikin_oscillator_store, chaikin_volatility_store};
@@ -53,8 +53,8 @@ use crate::indicators::hma::hma_store;
 use crate::indicators::ichimoku::ichimoku_store;
 use crate::indicators::intraday_momentum::intraday_momentum_store;
 use crate::indicators::keltner::{keltner_store, starc_store};
-use crate::indicators::klinger_volume::klinger_volume_store;
-use crate::indicators::kst::kst_store;
+use crate::indicators::klinger_volume::{klinger_outputs, KLINGER_DEFAULTS};
+use crate::indicators::kst::kst_outputs;
 use crate::indicators::linear_reg_forecast::linear_reg_forecast_store;
 use crate::indicators::linear_reg_intercept::linear_reg_intercept_store;
 use crate::indicators::linear_reg_r2::linear_reg_r2_store;
@@ -69,12 +69,12 @@ use crate::indicators::mass_index::mass_index_store;
 use crate::indicators::median_price::median_price_store;
 use crate::indicators::mfi::mfi_store;
 use crate::indicators::momentum::momentum_store;
-use crate::indicators::negative_volume_index::negative_volume_index_store;
+use crate::indicators::negative_volume_index::negative_volume_index_outputs;
 use crate::indicators::obv::obv_store;
 use crate::indicators::parabolic_sar::parabolic_sar_store;
 use crate::indicators::performance_index::performance_index_store;
 use crate::indicators::pivot_points::pivot_points_store;
-use crate::indicators::positive_volume_index::positive_volume_index_store;
+use crate::indicators::positive_volume_index::positive_volume_index_outputs;
 use crate::indicators::pretty_good_oscillator::pretty_good_oscillator_store;
 use crate::indicators::price_momentum_oscillator::price_momentum_oscillator_store;
 use crate::indicators::price_oscillator::price_oscillator_store;
@@ -187,8 +187,8 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::ENVELOPE => envelope_store(store, period, multiplier, nodes).into_arena(),
         IndicatorKind::TRIX => trix_store(store, period, nodes).into_arena(),
         IndicatorKind::TSI => tsi_store(store, period, stoch_period, nodes).into_arena(),
-        IndicatorKind::KST => kst_store(store, nodes).into_arena(),
-        IndicatorKind::BOP => bop_store(store, nodes).into_arena(),
+        IndicatorKind::KST => kst_outputs(store, signal, nodes).into_arena(),
+        IndicatorKind::BOP => bop_smoothed_store(store, period, nodes).into_arena(),
         IndicatorKind::MOMENTUM => momentum_store(store, period, nodes).into_arena(),
         IndicatorKind::DPO => dpo_store(store, period, nodes).into_arena(),
         IndicatorKind::FORCE_INDEX => force_index_store(store, period, nodes).into_arena(),
@@ -339,20 +339,22 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::VOLUME_OSCILLATOR => volume_oscillator_store(
             store,
             macd_params.unwrap_or(MacdParams {
-                fast: 5,
-                slow: 10,
+                fast: 12,
+                slow: 26,
                 signal: 9,
             }),
             nodes,
         )
         .into_arena(),
-        IndicatorKind::KLINGER_VOLUME => klinger_volume_store(store, nodes).into_arena(),
+        IndicatorKind::KLINGER_VOLUME => {
+            klinger_outputs(store, macd_params.unwrap_or(KLINGER_DEFAULTS), nodes).into_arena()
+        }
         IndicatorKind::MARKET_FACILITATION => market_facilitation_store(store, nodes).into_arena(),
         IndicatorKind::NEGATIVE_VOLUME_INDEX => {
-            negative_volume_index_store(store, nodes).into_arena()
+            negative_volume_index_outputs(store, period, nodes).into_arena()
         }
         IndicatorKind::POSITIVE_VOLUME_INDEX => {
-            positive_volume_index_store(store, nodes).into_arena()
+            positive_volume_index_outputs(store, period, nodes).into_arena()
         }
         IndicatorKind::PRICE_VOLUME_TREND => price_volume_trend_store(store, nodes).into_arena(),
         IndicatorKind::TRADE_VOLUME_INDEX => trade_volume_index_store(store, nodes).into_arena(),
@@ -637,10 +639,12 @@ pub(crate) fn update_indicator_incremental(
         }
         IndicatorKind::KST => {
             let value = latest_kst_store(store);
+            let signal = latest_kst_signal(store, indicator.signal);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
+            upsert_output(&mut indicator.outputs, "signal", target_len, signal);
         }
         IndicatorKind::BOP => {
-            let value = latest_bop_store(store);
+            let value = latest_bop_smoothed_store(store, indicator.period);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::DPO => {
@@ -1010,16 +1014,18 @@ pub(crate) fn update_indicator_incremental(
         }
         IndicatorKind::VOLUME_OSCILLATOR => {
             let params = indicator.macd.unwrap_or(MacdParams {
-                fast: 5,
-                slow: 10,
+                fast: 12,
+                slow: 26,
                 signal: 9,
             });
             let value = latest_volume_oscillator_store(store, params);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::KLINGER_VOLUME => {
-            let value = latest_klinger_volume_store(store);
+            let (value, signal) =
+                latest_klinger_outputs(store, indicator.macd.unwrap_or(KLINGER_DEFAULTS));
             upsert_output(&mut indicator.outputs, "value", target_len, value);
+            upsert_output(&mut indicator.outputs, "signal", target_len, signal);
         }
         IndicatorKind::MARKET_FACILITATION => {
             let value = latest_market_facilitation_store(store);
@@ -1027,11 +1033,15 @@ pub(crate) fn update_indicator_incremental(
         }
         IndicatorKind::NEGATIVE_VOLUME_INDEX => {
             let value = latest_negative_volume_index_store(store, indicator.outputs.get_slot(0));
+            let ma = latest_negative_volume_index_ma(store, indicator.period);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
+            upsert_output(&mut indicator.outputs, "ma", target_len, ma);
         }
         IndicatorKind::POSITIVE_VOLUME_INDEX => {
             let value = latest_positive_volume_index_store(store, indicator.outputs.get_slot(0));
+            let ma = latest_positive_volume_index_ma(store, indicator.period);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
+            upsert_output(&mut indicator.outputs, "ma", target_len, ma);
         }
         IndicatorKind::PRICE_VOLUME_TREND => {
             let value = latest_price_volume_trend_store(store, indicator.outputs.get_slot(0));

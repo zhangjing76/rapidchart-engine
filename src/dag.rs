@@ -1,3 +1,4 @@
+use crate::indicators::klinger_volume::KLINGER_DEFAULTS;
 use crate::types::{DagEdge, Indicator, IndicatorKind, MacdParams};
 
 pub(crate) fn is_valid_kind(kind: &str) -> bool {
@@ -48,6 +49,15 @@ pub(crate) fn indicator_node(indicator: &Indicator) -> String {
             macd.fast, macd.slow, indicator.id
         ),
         _ => format!("{}#{}", indicator.kind, indicator.id),
+    }
+}
+
+/// Cache key of the Klinger oscillator line (the default periods keep the original key).
+fn klinger_node(p: MacdParams) -> String {
+    if p.fast == KLINGER_DEFAULTS.fast && p.slow == KLINGER_DEFAULTS.slow {
+        "klinger:hlcv".to_string()
+    } else {
+        format!("klinger:hlcv:{}:{}", p.fast, p.slow)
     }
 }
 
@@ -167,8 +177,12 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             "roc:close:20".to_string(),
             "roc:close:30".to_string(),
             "kst:value".to_string(),
+            format!("kst:signal:{}", indicator.signal),
         ],
-        IndicatorKind::BOP => vec!["bop:ohlc".to_string()],
+        IndicatorKind::BOP => vec![
+            "bop:ohlc".to_string(),
+            format!("bop:ohlc:sma:{}", indicator.period),
+        ],
         IndicatorKind::ULTIMATE_OSCILLATOR => vec![format!(
             "uo:{}:{}:{}",
             indicator.period, indicator.stoch_period, indicator.smooth
@@ -408,16 +422,28 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         ],
         IndicatorKind::VOLUME_OSCILLATOR => {
             let p = indicator.macd.unwrap_or(MacdParams {
-                fast: 5,
-                slow: 10,
+                fast: 12,
+                slow: 26,
                 signal: 9,
             });
             vec![format!("vol_osc:volume:{}:{}", p.fast, p.slow)]
         }
-        IndicatorKind::KLINGER_VOLUME => vec!["klinger:hlcv".to_string()],
+        IndicatorKind::KLINGER_VOLUME => {
+            let p = indicator.macd.unwrap_or(KLINGER_DEFAULTS);
+            vec![
+                klinger_node(p),
+                format!("klinger:signal:{}:{}:{}", p.fast, p.slow, p.signal),
+            ]
+        }
         IndicatorKind::MARKET_FACILITATION => vec!["mfi_bw:hlv".to_string()],
-        IndicatorKind::NEGATIVE_VOLUME_INDEX => vec!["nvi:cv".to_string()],
-        IndicatorKind::POSITIVE_VOLUME_INDEX => vec!["pvi:cv".to_string()],
+        IndicatorKind::NEGATIVE_VOLUME_INDEX => vec![
+            "nvi:cv".to_string(),
+            format!("nvi:cv:sma:{}", indicator.period),
+        ],
+        IndicatorKind::POSITIVE_VOLUME_INDEX => vec![
+            "pvi:cv".to_string(),
+            format!("pvi:cv:sma:{}", indicator.period),
+        ],
         IndicatorKind::PRICE_VOLUME_TREND => vec!["pvt:cv".to_string()],
         IndicatorKind::TRADE_VOLUME_INDEX => vec!["tvi:cv".to_string()],
         IndicatorKind::TWIGGS_MONEY_FLOW => vec![format!("tmf:hlcv:{}", indicator.period)],
@@ -777,13 +803,20 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("roc:close:20", "kst:value"),
             edge("roc:close:30", "kst:value"),
             edge("kst:value", indicator_node),
+            edge("kst:value", &format!("kst:signal:{}", indicator.signal)),
+            edge(&format!("kst:signal:{}", indicator.signal), indicator_node),
         ],
-        IndicatorKind::BOP => vec![
-            edge("high", "bop:ohlc"),
-            edge("low", "bop:ohlc"),
-            edge("close", "bop:ohlc"),
-            edge("bop:ohlc", indicator_node),
-        ],
+        IndicatorKind::BOP => {
+            let sma = format!("bop:ohlc:sma:{}", indicator.period);
+            vec![
+                edge("open", "bop:ohlc"),
+                edge("high", "bop:ohlc"),
+                edge("low", "bop:ohlc"),
+                edge("close", "bop:ohlc"),
+                edge("bop:ohlc", &sma),
+                edge(&sma, indicator_node),
+            ]
+        }
         IndicatorKind::ULTIMATE_OSCILLATOR => {
             let u = format!(
                 "uo:{}:{}:{}",
@@ -1256,36 +1289,53 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
         }
         IndicatorKind::VOLUME_OSCILLATOR => {
             let p = indicator.macd.unwrap_or(MacdParams {
-                fast: 5,
-                slow: 10,
+                fast: 12,
+                slow: 26,
                 signal: 9,
             });
             let v = format!("vol_osc:volume:{}:{}", p.fast, p.slow);
             vec![edge("volume", &v), edge(&v, indicator_node)]
         }
-        IndicatorKind::KLINGER_VOLUME => vec![
-            edge("high", "klinger:hlcv"),
-            edge("low", "klinger:hlcv"),
-            edge("close", "klinger:hlcv"),
-            edge("volume", "klinger:hlcv"),
-            edge("klinger:hlcv", indicator_node),
-        ],
+        IndicatorKind::KLINGER_VOLUME => {
+            let p = indicator.macd.unwrap_or(KLINGER_DEFAULTS);
+            let kvo = klinger_node(p);
+            let signal = format!("klinger:signal:{}:{}:{}", p.fast, p.slow, p.signal);
+            vec![
+                edge("high", &kvo),
+                edge("low", &kvo),
+                edge("close", &kvo),
+                edge("volume", &kvo),
+                edge(&kvo, indicator_node),
+                edge(&kvo, &signal),
+                edge(&signal, indicator_node),
+            ]
+        }
         IndicatorKind::MARKET_FACILITATION => vec![
             edge("high", "mfi_bw:hlv"),
             edge("low", "mfi_bw:hlv"),
             edge("volume", "mfi_bw:hlv"),
             edge("mfi_bw:hlv", indicator_node),
         ],
-        IndicatorKind::NEGATIVE_VOLUME_INDEX => vec![
-            edge("close", "nvi:cv"),
-            edge("volume", "nvi:cv"),
-            edge("nvi:cv", indicator_node),
-        ],
-        IndicatorKind::POSITIVE_VOLUME_INDEX => vec![
-            edge("close", "pvi:cv"),
-            edge("volume", "pvi:cv"),
-            edge("pvi:cv", indicator_node),
-        ],
+        IndicatorKind::NEGATIVE_VOLUME_INDEX => {
+            let sma = format!("nvi:cv:sma:{}", indicator.period);
+            vec![
+                edge("close", "nvi:cv"),
+                edge("volume", "nvi:cv"),
+                edge("nvi:cv", indicator_node),
+                edge("nvi:cv", &sma),
+                edge(&sma, indicator_node),
+            ]
+        }
+        IndicatorKind::POSITIVE_VOLUME_INDEX => {
+            let sma = format!("pvi:cv:sma:{}", indicator.period);
+            vec![
+                edge("close", "pvi:cv"),
+                edge("volume", "pvi:cv"),
+                edge("pvi:cv", indicator_node),
+                edge("pvi:cv", &sma),
+                edge(&sma, indicator_node),
+            ]
+        }
         IndicatorKind::PRICE_VOLUME_TREND => vec![
             edge("close", "pvt:cv"),
             edge("volume", "pvt:cv"),
@@ -1510,7 +1560,7 @@ pub(crate) fn validate_indicator(
         return Err(wasm_bindgen::JsValue::from_str(
             "smooth must be greater than zero",
         ));
-    } else if kind == IndicatorKind::STOCH_RSI && signal == 0 {
+    } else if matches!(kind, IndicatorKind::STOCH_RSI | IndicatorKind::KST) && signal == 0 {
         return Err(wasm_bindgen::JsValue::from_str(
             "signal must be greater than zero",
         ));

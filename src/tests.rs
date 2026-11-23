@@ -258,6 +258,194 @@ mod tests {
         assert!(!is_visible_output("cumulative_pv"));
     }
 
+    fn config(kind: &str) -> IndicatorConfig {
+        IndicatorConfig {
+            kind: kind.to_string(),
+            period: None,
+            stoch_period: None,
+            smooth: None,
+            fast: None,
+            slow: None,
+            signal: None,
+            multiplier: None,
+            tenkan_period: None,
+            kijun_period: None,
+            senkou_b_period: None,
+            psar_step: None,
+            psar_max_step: None,
+            anchor: None,
+        }
+    }
+
+    /// 300 bars with moving prices and volume that rises and falls, so volume-index studies change.
+    fn varied_bars(count: usize) -> Vec<Bar> {
+        (0..count)
+            .map(|i| {
+                let t = i as f64;
+                let close = 100.0 + (t * 0.21).sin() * 8.0 + t * 0.05;
+                let open = close - (t * 0.37).cos() * 1.5;
+                Bar {
+                    time: i as u32,
+                    open,
+                    high: close.max(open) + 1.0 + (t * 0.13).sin().abs(),
+                    low: close.min(open) - 1.0 - (t * 0.17).cos().abs(),
+                    close,
+                    volume: 1_000.0 + ((t * 0.29).sin() * 400.0).round() + (i % 7) as f64 * 35.0,
+                }
+            })
+            .collect()
+    }
+
+    fn engine_with(config: IndicatorConfig, bars: Vec<Bar>) -> (ChartEngine, u32) {
+        let mut engine = ChartEngine::new();
+        let id = engine.add_indicator_from_config(config).unwrap();
+        engine.bars = store_from_bars(bars);
+        engine.recompute_indicators();
+        (engine, id)
+    }
+
+    /// Live update after a new bar must give the same outputs as rebuilding from scratch.
+    fn assert_live_update_matches_rebuild(make_config: fn() -> IndicatorConfig, slots: usize) {
+        let all = varied_bars(301);
+        let (mut engine, id) = engine_with(make_config(), all[..300].to_vec());
+        engine.bars.push(all[300].clone());
+        assert!(engine.update_indicators_incremental());
+        let (rebuilt, rebuilt_id) = engine_with(make_config(), all.clone());
+        let live = engine.indicator_outputs_by_id(id).unwrap();
+        let full = rebuilt.indicator_outputs_by_id(rebuilt_id).unwrap();
+        for slot in 0..slots {
+            let live_values = live.get_slot(slot).unwrap();
+            let full_values = full.get_slot(slot).unwrap();
+            assert_eq!(live_values.len(), 301);
+            let (a, b) = (live_values[300], full_values[300]);
+            assert!(
+                (a.is_nan() && b.is_nan()) || (a - b).abs() < 1e-9,
+                "slot {slot}: live {a} vs rebuilt {b}"
+            );
+        }
+    }
+
+    #[test]
+    fn new_outputs_update_live_like_a_rebuild() {
+        assert_live_update_matches_rebuild(|| config("KST"), 2);
+        assert_live_update_matches_rebuild(|| config("KLINGER_VOLUME"), 2);
+        assert_live_update_matches_rebuild(|| config("BOP"), 1);
+        assert_live_update_matches_rebuild(|| config("NEGATIVE_VOLUME_INDEX"), 2);
+        assert_live_update_matches_rebuild(|| config("POSITIVE_VOLUME_INDEX"), 2);
+    }
+
+    #[test]
+    fn new_settings_fall_back_to_their_defaults_when_omitted() {
+        let mut engine = ChartEngine::new();
+        for kind in [
+            "KST",
+            "KLINGER_VOLUME",
+            "BOP",
+            "NEGATIVE_VOLUME_INDEX",
+            "POSITIVE_VOLUME_INDEX",
+        ] {
+            engine.add_indicator_from_config(config(kind)).unwrap();
+        }
+        let find = |kind: &str| {
+            engine
+                .indicators
+                .iter()
+                .find(|i| i.kind.to_string() == kind)
+                .unwrap()
+        };
+        assert_eq!(find("KST").signal, 9);
+        let klinger = find("KLINGER_VOLUME").macd.unwrap();
+        assert_eq!((klinger.fast, klinger.slow, klinger.signal), (34, 55, 13));
+        assert_eq!(find("BOP").period, 14);
+        assert_eq!(find("NEGATIVE_VOLUME_INDEX").period, 255);
+        assert_eq!(find("POSITIVE_VOLUME_INDEX").period, 255);
+    }
+
+    #[test]
+    fn klinger_with_default_cycles_matches_the_original_oscillator() {
+        let store = store_from_bars(varied_bars(120));
+        let original = klinger_volume_store(&store, &mut HashMap::new());
+        let outputs = klinger_outputs(&store, KLINGER_DEFAULTS, &mut HashMap::new());
+        assert_series_eq(&outputs[0].values, &original);
+        assert_series_eq(&outputs[1].values, &ema_series(&original, 13));
+    }
+
+    #[test]
+    fn bop_is_the_moving_average_of_the_raw_balance_of_power() {
+        let store = store_from_bars(varied_bars(40));
+        let raw = bop_store(&store, &mut HashMap::new());
+        let smoothed = bop_smoothed_store(&store, 14, &mut HashMap::new());
+        assert!(smoothed[12].is_nan());
+        let expected: f64 = raw[26..40].iter().sum::<f64>() / 14.0;
+        assert!((smoothed[39] - expected).abs() < 1e-12);
+        assert_series_eq(&bop_smoothed_store(&store, 1, &mut HashMap::new()), &raw);
+    }
+
+    #[test]
+    fn default_params_are_pinned() {
+        // Standard study defaults; change them deliberately, not by accident.
+        let expected: &[(&str, &str, f64)] = &[
+            ("SMA", "period", 50.0),
+            ("EMA", "period", 50.0),
+            ("WMA", "period", 50.0),
+            ("VWMA", "period", 50.0),
+            ("MA_CROSS", "fast", 20.0),
+            ("MA_CROSS", "slow", 50.0),
+            ("STDDEV", "period", 14.0),
+            ("MOMENTUM", "period", 14.0),
+            ("TRIX", "period", 14.0),
+            ("DPO", "period", 14.0),
+            ("CHANDE_MOMENTUM", "period", 9.0),
+            ("CHAIKIN_VOLATILITY", "period", 14.0),
+            ("INTRADAY_MOMENTUM", "period", 20.0),
+            ("MA_DEVIATION", "period", 12.0),
+            ("HIGH_LOW_BANDS", "period", 10.0),
+            ("PSYCHOLOGICAL_LINE", "period", 20.0),
+            ("QSTICK", "period", 8.0),
+            ("SUPERTREND", "period", 7.0),
+            ("HISTORICAL_VOLATILITY", "period", 10.0),
+            ("VOLUME_OSCILLATOR", "fast", 12.0),
+            ("VOLUME_OSCILLATOR", "slow", 26.0),
+            ("STOCHASTIC_MOMENTUM", "period", 10.0),
+            ("ATR_BANDS", "period", 5.0),
+            ("ATR_BANDS", "multiplier", 3.0),
+            ("STARC", "period", 15.0),
+            ("STARC", "multiplier", 1.3),
+            ("KELTNER", "period", 10.0),
+            ("KELTNER", "multiplier", 5.0),
+            ("ENVELOPE", "period", 50.0),
+            ("ENVELOPE", "multiplier", 5.0),
+            ("ZIGZAG", "multiplier", 10.0),
+            ("RSI", "period", 14.0),
+            ("BB", "period", 20.0),
+            ("BB", "multiplier", 2.0),
+            ("MACD", "fast", 12.0),
+            ("MACD", "slow", 26.0),
+            ("MACD", "signal", 9.0),
+            ("KST", "signal", 9.0),
+            ("KLINGER_VOLUME", "fast", 34.0),
+            ("KLINGER_VOLUME", "slow", 55.0),
+            ("KLINGER_VOLUME", "signal", 13.0),
+            ("BOP", "period", 14.0),
+            ("NEGATIVE_VOLUME_INDEX", "period", 255.0),
+            ("POSITIVE_VOLUME_INDEX", "period", 255.0),
+        ];
+        let descriptors = indicator_descriptors();
+        for (kind, param, value) in expected {
+            let item = descriptors
+                .iter()
+                .find(|d| d.kind == *kind)
+                .unwrap_or_else(|| panic!("{kind} is not exposed"));
+            let actual = item
+                .params
+                .iter()
+                .find(|p| p.name == *param)
+                .unwrap_or_else(|| panic!("{kind} has no {param} parameter"))
+                .default;
+            assert_eq!(actual, *value, "{kind}.{param} default");
+        }
+    }
+
     #[test]
     fn all_exposed_indicators_support_incremental_updates() {
         for item in indicator_descriptors() {

@@ -77,7 +77,7 @@ pub fn latest_trix_store(
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("TRIX", "TRIX", "Momentum/Oscillator", "separate", 15)
+    crate::descriptors::period_descriptor("TRIX", "TRIX", "Momentum/Oscillator", "separate", 14)
 }
 
 #[cfg(test)]

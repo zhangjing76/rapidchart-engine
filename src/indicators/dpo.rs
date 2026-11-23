@@ -37,7 +37,7 @@ pub fn latest_dpo_store(store: &CandleStore, period: usize) -> Option<f64> {
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("DPO", "DPO", "Trend Analysis", "separate", 20)
+    crate::descriptors::period_descriptor("DPO", "DPO", "Trend Analysis", "separate", 14)
 }
 
 #[cfg(test)]

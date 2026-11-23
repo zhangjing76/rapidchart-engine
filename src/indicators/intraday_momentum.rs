@@ -59,7 +59,7 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         "INTRADAY MOMENTUM INDEX",
         "Momentum/Oscillator",
         "separate",
-        14,
+        20,
     )
 }
 

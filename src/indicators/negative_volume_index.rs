@@ -1,5 +1,6 @@
 use crate::NodeCache;
-use crate::{CandleStore, RcSeries};
+use crate::{CandleStore, NamedSeries, RcSeries};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Negative Volume Index (NVI):
@@ -54,16 +55,42 @@ pub fn latest_negative_volume_index_store(
     }
 }
 
+/// The index with its moving-average line: SMA(period) of the index.
+pub fn negative_volume_index_outputs(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> Vec<NamedSeries> {
+    let index = negative_volume_index_store(store, nodes);
+    let ma = crate::indicators::kst::sma_from_series(&index, period);
+    vec![
+        crate::named_series("value", index),
+        crate::named_series("ma", ma),
+    ]
+}
+
+pub fn latest_negative_volume_index_ma(store: &CandleStore, period: usize) -> Option<f64> {
+    let index = negative_volume_index_store(store, &mut HashMap::new());
+    crate::indicators::kst::last_sma(&index, period)
+}
+
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
         kind: "NEGATIVE_VOLUME_INDEX",
         name: "NEGATIVE VOLUME INDEX",
         category: "Trend Analysis",
         pane: "separate",
-        params: Vec::new(),
-        outputs: vec![crate::descriptors::output_descriptor(
-            "value", "line", "separate", "#dc2626",
-        )],
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "MA Period",
+            default: 255.0,
+            min: 1.0,
+            step: "1",
+        }],
+        outputs: vec![
+            crate::descriptors::output_descriptor("value", "line", "separate", "#dc2626"),
+            crate::descriptors::output_descriptor("ma", "line", "separate", "#64748b"),
+        ],
     }
 }
 

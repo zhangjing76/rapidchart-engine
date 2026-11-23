@@ -159,7 +159,7 @@ pub(crate) fn chaikin_volatility_descriptor() -> crate::descriptors::IndicatorDe
         "CHAIKIN VOLATILITY",
         "Volatility",
         "separate",
-        10,
+        14,
     )
 }
 

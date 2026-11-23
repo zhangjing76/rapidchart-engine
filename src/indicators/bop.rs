@@ -34,13 +34,55 @@ pub fn latest_bop_store(store: &CandleStore) -> Option<f64> {
     })
 }
 
+/// Balance of Power smoothed with an SMA over `period` bars (the raw value when period <= 1).
+pub fn bop_smoothed_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+    let raw = bop_store(store, nodes);
+    if period <= 1 {
+        return raw;
+    }
+    let key = format!("bop:ohlc:sma:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
+    let rc = Rc::new(crate::indicators::kst::sma_from_series(&raw, period));
+    nodes.insert(key, Rc::clone(&rc));
+    rc
+}
+
+pub fn latest_bop_smoothed_store(store: &CandleStore, period: usize) -> Option<f64> {
+    if period <= 1 {
+        return latest_bop_store(store);
+    }
+    let len = store.len();
+    if len < period {
+        return None;
+    }
+    let sum: f64 = (len - period..len)
+        .map(|i| {
+            let range = store.high[i] - store.low[i];
+            if range == 0.0 {
+                0.0
+            } else {
+                (store.close[i] - store.open[i]) / range
+            }
+        })
+        .sum();
+    Some(sum / period as f64)
+}
+
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
         kind: "BOP",
         name: "BOP",
         category: "Momentum/Oscillator",
         pane: "separate",
-        params: Vec::new(),
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 14.0,
+            min: 1.0,
+            step: "1",
+        }],
         outputs: vec![crate::descriptors::output_descriptor(
             "value", "line", "separate", "#9333ea",
         )],

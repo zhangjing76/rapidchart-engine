@@ -48,14 +48,14 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
             crate::descriptors::ParamDescriptor {
                 name: "fast",
                 label: "Fast",
-                default: 5.0,
+                default: 12.0,
                 min: 1.0,
                 step: "1",
             },
             crate::descriptors::ParamDescriptor {
                 name: "slow",
                 label: "Slow",
-                default: 10.0,
+                default: 26.0,
                 min: 2.0,
                 step: "1",
             },

@@ -59,7 +59,7 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         "CHANDE MOMENTUM OSCILLATOR",
         "Momentum/Oscillator",
         "separate",
-        14,
+        9,
     )
 }
 

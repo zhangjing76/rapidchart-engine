@@ -55,7 +55,7 @@ pub fn latest_hma_store(store: &CandleStore, period: usize) -> Option<f64> {
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("HMA", "HMA", "Moving Average", "overlay", 20)
+    crate::descriptors::period_descriptor("HMA", "HMA", "Moving Average", "overlay", 50)
 }
 
 #[cfg(test)]

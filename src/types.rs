@@ -175,7 +175,6 @@ impl IndicatorKind {
                 | Self::VWAP
                 | Self::WILLIAMS_AD
                 | Self::KST
-                | Self::BOP
                 | Self::PARABOLIC_SAR
                 | Self::ICHIMOKU
                 | Self::PIVOT_POINTS
@@ -222,6 +221,7 @@ impl IndicatorKind {
                 | Self::PRICE_OSCILLATOR
                 | Self::VOLUME_OSCILLATOR
                 | Self::SCHAFF_TREND_CYCLE
+                | Self::KLINGER_VOLUME
         )
     }
 }

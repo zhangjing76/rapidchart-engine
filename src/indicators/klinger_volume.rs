@@ -1,6 +1,7 @@
 use crate::indicators::ema::ema_series;
+use crate::types::MacdParams;
 use crate::NodeCache;
-use crate::{CandleStore, RcSeries};
+use crate::{CandleStore, NamedSeries, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -8,18 +9,42 @@ use std::rc::Rc;
 /// Volume Force (VF) = volume * |2*(dm/cm) - 1| * trend * 100
 /// where trend = +1 if (H+L+C) > prev(H+L+C), else -1
 /// dm = high - low, cm = cumulative dm in same trend direction
-/// KVO = EMA(34, VF) - EMA(55, VF)
+/// KVO = EMA(fast, VF) - EMA(slow, VF), 34 and 55 by default; signal = EMA(signal, KVO), 13 by default.
+pub(crate) const KLINGER_DEFAULTS: MacdParams = MacdParams {
+    fast: 34,
+    slow: 55,
+    signal: 13,
+};
+
+#[cfg(test)]
 pub fn klinger_volume_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
-    let key = "klinger:hlcv".to_string();
+    klinger_kvo_store(store, KLINGER_DEFAULTS.fast, KLINGER_DEFAULTS.slow, nodes)
+}
+
+fn klinger_kvo_store(
+    store: &CandleStore,
+    fast: usize,
+    slow: usize,
+    nodes: &mut NodeCache,
+) -> RcSeries {
+    let key = if fast == KLINGER_DEFAULTS.fast && slow == KLINGER_DEFAULTS.slow {
+        "klinger:hlcv".to_string()
+    } else {
+        format!("klinger:hlcv:{fast}:{slow}")
+    };
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
+    let rc = Rc::new(klinger_series(store, fast, slow));
+    nodes.insert(key, Rc::clone(&rc));
+    rc
+}
+
+fn klinger_series(store: &CandleStore, fast: usize, slow: usize) -> Series {
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     if len < 2 {
-        let rc = Rc::new(out);
-        nodes.insert(key, Rc::clone(&rc));
-        return rc;
+        return out;
     }
     let mut vf = vec![0.0f64; len];
     let mut cm = 0.0f64;
@@ -42,18 +67,46 @@ pub fn klinger_volume_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSer
         vf[i] = store.volume[i] * ratio.abs() * trend as f64 * 100.0;
         prev_trend = trend;
     }
-    let ema34 = ema_series(&vf, 34);
-    let ema55 = ema_series(&vf, 55);
+    let ema_fast = ema_series(&vf, fast);
+    let ema_slow = ema_series(&vf, slow);
     for i in 0..len {
-        if !ema34[i].is_nan() && !ema55[i].is_nan() {
-            out[i] = ema34[i] - ema55[i];
+        if !ema_fast[i].is_nan() && !ema_slow[i].is_nan() {
+            out[i] = ema_fast[i] - ema_slow[i];
         }
     }
-    let rc = Rc::new(out);
-    nodes.insert(key, Rc::clone(&rc));
-    rc
+    out
 }
 
+/// KVO with its signal line.
+pub fn klinger_outputs(
+    store: &CandleStore,
+    params: MacdParams,
+    nodes: &mut NodeCache,
+) -> Vec<NamedSeries> {
+    let kvo = klinger_kvo_store(store, params.fast, params.slow, nodes);
+    let signal = ema_series(&kvo, params.signal);
+    vec![
+        crate::named_series("value", kvo),
+        crate::named_series("signal", signal),
+    ]
+}
+
+pub fn latest_klinger_outputs(
+    store: &CandleStore,
+    params: MacdParams,
+) -> (Option<f64>, Option<f64>) {
+    let outputs = klinger_outputs(store, params, &mut HashMap::new());
+    let last = |index: usize| {
+        outputs[index]
+            .values
+            .last()
+            .copied()
+            .and_then(|v| if v.is_nan() { None } else { Some(v) })
+    };
+    (last(0), last(1))
+}
+
+#[cfg(test)]
 pub fn latest_klinger_volume_store(store: &CandleStore) -> Option<f64> {
     klinger_volume_store(store, &mut HashMap::new())
         .last()
@@ -67,10 +120,33 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         name: "KLINGER VOLUME OSCILLATOR",
         category: "Money Flow",
         pane: "separate",
-        params: Vec::new(),
-        outputs: vec![crate::descriptors::output_descriptor(
-            "value", "line", "separate", "#2563eb",
-        )],
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "fast",
+                label: "Short Cycle",
+                default: 34.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "slow",
+                label: "Long Cycle",
+                default: 55.0,
+                min: 2.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "signal",
+                label: "Signal",
+                default: 13.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![
+            crate::descriptors::output_descriptor("value", "line", "separate", "#2563eb"),
+            crate::descriptors::output_descriptor("signal", "line", "separate", "#dc2626"),
+        ],
     }
 }
 

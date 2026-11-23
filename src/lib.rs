@@ -265,7 +265,9 @@ impl ChartEngine {
                     } else if kind == IndicatorKind::MA_CROSS {
                         10
                     } else if kind == IndicatorKind::VOLUME_OSCILLATOR {
-                        5
+                        12
+                    } else if kind == IndicatorKind::KLINGER_VOLUME {
+                        34
                     } else {
                         12
                     }),
@@ -276,19 +278,34 @@ impl ChartEngine {
                     } else if kind == IndicatorKind::MA_CROSS {
                         20
                     } else if kind == IndicatorKind::VOLUME_OSCILLATOR {
-                        10
+                        26
+                    } else if kind == IndicatorKind::KLINGER_VOLUME {
+                        55
                     } else {
                         26
                     }),
-                signal: config.signal.unwrap_or(9),
+                signal: config
+                    .signal
+                    .unwrap_or(if kind == IndicatorKind::KLINGER_VOLUME {
+                        13
+                    } else {
+                        9
+                    }),
             })
         } else {
             None
         };
-        let period = config.period.unwrap_or(0);
+        // Studies whose period setting was added later keep working when a config omits it.
+        let period = config.period.unwrap_or(match kind {
+            IndicatorKind::BOP => 14,
+            IndicatorKind::NEGATIVE_VOLUME_INDEX | IndicatorKind::POSITIVE_VOLUME_INDEX => 255,
+            _ => 0,
+        });
         let stoch_period = config.stoch_period.unwrap_or(period);
         let smooth = config.smooth.unwrap_or(3);
-        let signal = config.signal.unwrap_or(3);
+        let signal = config
+            .signal
+            .unwrap_or(if kind == IndicatorKind::KST { 9 } else { 3 });
         let tenkan_period = config.tenkan_period.unwrap_or(9);
         let kijun_period = config.kijun_period.unwrap_or(26);
         let senkou_b_period = config.senkou_b_period.unwrap_or(52);

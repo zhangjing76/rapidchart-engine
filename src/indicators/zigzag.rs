@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// ZigZag: connects significant highs and lows based on a percentage threshold.
-/// The multiplier parameter is used as the percentage threshold (default 5%).
+/// The multiplier parameter is used as the percentage threshold (default 10%).
 /// Only changes direction when price moves by at least threshold% from the last pivot.
 /// Intermediate values are linearly interpolated.
 pub fn zigzag_store(store: &CandleStore, threshold_pct: f64, _nodes: &mut NodeCache) -> RcSeries {
@@ -112,7 +112,7 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         params: vec![crate::descriptors::ParamDescriptor {
             name: "multiplier",
             label: "Threshold %",
-            default: 5.0,
+            default: 10.0,
             min: 0.1,
             step: "0.1",
         }],

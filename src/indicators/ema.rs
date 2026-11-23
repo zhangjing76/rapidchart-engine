@@ -62,7 +62,7 @@ pub fn ema_next(value: f64, previous: f64, period: usize) -> f64 {
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("EMA", "EMA", "Moving Average", "overlay", 20)
+    crate::descriptors::period_descriptor("EMA", "EMA", "Moving Average", "overlay", 50)
 }
 
 #[cfg(test)]

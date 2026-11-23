@@ -48,7 +48,7 @@ pub fn latest_stddev_store(store: &CandleStore, period: usize) -> Option<f64> {
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("STDDEV", "STDDEV", "Statistical", "separate", 20)
+    crate::descriptors::period_descriptor("STDDEV", "STDDEV", "Statistical", "separate", 14)
 }
 
 #[cfg(test)]

@@ -259,6 +259,64 @@ mod tests {
     }
 
     #[test]
+    fn default_params_are_pinned() {
+        // Standard study defaults; change them deliberately, not by accident.
+        let expected: &[(&str, &str, f64)] = &[
+            ("SMA", "period", 50.0),
+            ("EMA", "period", 50.0),
+            ("WMA", "period", 50.0),
+            ("VWMA", "period", 50.0),
+            ("MA_CROSS", "fast", 20.0),
+            ("MA_CROSS", "slow", 50.0),
+            ("STDDEV", "period", 14.0),
+            ("MOMENTUM", "period", 14.0),
+            ("TRIX", "period", 14.0),
+            ("DPO", "period", 14.0),
+            ("CHANDE_MOMENTUM", "period", 9.0),
+            ("CHAIKIN_VOLATILITY", "period", 14.0),
+            ("INTRADAY_MOMENTUM", "period", 20.0),
+            ("MA_DEVIATION", "period", 12.0),
+            ("HIGH_LOW_BANDS", "period", 10.0),
+            ("PSYCHOLOGICAL_LINE", "period", 20.0),
+            ("QSTICK", "period", 8.0),
+            ("SUPERTREND", "period", 7.0),
+            ("HISTORICAL_VOLATILITY", "period", 10.0),
+            ("VOLUME_OSCILLATOR", "fast", 12.0),
+            ("VOLUME_OSCILLATOR", "slow", 26.0),
+            ("STOCHASTIC_MOMENTUM", "period", 10.0),
+            ("ATR_BANDS", "period", 5.0),
+            ("ATR_BANDS", "multiplier", 3.0),
+            ("STARC", "period", 15.0),
+            ("STARC", "multiplier", 1.3),
+            ("KELTNER", "period", 10.0),
+            ("KELTNER", "multiplier", 5.0),
+            ("ENVELOPE", "period", 50.0),
+            ("ENVELOPE", "multiplier", 5.0),
+            ("ZIGZAG", "multiplier", 10.0),
+            ("RSI", "period", 14.0),
+            ("BB", "period", 20.0),
+            ("BB", "multiplier", 2.0),
+            ("MACD", "fast", 12.0),
+            ("MACD", "slow", 26.0),
+            ("MACD", "signal", 9.0),
+        ];
+        let descriptors = indicator_descriptors();
+        for (kind, param, value) in expected {
+            let item = descriptors
+                .iter()
+                .find(|d| d.kind == *kind)
+                .unwrap_or_else(|| panic!("{kind} is not exposed"));
+            let actual = item
+                .params
+                .iter()
+                .find(|p| p.name == *param)
+                .unwrap_or_else(|| panic!("{kind} has no {param} parameter"))
+                .default;
+            assert_eq!(actual, *value, "{kind}.{param} default");
+        }
+    }
+
+    #[test]
     fn all_exposed_indicators_support_incremental_updates() {
         for item in indicator_descriptors() {
             assert!(

@@ -37,7 +37,7 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         "MOVING AVERAGE DEVIATION",
         "Momentum/Oscillator",
         "separate",
-        20,
+        12,
     )
 }
 

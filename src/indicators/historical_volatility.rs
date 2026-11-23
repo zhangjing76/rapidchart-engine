@@ -61,7 +61,7 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         "HISTORICAL VOLATILITY",
         "Volatility",
         "separate",
-        20,
+        10,
     )
 }
 

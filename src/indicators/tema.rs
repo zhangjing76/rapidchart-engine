@@ -84,7 +84,7 @@ pub fn latest_tema_store(
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("TEMA", "TEMA", "Moving Average", "overlay", 20)
+    crate::descriptors::period_descriptor("TEMA", "TEMA", "Moving Average", "overlay", 50)
 }
 
 #[cfg(test)]

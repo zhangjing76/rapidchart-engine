@@ -64,14 +64,14 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
             crate::descriptors::ParamDescriptor {
                 name: "period",
                 label: "Period",
-                default: 14.0,
+                default: 5.0,
                 min: 1.0,
                 step: "1",
             },
             crate::descriptors::ParamDescriptor {
                 name: "multiplier",
                 label: "Multiplier",
-                default: 2.0,
+                default: 3.0,
                 min: 0.1,
                 step: "0.1",
             },

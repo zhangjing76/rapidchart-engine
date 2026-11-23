@@ -44,7 +44,7 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         "PSYCHOLOGICAL LINE",
         "Trend Analysis",
         "separate",
-        12,
+        20,
     )
 }
 

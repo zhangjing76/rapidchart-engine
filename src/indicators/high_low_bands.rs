@@ -66,7 +66,7 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         params: vec![crate::descriptors::ParamDescriptor {
             name: "period",
             label: "Period",
-            default: 14.0,
+            default: 10.0,
             min: 1.0,
             step: "1",
         }],

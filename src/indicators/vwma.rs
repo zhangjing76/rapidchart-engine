@@ -44,7 +44,7 @@ pub fn latest_vwma_store(store: &CandleStore, period: usize) -> Option<f64> {
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("VWMA", "VWMA", "Moving Average", "overlay", 20)
+    crate::descriptors::period_descriptor("VWMA", "VWMA", "Moving Average", "overlay", 50)
 }
 
 #[cfg(test)]

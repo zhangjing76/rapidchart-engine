@@ -35,7 +35,7 @@ pub fn latest_qstick_store(store: &CandleStore, period: usize) -> Option<f64> {
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("QSTICK", "QSTICK", "Trend Analysis", "separate", 14)
+    crate::descriptors::period_descriptor("QSTICK", "QSTICK", "Trend Analysis", "separate", 8)
 }
 
 #[cfg(test)]

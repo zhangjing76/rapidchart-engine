@@ -59,7 +59,7 @@ pub fn latest_dema_store(
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("DEMA", "DEMA", "Moving Average", "overlay", 20)
+    crate::descriptors::period_descriptor("DEMA", "DEMA", "Moving Average", "overlay", 50)
 }
 
 #[cfg(test)]

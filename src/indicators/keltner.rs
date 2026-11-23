@@ -127,7 +127,7 @@ pub(crate) fn starc_descriptor() -> crate::descriptors::IndicatorDescriptor {
             crate::descriptors::ParamDescriptor {
                 name: "multiplier",
                 label: "Multiplier",
-                default: 2.0,
+                default: 1.3,
                 min: 0.1,
                 step: "0.1",
             },
@@ -150,14 +150,14 @@ pub(crate) fn keltner_descriptor() -> crate::descriptors::IndicatorDescriptor {
             crate::descriptors::ParamDescriptor {
                 name: "period",
                 label: "Period",
-                default: 20.0,
+                default: 10.0,
                 min: 1.0,
                 step: "1",
             },
             crate::descriptors::ParamDescriptor {
                 name: "multiplier",
                 label: "Multiplier",
-                default: 2.0,
+                default: 5.0,
                 min: 1.0,
                 step: "0.1",
             },

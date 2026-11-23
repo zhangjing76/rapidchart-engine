@@ -35,7 +35,7 @@ pub fn sma_close_store(store: &CandleStore, period: usize, nodes: &mut NodeCache
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor("SMA", "SMA", "Moving Average", "overlay", 20)
+    crate::descriptors::period_descriptor("SMA", "SMA", "Moving Average", "overlay", 50)
 }
 
 #[cfg(test)]

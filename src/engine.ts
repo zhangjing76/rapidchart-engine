@@ -312,7 +312,7 @@ export class RapidChartEngine {
       bar.close,
       bar.volume,
     );
-    this.#updateSpacingForBar(bar.time);
+    this.updateSpacingForBar(bar.time);
   }
 
   candles(): Bar[] {
@@ -418,7 +418,7 @@ export class RapidChartEngine {
     return this.#engine.dag_debug() as DagDebug;
   }
 
-  #updateSpacingForBar(time: number) {
+  private updateSpacingForBar(time: number) {
     const previousTime = this.#lastBarTime;
     this.#lastBarTime = time;
     if (previousTime === undefined) return;

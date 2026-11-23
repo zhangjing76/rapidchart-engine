@@ -21,6 +21,7 @@ mod helpers;
 mod indicators;
 mod series;
 mod types;
+mod volume_by_price;
 
 #[cfg(test)]
 mod tests;
@@ -393,6 +394,26 @@ impl ChartEngine {
         js_set(&out, "volume", unsafe {
             Float64Array::view(&self.bars.volume)
         })?;
+        Ok(out.into())
+    }
+
+    /// Volume by price over bars `from..=to` in `buckets` equal price buckets, or null when the
+    /// range is empty. Returns `{ low, high, up, down }`; `up` and `down` are copies, so they stay
+    /// valid after later engine calls.
+    pub fn volume_profile(&self, from: u32, to: u32, buckets: u32) -> Result<JsValue, JsValue> {
+        let Some(profile) = volume_by_price::volume_by_price(
+            &self.bars,
+            from as usize,
+            to as usize,
+            buckets as usize,
+        ) else {
+            return Ok(JsValue::NULL);
+        };
+        let out = Object::new();
+        js_set(&out, "low", JsValue::from_f64(profile.low))?;
+        js_set(&out, "high", JsValue::from_f64(profile.high))?;
+        js_set(&out, "up", Float64Array::from(profile.up.as_slice()))?;
+        js_set(&out, "down", Float64Array::from(profile.down.as_slice()))?;
         Ok(out.into())
     }
 

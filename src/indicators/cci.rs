@@ -12,6 +12,17 @@ pub fn typical_price_at(store: &CandleStore, index: usize) -> f64 {
     typical_price_parts(store.high[index], store.low[index], store.close[index])
 }
 
+/// CCI from the latest typical price, the window's average and its mean deviation. A window whose
+/// typical prices are all the same has a mean deviation of rounding noise only; it gives 0 rather
+/// than a ratio of two noise values.
+fn cci_value(typical: f64, sma: f64, mean_deviation: f64) -> f64 {
+    if mean_deviation <= 1e-10 * sma.abs() {
+        0.0
+    } else {
+        (typical - sma) / (0.015 * mean_deviation)
+    }
+}
+
 pub fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("cci:hlc:{period}");
     if let Some(values) = nodes.get(&key) {
@@ -33,11 +44,7 @@ pub fn cci_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> R
             .map(|value| (value - sma).abs())
             .sum::<f64>()
             / period as f64;
-        *item = if mean_deviation == 0.0 {
-            0.0
-        } else {
-            (hlc3[index] - sma) / (0.015 * mean_deviation)
-        };
+        *item = cci_value(hlc3[index], sma, mean_deviation);
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
@@ -58,11 +65,7 @@ pub fn latest_cci_store(store: &CandleStore, period: usize) -> Option<f64> {
         .map(|value| (value - sma).abs())
         .sum::<f64>()
         / period as f64;
-    Some(if mean_deviation == 0.0 {
-        0.0
-    } else {
-        (hlc3_last - sma) / (0.015 * mean_deviation)
-    })
+    Some(cci_value(hlc3_last, sma, mean_deviation))
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
@@ -104,5 +107,15 @@ mod tests {
 
         assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0]);
         assert_eq!(latest_cci_store(&store, 3), Some(0.0));
+    }
+
+    #[test]
+    fn cci_is_zero_for_a_flat_window_despite_rounding() {
+        // A typical price that cannot be represented exactly leaves rounding noise in the average.
+        let bar = (5300.1, 5299.9, 5300.3);
+        let store = ohlc_store(&[bar; 25]);
+        let values = cci_store(&store, 20, &mut HashMap::new());
+        assert!(values[19..].iter().all(|&v| v == 0.0));
+        assert_eq!(latest_cci_store(&store, 20), Some(0.0));
     }
 }

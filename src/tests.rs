@@ -766,9 +766,10 @@ mod tests {
             *stddev_store(&store, 4, &mut HashMap::new()),
             stddev_store(&store, 4, &mut HashMap::new())
         );
-        assert_vec_eq!(
-            *trix_store(&store, 3, &mut HashMap::new()),
-            &trix_store(&store, 3, &mut HashMap::new())
+        assert_outputs_eq(
+            &trix_store(&store, 3, &mut HashMap::new()),
+            &trix_store(&store, 3, &mut HashMap::new()),
+            &["value", "ema1", "ema2", "ema3"],
         );
         assert_vec_eq!(
             *tsi_store(&store, 4, 2, &mut HashMap::new()),

@@ -461,8 +461,8 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("nvi100:cv:sma:{}", indicator.period),
         ],
         IndicatorKind::POSITIVE_VOLUME_INDEX => vec![
-            "pvi:cv".to_string(),
-            format!("pvi:cv:sma:{}", indicator.period),
+            "pvi100:cv".to_string(),
+            format!("pvi100:cv:sma:{}", indicator.period),
         ],
         IndicatorKind::PRICE_VOLUME_TREND => vec!["pvt:cv".to_string()],
         IndicatorKind::TRADE_VOLUME_INDEX => vec!["tvi:cv".to_string()],
@@ -1365,12 +1365,12 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::POSITIVE_VOLUME_INDEX => {
-            let sma = format!("pvi:cv:sma:{}", indicator.period);
+            let sma = format!("pvi100:cv:sma:{}", indicator.period);
             vec![
-                edge("close", "pvi:cv"),
-                edge("volume", "pvi:cv"),
-                edge("pvi:cv", indicator_node),
-                edge("pvi:cv", &sma),
+                edge("close", "pvi100:cv"),
+                edge("volume", "pvi100:cv"),
+                edge("pvi100:cv", indicator_node),
+                edge("pvi100:cv", &sma),
                 edge(&sma, indicator_node),
             ]
         }

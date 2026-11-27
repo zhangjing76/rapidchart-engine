@@ -3,11 +3,14 @@ use crate::{CandleStore, NamedSeries, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+/// The index's starting level.
+const BASE: f64 = 100.0;
+
 /// Positive Volume Index (PVI):
-/// Starts at 1000. Only changes on days when volume increases.
+/// Starts at 100. Only changes on days when volume increases.
 /// PVI = prev_PVI + (close - prev_close) / prev_close * prev_PVI  (when volume > prev_volume)
 pub fn positive_volume_index_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
-    let key = "pvi:cv".to_string();
+    let key = "pvi100:cv".to_string();
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
@@ -18,7 +21,7 @@ pub fn positive_volume_index_store(store: &CandleStore, nodes: &mut NodeCache) -
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    out[0] = 1000.0;
+    out[0] = BASE;
     for i in 1..len {
         if store.volume[i] > store.volume[i - 1] && store.close[i - 1] != 0.0 {
             let roc = (store.close[i] - store.close[i - 1]) / store.close[i - 1];
@@ -41,12 +44,12 @@ pub fn latest_positive_volume_index_store(
         return None;
     }
     if len == 1 {
-        return Some(1000.0);
+        return Some(BASE);
     }
     let prev_pvi = prev
         .and_then(|s| s.get(len - 2).copied())
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
-        .unwrap_or(1000.0);
+        .unwrap_or(BASE);
     if store.volume[len - 1] > store.volume[len - 2] && store.close[len - 2] != 0.0 {
         let roc = (store.close[len - 1] - store.close[len - 2]) / store.close[len - 2];
         Some(prev_pvi + roc * prev_pvi)
@@ -127,10 +130,10 @@ mod tests {
         let store = ohlcv_store(&[(10.0, 1.0), (11.0, 2.0), (12.0, 1.0)]);
         let values = positive_volume_index_store(&store, &mut HashMap::new());
 
-        assert_series_close(&values, &[1000.0, 1100.0, 1100.0]);
+        assert_series_close(&values, &[100.0, 110.0, 110.0]);
         assert_eq!(
             latest_positive_volume_index_store(&store, Some(&values[..])),
-            Some(1100.0)
+            Some(110.0)
         );
     }
 }

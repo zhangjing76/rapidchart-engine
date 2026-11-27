@@ -72,7 +72,7 @@ pub(crate) fn edge(from: &str, to: &str) -> DagEdge {
 pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
     match indicator.kind {
         IndicatorKind::SMA => vec![format!("sma:close:{}", indicator.period)],
-        IndicatorKind::EMA => vec![format!("ema:close:{}", indicator.period)],
+        IndicatorKind::EMA => vec![format!("ema_sma:close:{}", indicator.period)],
         IndicatorKind::WMA => vec![format!("wma:close:{}", indicator.period)],
         IndicatorKind::HMA => vec![
             format!("wma:close:{}", indicator.period / 2),

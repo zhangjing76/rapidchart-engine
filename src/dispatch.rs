@@ -36,7 +36,6 @@ use crate::indicators::ease_of_movement::ease_of_movement_store;
 use crate::indicators::ehler_fisher::ehler_fisher_store;
 use crate::indicators::elder_impulse::elder_impulse_store;
 use crate::indicators::elder_ray::elder_ray_store;
-use crate::indicators::ema::ema_close_store;
 use crate::indicators::envelope::envelope_store;
 use crate::indicators::force_index::force_index_store;
 use crate::indicators::fractal_chaos_bands::fractal_chaos_bands_store;
@@ -150,7 +149,7 @@ pub(crate) fn compute_indicator_store(
 ) -> IndicatorArena {
     match kind {
         IndicatorKind::SMA => sma_close_store(store, period, nodes).into_arena(),
-        IndicatorKind::EMA => ema_close_store(store, period, nodes).into_arena(),
+        IndicatorKind::EMA => ema_sma_seeded_close_store(store, period, nodes).into_arena(),
         IndicatorKind::RSI => rsi_outputs_store(store, period, nodes).into_arena(),
         IndicatorKind::ROC => roc_store(store, period, nodes).into_arena(),
         IndicatorKind::CCI => cci_store(store, period, nodes).into_arena(),
@@ -436,7 +435,8 @@ pub(crate) fn update_indicator_incremental(
             latest_sma_store(store, indicator.period),
         ),
         IndicatorKind::EMA => {
-            let value = latest_ema_store(store, indicator.period, indicator.outputs.get_slot(0));
+            let value =
+                latest_ema_sma_seeded_store(store, indicator.period, indicator.outputs.get_slot(0));
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::RSI => {

@@ -481,7 +481,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         ],
         IndicatorKind::PRICE_VOLUME_TREND => vec!["pvt:cv".to_string()],
         IndicatorKind::TRADE_VOLUME_INDEX => vec!["tvi:cv".to_string()],
-        IndicatorKind::TWIGGS_MONEY_FLOW => vec![format!("tmf:hlcv:{}", indicator.period)],
+        IndicatorKind::TWIGGS_MONEY_FLOW => vec![format!("tmf_wilder:hlcv:{}", indicator.period)],
         IndicatorKind::PROJECTED_AGGREGATE_VOLUME => vec![format!("pav:v:{}", indicator.period)],
         IndicatorKind::PROJECTED_VOLUME_AT_TIME => vec![format!("pvat:v:{}", indicator.period)],
         IndicatorKind::HISTORICAL_VOLATILITY => vec![format!("hv_pop:close:{}", indicator.period)],
@@ -1422,7 +1422,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("tvi:cv", indicator_node),
         ],
         IndicatorKind::TWIGGS_MONEY_FLOW => {
-            let t = format!("tmf:hlcv:{}", indicator.period);
+            let t = format!("tmf_wilder:hlcv:{}", indicator.period);
             vec![
                 edge("high", &t),
                 edge("low", &t),

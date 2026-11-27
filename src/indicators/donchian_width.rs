@@ -1,4 +1,4 @@
-use crate::indicators::donchian::donchian_store;
+use crate::indicators::donchian::price_channel_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
@@ -14,7 +14,8 @@ pub fn donchian_width_store(store: &CandleStore, period: usize, nodes: &mut Node
     if let Some(v) = nodes.get(&key) {
         return Rc::clone(v);
     }
-    let dc = donchian_store(store, period, nodes);
+    // The channel of the last period bars including the current one (Price Channel's window).
+    let dc = price_channel_store(store, period, nodes);
     let upper = &dc[UPPER_SLOT].values;
     let middle = &dc[MIDDLE_SLOT].values;
     let lower = &dc[LOWER_SLOT].values;

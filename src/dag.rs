@@ -86,10 +86,10 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("dema_sma:value:{}", indicator.period),
         ],
         IndicatorKind::TEMA => vec![
-            format!("ema:close:{}", indicator.period),
-            format!("tema:ema2:{}", indicator.period),
-            format!("tema:ema3:{}", indicator.period),
-            format!("tema:value:{}", indicator.period),
+            format!("ema_sma:close:{}", indicator.period),
+            format!("tema_sma:ema2:{}", indicator.period),
+            format!("tema_sma:ema3:{}", indicator.period),
+            format!("tema_sma:value:{}", indicator.period),
         ],
         IndicatorKind::TRIMA => vec![
             format!("sma:close:{}", triangular_windows(indicator.period).0),
@@ -599,10 +599,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::TEMA => {
-            let e1 = format!("ema:close:{}", indicator.period);
-            let e2 = format!("tema:ema2:{}", indicator.period);
-            let e3 = format!("tema:ema3:{}", indicator.period);
-            let t = format!("tema:value:{}", indicator.period);
+            let e1 = format!("ema_sma:close:{}", indicator.period);
+            let e2 = format!("tema_sma:ema2:{}", indicator.period);
+            let e3 = format!("tema_sma:ema3:{}", indicator.period);
+            let t = format!("tema_sma:value:{}", indicator.period);
             vec![
                 edge("close", &e1),
                 edge(&e1, &e2),

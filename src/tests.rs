@@ -553,10 +553,10 @@ mod tests {
         assert_eq!(
             indicator_nodes(&indicator),
             vec![
-                "ema:close:15",
-                "tema:ema2:15",
-                "tema:ema3:15",
-                "tema:value:15"
+                "ema_sma:close:15",
+                "tema_sma:ema2:15",
+                "tema_sma:ema3:15",
+                "tema_sma:value:15"
             ]
         );
     }
@@ -888,9 +888,10 @@ mod tests {
             &dema_store(&store, 5, &mut HashMap::new()),
             &["value", "ema1", "ema2"],
         );
-        assert_vec_eq!(
-            *tema_store(&store, 5, &mut HashMap::new()),
-            &tema_store(&store, 5, &mut HashMap::new())
+        assert_outputs_eq(
+            &tema_store(&store, 5, &mut HashMap::new()),
+            &tema_store(&store, 5, &mut HashMap::new()),
+            &["value", "ema1", "ema2", "ema3"],
         );
         assert_vec_eq!(
             *trima_store(&store, 5, &mut HashMap::new()),
@@ -1075,21 +1076,15 @@ mod tests {
     fn tema_matches_latest_value() {
         let bars = bars(&(1..=20).map(|value| value as f64).collect::<Vec<_>>());
         let store = store_from_bars(bars);
-        let mut nodes = HashMap::new();
-        let ema1_series = rc_into_owned(ema_close_store(&store, 5, &mut nodes));
-        let ema2_series = ema_series(&ema1_series, 5);
-        let ema3_series = ema_series(&ema2_series, 5);
-        let arena = IndicatorArena::from_owned_outputs(vec![
-            ("ema1".to_string(), ema1_series),
-            ("ema2".to_string(), ema2_series),
-            ("ema3".to_string(), ema3_series),
-        ]);
+        let full = tema_store(&store, 5, &mut HashMap::new());
+        let arena = IndicatorArena::from_owned_outputs(
+            full.iter()
+                .map(|o| (o.name.clone(), o.values[..o.values.len() - 1].to_vec()))
+                .collect(),
+        );
         assert_eq!(
             latest_tema_store(&store, 5, &arena).0,
-            tema_store(&store, 5, &mut HashMap::new())
-                .last()
-                .copied()
-                .and_then(nan_to_none)
+            full[0].values.last().copied().and_then(nan_to_none)
         );
     }
 

@@ -1,4 +1,4 @@
-use crate::indicators::ema::{ema_close_store, latest_ema_store};
+use crate::indicators::ema::{ema_sma_seeded_close_store, latest_ema_sma_seeded_store};
 use crate::CandleStore;
 use crate::NodeCache;
 
@@ -38,20 +38,20 @@ fn output_name(prefix: &str, period: usize) -> String {
     format!("{prefix}_{period}")
 }
 
-/// Guppy Multiple Moving Average: 12 EMA lines.
+/// Guppy Multiple Moving Average: 12 EMA lines, each starting with a simple average.
 
 pub fn gmma_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let mut outputs = Vec::with_capacity(12);
     for &p in &SHORT_PERIODS {
         outputs.push(crate::named_series(
             output_name("short", p),
-            ema_close_store(store, p, nodes),
+            ema_sma_seeded_close_store(store, p, nodes),
         ));
     }
     for &p in &LONG_PERIODS {
         outputs.push(crate::named_series(
             output_name("long", p),
-            ema_close_store(store, p, nodes),
+            ema_sma_seeded_close_store(store, p, nodes),
         ));
     }
     outputs
@@ -64,12 +64,12 @@ pub fn latest_gmma_store(
     let mut results = Vec::with_capacity(12);
     for (&p, &slot) in SHORT_PERIODS.iter().zip(SHORT_SLOTS.iter()) {
         let name = output_name("short", p);
-        let val = latest_ema_store(store, p, outputs.get_slot(slot));
+        let val = latest_ema_sma_seeded_store(store, p, outputs.get_slot(slot));
         results.push((name, val));
     }
     for (&p, &slot) in LONG_PERIODS.iter().zip(LONG_SLOTS.iter()) {
         let name = output_name("long", p);
-        let val = latest_ema_store(store, p, outputs.get_slot(slot));
+        let val = latest_ema_sma_seeded_store(store, p, outputs.get_slot(slot));
         results.push((name, val));
     }
     results
@@ -119,10 +119,13 @@ mod tests {
 
     #[test]
     fn gmma_is_flat_for_constant_prices() {
-        let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
+        let store = close_store(&[10.0; 60]);
         let outputs = gmma_store(&store, &mut HashMap::new());
-        for series in &outputs {
-            assert_eq!(&*series.values, &[10.0, 10.0, 10.0, 10.0]);
+        let periods = SHORT_PERIODS.iter().chain(LONG_PERIODS.iter());
+        for (series, &period) in outputs.iter().zip(periods) {
+            // Each line starts once it has `period` closes.
+            assert!(series.values[..period - 1].iter().all(|v| v.is_nan()));
+            assert!(series.values[period - 1..].iter().all(|&v| v == 10.0));
         }
 
         let arena = IndicatorArena::from_named_outputs(outputs);
@@ -138,14 +141,23 @@ mod tests {
         let store = close_store(&(1..=60).map(|v| v as f64).collect::<Vec<_>>());
         let outputs = gmma_store(&store, &mut HashMap::new());
 
-        assert_eq!(outputs[0].values[59], 59.0);
-        assert!((outputs[5].values[59] - 53.00265199785418).abs() < 1e-12);
-        assert!((outputs[11].values[59] - 34.62696168835945).abs() < 1e-12);
+        // On a straight line each EMA lags the close by (period - 1) / 2 from its first value.
+        assert!((outputs[0].values[59] - 59.0).abs() < 1e-9);
+        assert!((outputs[5].values[59] - 53.0).abs() < 1e-9);
+        assert!((outputs[11].values[59] - 30.5).abs() < 1e-9);
 
-        let arena = IndicatorArena::from_named_outputs(outputs);
-        let latest = latest_gmma_store(&store, &arena);
-        assert_eq!(latest[0], ("short_3".to_string(), Some(59.0)));
-        assert_eq!(latest[5], ("short_15".to_string(), Some(53.00265199785418)));
-        assert_eq!(latest[11], ("long_60".to_string(), Some(34.62696168835945)));
+        // The arena holds every bar but the last, as it does before a live update.
+        let previous = IndicatorArena::from_named_outputs(
+            outputs
+                .iter()
+                .map(|o| crate::named_series(&o.name, o.values[..59].to_vec()))
+                .collect(),
+        );
+        let latest = latest_gmma_store(&store, &previous);
+        assert_eq!(latest[0].0, "short_3");
+        assert!((latest[0].1.unwrap() - 59.0).abs() < 1e-9);
+        assert!((latest[5].1.unwrap() - 53.0).abs() < 1e-9);
+        // long_60 starts on this bar, so it is calculated from the closes.
+        assert!((latest[11].1.unwrap() - 30.5).abs() < 1e-9);
     }
 }

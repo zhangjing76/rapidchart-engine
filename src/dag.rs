@@ -457,8 +457,8 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         }
         IndicatorKind::MARKET_FACILITATION => vec!["mfi_bw:hlv".to_string()],
         IndicatorKind::NEGATIVE_VOLUME_INDEX => vec![
-            "nvi:cv".to_string(),
-            format!("nvi:cv:sma:{}", indicator.period),
+            "nvi100:cv".to_string(),
+            format!("nvi100:cv:sma:{}", indicator.period),
         ],
         IndicatorKind::POSITIVE_VOLUME_INDEX => vec![
             "pvi:cv".to_string(),
@@ -1355,12 +1355,12 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("mfi_bw:hlv", indicator_node),
         ],
         IndicatorKind::NEGATIVE_VOLUME_INDEX => {
-            let sma = format!("nvi:cv:sma:{}", indicator.period);
+            let sma = format!("nvi100:cv:sma:{}", indicator.period);
             vec![
-                edge("close", "nvi:cv"),
-                edge("volume", "nvi:cv"),
-                edge("nvi:cv", indicator_node),
-                edge("nvi:cv", &sma),
+                edge("close", "nvi100:cv"),
+                edge("volume", "nvi100:cv"),
+                edge("nvi100:cv", indicator_node),
+                edge("nvi100:cv", &sma),
                 edge(&sma, indicator_node),
             ]
         }

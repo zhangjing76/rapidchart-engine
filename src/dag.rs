@@ -181,7 +181,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             "pivot:r3".to_string(),
             "pivot:s3".to_string(),
         ],
-        IndicatorKind::AROON => vec![format!("aroon:hl:{}", indicator.period)],
+        IndicatorKind::AROON => vec![format!("aroon_lookback:hl:{}", indicator.period)],
         IndicatorKind::ADL => vec!["adl:hlcv".to_string()],
         IndicatorKind::KST => vec![
             "roc:close:10".to_string(),
@@ -813,7 +813,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("pivot:s3", indicator_node),
         ],
         IndicatorKind::AROON => {
-            let a = format!("aroon:hl:{}", indicator.period);
+            let a = format!("aroon_lookback:hl:{}", indicator.period);
             vec![edge("high", &a), edge("low", &a), edge(&a, indicator_node)]
         }
         IndicatorKind::ADL => vec![

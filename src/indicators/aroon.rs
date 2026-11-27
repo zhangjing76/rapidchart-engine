@@ -9,21 +9,21 @@ pub fn aroon_store(
     period: usize,
     nodes: &mut NodeCache,
 ) -> Vec<crate::NamedSeries> {
-    let key = format!("aroon:hl:{period}");
+    let key = format!("aroon_lookback:hl:{period}");
     if let Some(values) = nodes.get(&key) {
         return vec![
             crate::named_series("up", Rc::clone(values)),
             crate::named_series(
                 "down",
                 nodes
-                    .get(&format!("aroon:down:{period}"))
+                    .get(&format!("aroon_lookback:down:{period}"))
                     .map(Rc::clone)
                     .unwrap_or_else(|| Rc::new(Vec::new())),
             ),
             crate::named_series(
                 "oscillator",
                 nodes
-                    .get(&format!("aroon:oscillator:{period}"))
+                    .get(&format!("aroon_lookback:oscillator:{period}"))
                     .map(Rc::clone)
                     .unwrap_or_else(|| Rc::new(Vec::new())),
             ),
@@ -32,31 +32,34 @@ pub fn aroon_store(
     let mut up = vec![f64::NAN; store.len()];
     let mut down = vec![f64::NAN; store.len()];
     let mut oscillator = vec![f64::NAN; store.len()];
-    if period == 0 || store.len() < period {
+    if period == 0 || store.len() <= period {
         return vec![
             crate::named_series("up", up),
             crate::named_series("down", down),
             crate::named_series("oscillator", oscillator),
         ];
     }
-    for index in period - 1..store.len() {
+    // The lookback covers the current bar plus the previous `period` bars, so
+    // the time since the extreme runs from 0 to `period` and the lines span
+    // 0..=100. On ties the most recent bar wins.
+    for index in period..store.len() {
         let mut highest_index = 0;
         let mut highest = f64::NEG_INFINITY;
         let mut lowest_index = 0;
         let mut lowest = f64::INFINITY;
-        for offset in 0..period {
-            let window_index = index + 1 - period + offset;
-            if store.high[window_index] > highest {
+        for offset in 0..=period {
+            let window_index = index - period + offset;
+            if store.high[window_index] >= highest {
                 highest = store.high[window_index];
                 highest_index = offset;
             }
-            if store.low[window_index] < lowest {
+            if store.low[window_index] <= lowest {
                 lowest = store.low[window_index];
                 lowest_index = offset;
             }
         }
-        let periods_since_high = period - 1 - highest_index;
-        let periods_since_low = period - 1 - lowest_index;
+        let periods_since_high = period - highest_index;
+        let periods_since_low = period - lowest_index;
         let up_value = 100.0 * (period - periods_since_high) as f64 / period as f64;
         let down_value = 100.0 * (period - periods_since_low) as f64 / period as f64;
         up[index] = up_value;
@@ -64,9 +67,12 @@ pub fn aroon_store(
         oscillator[index] = up_value - down_value;
     }
     nodes.insert(key, Rc::new(up.clone()));
-    nodes.insert(format!("aroon:down:{period}"), Rc::new(down.clone()));
     nodes.insert(
-        format!("aroon:oscillator:{period}"),
+        format!("aroon_lookback:down:{period}"),
+        Rc::new(down.clone()),
+    );
+    nodes.insert(
+        format!("aroon_lookback:oscillator:{period}"),
         Rc::new(oscillator.clone()),
     );
     vec![
@@ -138,34 +144,41 @@ mod tests {
     }
 
     #[test]
-    fn aroon_is_the_manual_time_since_high_and_low() {
+    fn aroon_looks_back_over_the_current_and_previous_period_bars() {
         let store = ohlc_store(&[
             (1.0, 1.0, 1.0),
             (2.0, 2.0, 2.0),
             (3.0, 3.0, 3.0),
             (4.0, 4.0, 4.0),
+            (4.0, 4.0, 4.0),
         ]);
         let outputs = aroon_store(&store, 3, &mut HashMap::new());
 
+        // Bar 3: high is the current bar, low is three bars back.
+        // Bar 4: the high ties bars 3 and 4 and counts as bar 4; the window's
+        // low (bar 1) is three bars back.
         assert_series_close(
             outputs[0].values.as_slice(),
-            &[f64::NAN, f64::NAN, 100.0, 100.0],
+            &[f64::NAN, f64::NAN, f64::NAN, 100.0, 100.0],
         );
         assert_series_close(
             outputs[1].values.as_slice(),
-            &[f64::NAN, f64::NAN, 33.333333333333336, 33.333333333333336],
+            &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0],
         );
         assert_series_close(
             outputs[2].values.as_slice(),
-            &[f64::NAN, f64::NAN, 66.66666666666666, 66.66666666666666],
+            &[f64::NAN, f64::NAN, f64::NAN, 100.0, 100.0],
         );
         assert_eq!(
             latest_aroon_store(&store, 3),
-            (
-                Some(100.0),
-                Some(33.333333333333336),
-                Some(66.66666666666666)
-            )
+            (Some(100.0), Some(0.0), Some(100.0))
         );
+    }
+
+    #[test]
+    fn aroon_needs_more_than_period_bars() {
+        let store = ohlc_store(&[(1.0, 1.0, 1.0), (2.0, 2.0, 2.0), (3.0, 3.0, 3.0)]);
+        let outputs = aroon_store(&store, 3, &mut HashMap::new());
+        assert!(outputs[0].values.iter().all(|value| value.is_nan()));
     }
 }

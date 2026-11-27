@@ -491,7 +491,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             "bb_bw:{}:{}",
             indicator.period, indicator.multiplier
         )],
-        IndicatorKind::DONCHIAN_WIDTH => vec![format!("donchian_width:{}", indicator.period)],
+        IndicatorKind::DONCHIAN_WIDTH => {
+            vec![format!("donchian_width_points:{}", indicator.period)]
+        }
         IndicatorKind::GOPALAKRISHNAN_RANGE => vec![format!("gapo:hl:{}", indicator.period)],
         IndicatorKind::HIGH_MINUS_LOW => vec!["hml:hl".to_string()],
         IndicatorKind::MASS_INDEX => vec![format!("mass_sma:hl:{}", indicator.period)],
@@ -1501,7 +1503,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &b), edge(&b, indicator_node)]
         }
         IndicatorKind::DONCHIAN_WIDTH => {
-            let d = format!("donchian_width:{}", indicator.period);
+            let d = format!("donchian_width_points:{}", indicator.period);
             vec![edge("high", &d), edge("low", &d), edge(&d, indicator_node)]
         }
         IndicatorKind::GOPALAKRISHNAN_RANGE => {

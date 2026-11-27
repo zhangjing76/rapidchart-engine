@@ -1,35 +1,24 @@
-use crate::indicators::donchian::price_channel_store;
+use crate::indicators::donchian::donchian_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Donchian Width: (upper - lower) / middle * 100
 const UPPER_SLOT: usize = 0;
-const MIDDLE_SLOT: usize = 1;
 const LOWER_SLOT: usize = 2;
 
+/// Donchian Width: the Donchian Channel's upper minus lower line, in price points. It uses the
+/// same window as the channel (the previous `period` bars, not counting the current bar), so the
+/// first value is at bar `period`.
 pub fn donchian_width_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
-    let key = format!("donchian_width:{}", period);
+    let key = format!("donchian_width_points:{}", period);
     if let Some(v) = nodes.get(&key) {
         return Rc::clone(v);
     }
-    // The channel of the last period bars including the current one (Price Channel's window).
-    let dc = price_channel_store(store, period, nodes);
+    let dc = donchian_store(store, period, nodes);
     let upper = &dc[UPPER_SLOT].values;
-    let middle = &dc[MIDDLE_SLOT].values;
     let lower = &dc[LOWER_SLOT].values;
-    let len = store.len();
-    let mut out = vec![f64::NAN; len];
-    for i in 0..len {
-        if !upper[i].is_nan()
-            && !middle[i].is_nan()
-            && !lower[i].is_nan()
-            && middle[i].abs() > 1e-10
-        {
-            out[i] = ((upper[i] - lower[i]) / middle[i]) * 100.0;
-        }
-    }
+    let out: Vec<f64> = upper.iter().zip(lower.iter()).map(|(u, l)| u - l).collect();
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
@@ -84,16 +73,22 @@ mod tests {
         let store = ohlc_store(&[(2.0, 2.0, 2.0), (2.0, 2.0, 2.0), (2.0, 2.0, 2.0)]);
         let values = donchian_width_store(&store, 2, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, 0.0, 0.0]);
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0]);
         assert_eq!(latest_donchian_width_store(&store, 2), Some(0.0));
     }
 
     #[test]
-    fn donchian_width_is_the_channel_span_relative_to_middle() {
-        let store = ohlc_store(&[(2.0, 0.0, 1.0), (4.0, 2.0, 3.0), (6.0, 4.0, 5.0)]);
+    fn donchian_width_spans_the_previous_period_bars() {
+        let store = ohlc_store(&[
+            (2.0, 0.0, 1.0),
+            (4.0, 2.0, 3.0),
+            (6.0, 4.0, 5.0),
+            (9.0, 1.0, 5.0),
+        ]);
         let values = donchian_width_store(&store, 2, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, 200.0, 100.0]);
-        assert_eq!(latest_donchian_width_store(&store, 2), Some(100.0));
+        // Bar 2: bars 0-1 give 4 - 0. Bar 3: bars 1-2 give 6 - 2; bar 3's own range is ignored.
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 4.0, 4.0]);
+        assert_eq!(latest_donchian_width_store(&store, 2), Some(4.0));
     }
 }

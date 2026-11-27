@@ -683,10 +683,8 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "slow_ema", target_len, slow_ema);
         }
         IndicatorKind::FORCE_INDEX => {
-            let (value, fi_ema) =
-                latest_force_index_store(store, indicator.period, &indicator.outputs);
+            let value = latest_force_index_store(store, indicator.period, &indicator.outputs);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
-            upsert_output(&mut indicator.outputs, "fi_ema", target_len, fi_ema);
         }
         IndicatorKind::VWMA => {
             let value = latest_vwma_store(store, indicator.period);

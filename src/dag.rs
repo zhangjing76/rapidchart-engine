@@ -311,7 +311,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             ),
         ],
         IndicatorKind::FRACTAL_CHAOS_BANDS => {
-            vec!["fcb:upper".to_string(), "fcb:lower".to_string()]
+            vec!["fcb_ties:upper".to_string(), "fcb_ties:lower".to_string()]
         }
         IndicatorKind::GMMA => {
             let mut nodes = Vec::with_capacity(12);
@@ -383,7 +383,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("ema_sma:close:{}", indicator.period),
             format!("elder_ray:hl:{}", indicator.period),
         ],
-        IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => vec!["fco:hl".to_string()],
+        IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => vec!["fco_ties:hl".to_string()],
         IndicatorKind::GATOR_OSCILLATOR => {
             vec!["gator:upper".to_string(), "gator:lower".to_string()]
         }
@@ -1047,12 +1047,12 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::FRACTAL_CHAOS_BANDS => vec![
-            edge("high", "fcb:upper"),
-            edge("low", "fcb:upper"),
-            edge("high", "fcb:lower"),
-            edge("low", "fcb:lower"),
-            edge("fcb:upper", indicator_node),
-            edge("fcb:lower", indicator_node),
+            edge("high", "fcb_ties:upper"),
+            edge("low", "fcb_ties:upper"),
+            edge("high", "fcb_ties:lower"),
+            edge("low", "fcb_ties:lower"),
+            edge("fcb_ties:upper", indicator_node),
+            edge("fcb_ties:lower", indicator_node),
         ],
         IndicatorKind::GMMA => {
             let mut edges = Vec::new();
@@ -1225,9 +1225,9 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => vec![
-            edge("high", "fco:hl"),
-            edge("low", "fco:hl"),
-            edge("fco:hl", indicator_node),
+            edge("high", "fco_ties:hl"),
+            edge("low", "fco_ties:hl"),
+            edge("fco_ties:hl", indicator_node),
         ],
         IndicatorKind::GATOR_OSCILLATOR => vec![
             edge("high", "gator:upper"),

@@ -561,12 +561,13 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "chikou", target_len, chikou);
         }
         IndicatorKind::PIVOT_POINTS => {
-            let (pp, r1, s1, r2, s2) = latest_pivot_points_store(store);
-            upsert_output(&mut indicator.outputs, "pp", target_len, pp);
-            upsert_output(&mut indicator.outputs, "r1", target_len, r1);
-            upsert_output(&mut indicator.outputs, "s1", target_len, s1);
-            upsert_output(&mut indicator.outputs, "r2", target_len, r2);
-            upsert_output(&mut indicator.outputs, "s2", target_len, s2);
+            let levels = latest_pivot_points_store(store);
+            for (name, value) in ["pp", "r1", "s1", "r2", "s2", "r3", "s3"]
+                .iter()
+                .zip(levels)
+            {
+                upsert_output(&mut indicator.outputs, name, target_len, value);
+            }
         }
         IndicatorKind::AROON => {
             let (up, down, oscillator) = latest_aroon_store(store, indicator.period);

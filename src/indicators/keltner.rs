@@ -1,6 +1,6 @@
 use crate::indicators::atr::{atr_store, latest_atr_store};
 use crate::indicators::bollinger::bollinger_outputs;
-use crate::indicators::ema::{ema_close_store, latest_ema_store};
+use crate::indicators::ema::{ema_sma_seeded_close_store, latest_ema_sma_seeded_store};
 use crate::indicators::sma::{latest_sma_store, sma_close_store};
 use crate::rc_into_owned;
 use crate::CandleStore;
@@ -11,13 +11,15 @@ use std::rc::Rc;
 const MIDDLE_SLOT: usize = 1;
 const ATR_STATE_SLOT: usize = 3;
 
+/// Keltner Channel: an EMA of the close (starting with a simple average) with bands `multiplier`
+/// x ATR(period) above and below it. The bands start once the ATR has a value.
 pub fn keltner_store(
     store: &CandleStore,
     period: usize,
     multiplier: f64,
     nodes: &mut NodeCache,
 ) -> Vec<crate::NamedSeries> {
-    let middle = rc_into_owned(ema_close_store(store, period, nodes));
+    let middle = rc_into_owned(ema_sma_seeded_close_store(store, period, nodes));
     let atr = rc_into_owned(atr_store(store, period, nodes));
     let mut upper = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
@@ -52,7 +54,7 @@ pub fn latest_keltner_store(
     multiplier: f64,
     outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let middle = latest_ema_store(store, period, outputs.get_slot(MIDDLE_SLOT));
+    let middle = latest_ema_sma_seeded_store(store, period, outputs.get_slot(MIDDLE_SLOT));
     let atr = latest_atr_store(store, period, outputs.get_slot(ATR_STATE_SLOT));
     match (middle, atr) {
         (Some(middle), Some(atr)) => (
@@ -210,25 +212,45 @@ mod tests {
         let outputs = keltner_store(&store, 3, 2.0, &mut HashMap::new());
         let arena = crate::IndicatorArena::from_named_outputs(outputs.clone());
 
-        assert_series_close(
-            outputs[0].values.as_slice(),
-            &[f64::NAN, f64::NAN, f64::NAN, 5.125, 6.0625],
-        );
-        assert_series_close(
-            outputs[1].values.as_slice(),
-            &[1.0, 1.5, 2.25, 3.125, 4.0625],
-        );
-        assert_series_close(
-            outputs[2].values.as_slice(),
-            &[f64::NAN, f64::NAN, f64::NAN, 1.125, 2.0625],
-        );
+        let nan = f64::NAN;
+        // EMA(3) starts at bar 2 with (1 + 2 + 3) / 3; ATR(3) is 1 from bar 3.
+        assert_series_close(outputs[0].values.as_slice(), &[nan, nan, nan, 5.0, 6.0]);
+        assert_series_close(outputs[1].values.as_slice(), &[nan, nan, 2.0, 3.0, 4.0]);
+        assert_series_close(outputs[2].values.as_slice(), &[nan, nan, nan, 1.0, 2.0]);
         assert_series_close(
             outputs[3].values.as_slice(),
             &[f64::NAN, f64::NAN, f64::NAN, 1.0, 1.0],
         );
         assert_eq!(
             latest_keltner_store(&store, 3, 2.0, &arena),
-            (Some(6.0625), Some(4.0625), Some(2.0625))
+            (Some(6.0), Some(4.0), Some(2.0))
         );
+    }
+
+    #[test]
+    fn latest_keltner_matches_the_full_calculation() {
+        let bars: Vec<(f64, f64, f64)> = (0..40)
+            .map(|i| {
+                let mid = 50.0 + ((i * 7) % 11) as f64;
+                (mid + 2.0, mid - 2.0, mid + ((i % 3) as f64 - 1.0))
+            })
+            .collect();
+        let full = keltner_store(&ohlc_store(&bars), 10, 5.0, &mut HashMap::new());
+        for len in 1..=bars.len() {
+            let store = ohlc_store(&bars[..len]);
+            let previous = crate::IndicatorArena::from_named_outputs(
+                full.iter()
+                    .map(|o| crate::named_series(&o.name, o.values[..len - 1].to_vec()))
+                    .collect(),
+            );
+            let latest = latest_keltner_store(&store, 10, 5.0, &previous);
+            for (slot, got) in [latest.0, latest.1, latest.2].into_iter().enumerate() {
+                let expect = Some(full[slot].values[len - 1]).filter(|v| !v.is_nan());
+                match (got, expect) {
+                    (Some(a), Some(b)) => assert!((a - b).abs() < 1e-9, "len {len} slot {slot}"),
+                    (a, b) => assert_eq!(a, b, "len {len} slot {slot}"),
+                }
+            }
+        }
     }
 }

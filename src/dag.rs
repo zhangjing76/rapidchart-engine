@@ -208,7 +208,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("supertrend:{}:{}", indicator.period, indicator.multiplier),
         ],
         IndicatorKind::KELTNER => vec![
-            format!("ema:close:{}", indicator.period),
+            format!("ema_sma:close:{}", indicator.period),
             format!("atr:ohlc:{}", indicator.period),
             format!(
                 "keltner:upper:{}:{}",
@@ -869,7 +869,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::KELTNER => {
-            let ema = format!("ema:close:{}", indicator.period);
+            let ema = format!("ema_sma:close:{}", indicator.period);
             let atr = format!("atr:ohlc:{}", indicator.period);
             let u = format!(
                 "keltner:upper:{}:{}",

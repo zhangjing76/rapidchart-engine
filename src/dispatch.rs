@@ -54,7 +54,9 @@ use crate::indicators::intraday_momentum::intraday_momentum_store;
 use crate::indicators::keltner::{keltner_store, starc_store};
 use crate::indicators::klinger_volume::{klinger_outputs, KLINGER_DEFAULTS};
 use crate::indicators::kst::kst_outputs;
-use crate::indicators::linear_reg_forecast::linear_reg_forecast_store;
+use crate::indicators::linear_reg_forecast::{
+    linear_reg_forecast_store, time_series_forecast_store,
+};
 use crate::indicators::linear_reg_intercept::linear_reg_intercept_store;
 use crate::indicators::linear_reg_r2::linear_reg_r2_store;
 use crate::indicators::linear_reg_slope::linear_reg_slope_store;
@@ -267,7 +269,7 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::RAINBOW_MA => rainbow_ma_store(store, period, nodes).into_arena(),
         IndicatorKind::PRIME_NUMBER_BANDS => prime_number_bands_store(store, nodes).into_arena(),
         IndicatorKind::TIME_SERIES_FORECAST => {
-            linear_reg_forecast_store(store, period, nodes).into_arena()
+            time_series_forecast_store(store, period, nodes).into_arena()
         }
         IndicatorKind::VALUATION_LINES => {
             valuation_lines_store(store, period, multiplier, nodes).into_arena()
@@ -879,7 +881,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "lower", target_len, lower);
         }
         IndicatorKind::TIME_SERIES_FORECAST => {
-            let value = latest_linear_reg_forecast_store(store, indicator.period);
+            let value = latest_time_series_forecast_store(store, indicator.period);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::VALUATION_LINES => {

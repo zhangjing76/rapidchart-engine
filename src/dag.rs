@@ -321,7 +321,10 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             nodes
         }
         IndicatorKind::LINEAR_REG_FORECAST => {
-            vec![format!("linreg_forecast:close:{}", indicator.period)]
+            vec![format!(
+                "linreg_forecast_current:close:{}",
+                indicator.period
+            )]
         }
         IndicatorKind::LINEAR_REG_INTERCEPT => {
             vec![format!("linreg_intercept:close:{}", indicator.period)]
@@ -345,7 +348,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             .collect(),
         IndicatorKind::PRIME_NUMBER_BANDS => vec!["pnb:upper".to_string(), "pnb:lower".to_string()],
         IndicatorKind::TIME_SERIES_FORECAST => {
-            vec![format!("linreg_forecast:close:{}", indicator.period)]
+            vec![format!("tsf:close:{}", indicator.period)]
         }
         IndicatorKind::VALUATION_LINES => vec![
             format!("sma:close:{}", indicator.period),
@@ -1064,7 +1067,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edges
         }
         IndicatorKind::LINEAR_REG_FORECAST => {
-            let l = format!("linreg_forecast:close:{}", indicator.period);
+            let l = format!("linreg_forecast_current:close:{}", indicator.period);
             vec![edge("close", &l), edge(&l, indicator_node)]
         }
         IndicatorKind::LINEAR_REG_INTERCEPT => {
@@ -1132,7 +1135,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("pnb:lower", indicator_node),
         ],
         IndicatorKind::TIME_SERIES_FORECAST => {
-            let l = format!("linreg_forecast:close:{}", indicator.period);
+            let l = format!("tsf:close:{}", indicator.period);
             vec![edge("close", &l), edge(&l, indicator_node)]
         }
         IndicatorKind::VALUATION_LINES => {

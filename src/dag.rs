@@ -81,9 +81,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         ],
         IndicatorKind::LINEAR_REGRESSION => vec![format!("linreg:close:{}", indicator.period)],
         IndicatorKind::DEMA => vec![
-            format!("ema:close:{}", indicator.period),
-            format!("dema:ema2:{}", indicator.period),
-            format!("dema:value:{}", indicator.period),
+            format!("ema_sma:close:{}", indicator.period),
+            format!("dema_sma:ema2:{}", indicator.period),
+            format!("dema_sma:value:{}", indicator.period),
         ],
         IndicatorKind::TEMA => vec![
             format!("ema:close:{}", indicator.period),
@@ -588,9 +588,9 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::DEMA => {
-            let e1 = format!("ema:close:{}", indicator.period);
-            let e2 = format!("dema:ema2:{}", indicator.period);
-            let d = format!("dema:value:{}", indicator.period);
+            let e1 = format!("ema_sma:close:{}", indicator.period);
+            let e2 = format!("dema_sma:ema2:{}", indicator.period);
+            let d = format!("dema_sma:value:{}", indicator.period);
             vec![
                 edge("close", &e1),
                 edge(&e1, &e2),

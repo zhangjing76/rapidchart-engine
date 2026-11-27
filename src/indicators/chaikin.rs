@@ -1,5 +1,6 @@
 use crate::indicators::adl::adl_store;
 use crate::indicators::ema::ema_series;
+use crate::indicators::kst::sma_from_series;
 use crate::IndicatorArena;
 use crate::MacdParams;
 use crate::NodeCache;
@@ -30,71 +31,73 @@ pub fn chaikin_oscillator_store(
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
+/// Chaikin Volatility: the percent change over `roc` bars of a `period`-bar simple average of the
+/// high-low range. With the defaults (14, 2) the first value is at bar 15.
 pub fn chaikin_volatility_store(
     store: &CandleStore,
     period: usize,
+    roc: usize,
     nodes: &mut NodeCache,
-) -> RcSeries {
-    let key = format!("cvol:value:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return Rc::clone(values);
+) -> Vec<crate::NamedSeries> {
+    let key = format!("cvol_sma:value:{period}:{roc}");
+    let ma_key = format!("cvol_sma:ma:{period}");
+    if let (Some(value), Some(ma)) = (nodes.get(&key), nodes.get(&ma_key)) {
+        return vec![
+            crate::named_series("value", Rc::clone(value)),
+            crate::named_series("hl_ma", Rc::clone(ma)),
+        ];
     }
-    let ema_key = format!("cvol:ema:{period}");
-    let ranges: Vec<_> = (0..store.len())
+    let ranges: Vec<f64> = (0..store.len())
         .map(|index| store.high[index] - store.low[index])
         .collect();
-    let ema = ema_series(&ranges, period);
-    nodes.insert(ema_key, Rc::new(ema.clone()));
+    let ma = sma_from_series(&ranges, period);
     let mut values = vec![f64::NAN; store.len()];
-    if period != 0 && store.len() > period {
-        for index in period..store.len() {
-            match (ema[index], ema[index - period]) {
-                (current, previous)
-                    if !current.is_nan() && !previous.is_nan() && previous != 0.0 =>
-                {
-                    values[index] = 100.0 * (current - previous) / previous;
-                }
-                (current2, previous2) if !current2.is_nan() && !previous2.is_nan() => {
-                    values[index] = 0.0
-                }
-                _ => {}
-            }
-        }
+    for index in roc..store.len() {
+        values[index] = range_change(ma[index], ma[index - roc]);
     }
-    let rc = Rc::new(values);
-    nodes.insert(key, Rc::clone(&rc));
-    rc
+    nodes.insert(key, Rc::new(values.clone()));
+    nodes.insert(ma_key, Rc::new(ma.clone()));
+    vec![
+        crate::named_series("value", values),
+        crate::named_series("hl_ma", ma),
+    ]
 }
 
+/// Percent change from `previous` to `current`; no value when `previous` is missing or 0.
+fn range_change(current: f64, previous: f64) -> f64 {
+    if current.is_nan() || previous.is_nan() || previous == 0.0 {
+        f64::NAN
+    } else {
+        100.0 * (current / previous - 1.0)
+    }
+}
+
+/// Simple average of the high-low range over the `period` bars ending at `index`.
+fn range_average(store: &CandleStore, period: usize, index: usize) -> f64 {
+    (index + 1 - period..=index)
+        .map(|i| store.high[i] - store.low[i])
+        .sum::<f64>()
+        / period as f64
+}
+
+/// Latest Chaikin Volatility and range average, from the last `period + roc` bars.
 pub fn latest_chaikin_volatility_store(
     store: &CandleStore,
     period: usize,
-    outputs: &IndicatorArena,
+    roc: usize,
 ) -> (Option<f64>, Option<f64>) {
-    if period == 0 || store.len() <= period {
+    let len = store.len();
+    if period == 0 || len < period {
         return (None, None);
     }
-    let range = store.high[store.len() - 1] - store.low[store.len() - 1];
-    let alpha = 2.0 / (period as f64 + 1.0);
-    let prev_ema = outputs
-        .get("hl_ema")
-        .and_then(|s| s.get(store.len() - 2).copied())
-        .filter(|v| !v.is_nan())
-        .unwrap_or(range);
-    let hl_ema = alpha * range + (1.0 - alpha) * prev_ema;
-    // Need EMA from `period` bars ago
-    let period_ago_ema = outputs
-        .get("hl_ema")
-        .and_then(|s| s.get(store.len() - 1 - period).copied())
-        .filter(|v| !v.is_nan());
-    let value = match period_ago_ema {
-        Some(prev) if prev != 0.0 => Some(100.0 * (hl_ema - prev) / prev),
-        Some(_) => Some(0.0),
-        None => None,
-    };
-    (value, Some(hl_ema))
+    let current = range_average(store, period, len - 1);
+    if len < period + roc {
+        return (None, Some(current));
+    }
+    let previous = range_average(store, period, len - 1 - roc);
+    let value = Some(range_change(current, previous)).filter(|v| !v.is_nan());
+    (value, Some(current))
 }
-
 pub fn latest_chaikin_oscillator_store(
     store: &CandleStore,
     params: MacdParams,
@@ -154,13 +157,31 @@ pub fn latest_chaikin_oscillator_store(
 }
 
 pub(crate) fn chaikin_volatility_descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor(
-        "CHAIKIN_VOLATILITY",
-        "CHAIKIN VOLATILITY",
-        "Volatility",
-        "separate",
-        14,
-    )
+    crate::descriptors::IndicatorDescriptor {
+        kind: "CHAIKIN_VOLATILITY",
+        name: "CHAIKIN VOLATILITY",
+        category: "Volatility",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 14.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "smooth",
+                label: "Rate of Change",
+                default: 2.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
 
 pub(crate) fn chaikin_oscillator_descriptor() -> crate::descriptors::IndicatorDescriptor {
@@ -281,37 +302,48 @@ mod tests {
             (5.0, 3.0, 4.0, 10.0),
             (6.0, 4.0, 5.0, 10.0),
         ]);
-        let values = chaikin_volatility_store(&store, 2, &mut HashMap::new());
+        let values = chaikin_volatility_store(&store, 2, 1, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0, 0.0]);
+        assert_series_close(&values[0].values, &[f64::NAN, f64::NAN, 0.0, 0.0]);
     }
 
     #[test]
-    fn chaikin_volatility_is_the_period_change_in_range_ema() {
+    fn chaikin_volatility_is_the_change_in_the_range_average() {
+        // Ranges 2, 4, 8, 16; their 2-bar averages are 3, 6 and 12 from bar 1.
         let store = ohlcv_store(&[
             (3.0, 1.0, 2.0, 10.0),
             (6.0, 2.0, 4.0, 10.0),
             (10.0, 2.0, 6.0, 10.0),
             (18.0, 2.0, 10.0, 10.0),
         ]);
-        let values = chaikin_volatility_store(&store, 2, &mut HashMap::new());
-
-        assert_series_close(
-            &values,
-            &[f64::NAN, f64::NAN, 222.22222222222223, 284.44444444444446],
-        );
-        let arena = IndicatorArena::from_named_outputs(vec![named_series(
-            "hl_ema",
-            vec![
-                2.0,
-                3.333333333333333,
-                6.444444444444445,
-                12.814814814814815,
-            ],
-        )]);
+        let nan = f64::NAN;
+        let one_bar = chaikin_volatility_store(&store, 2, 1, &mut HashMap::new());
+        assert_series_close(&one_bar[0].values, &[nan, nan, 100.0, 100.0]);
+        let two_bars = chaikin_volatility_store(&store, 2, 2, &mut HashMap::new());
+        assert_series_close(&two_bars[0].values, &[nan, nan, nan, 300.0]);
         assert_eq!(
-            latest_chaikin_volatility_store(&store, 2, &arena),
-            (Some(284.44444444444446), Some(12.814814814814815))
+            latest_chaikin_volatility_store(&store, 2, 2),
+            (Some(300.0), Some(12.0))
         );
+    }
+
+    #[test]
+    fn latest_chaikin_volatility_matches_the_full_calculation() {
+        let bars: Vec<(f64, f64, f64, f64)> = (0..40)
+            .map(|i| {
+                let mid = 50.0 + ((i * 7) % 11) as f64;
+                let half = 1.0 + (i % 4) as f64;
+                (mid + half, mid - half, mid, 10.0)
+            })
+            .collect();
+        let full = chaikin_volatility_store(&ohlcv_store(&bars), 14, 2, &mut HashMap::new());
+        for len in 1..=bars.len() {
+            let (value, _) = latest_chaikin_volatility_store(&ohlcv_store(&bars[..len]), 14, 2);
+            let expect = Some(full[0].values[len - 1]).filter(|v| !v.is_nan());
+            match (value, expect) {
+                (Some(a), Some(b)) => assert!((a - b).abs() < 1e-9, "len {len}"),
+                (a, b) => assert_eq!(a, b, "len {len}"),
+            }
+        }
     }
 }

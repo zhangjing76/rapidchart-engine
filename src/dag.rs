@@ -483,7 +483,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::DONCHIAN_WIDTH => vec![format!("donchian_width:{}", indicator.period)],
         IndicatorKind::GOPALAKRISHNAN_RANGE => vec![format!("gapo:hl:{}", indicator.period)],
         IndicatorKind::HIGH_MINUS_LOW => vec!["hml:hl".to_string()],
-        IndicatorKind::MASS_INDEX => vec![format!("mass:hl:{}", indicator.period)],
+        IndicatorKind::MASS_INDEX => vec![format!("mass_sma:hl:{}", indicator.period)],
         IndicatorKind::RELATIVE_VOLATILITY => vec![format!("rvi_vol:close:{}", indicator.period)],
         IndicatorKind::TRUE_RANGE => vec!["true_range:hlc".to_string()],
         IndicatorKind::VOLUME_CHART => vec!["vol_chart:v".to_string()],
@@ -1493,7 +1493,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("hml:hl", indicator_node),
         ],
         IndicatorKind::MASS_INDEX => {
-            let m = format!("mass:hl:{}", indicator.period);
+            let m = format!("mass_sma:hl:{}", indicator.period);
             vec![edge("high", &m), edge("low", &m), edge(&m, indicator_node)]
         }
         IndicatorKind::RELATIVE_VOLATILITY => {

@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_series;
+use crate::indicators::ema::ema_sma_seeded;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
@@ -6,8 +6,9 @@ use std::rc::Rc;
 
 /// Mass Index: SUM(EMA(H-L, 9) / EMA(EMA(H-L, 9), 9), period)
 /// Default period = 25. Values > 27 suggest reversal ("bulge").
+/// The EMAs start with a simple average, so the ratio starts at bar 16 and the sum at bar 15 + period.
 pub fn mass_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
-    let key = format!("mass:hl:{period}");
+    let key = format!("mass_sma:hl:{period}");
     if let Some(v) = nodes.get(&key) {
         return Rc::clone(v);
     }
@@ -24,8 +25,8 @@ pub fn mass_index_store(store: &CandleStore, period: usize, nodes: &mut NodeCach
         .zip(store.low.iter())
         .map(|(h, l)| h - l)
         .collect();
-    let ema1 = ema_series(&hl, 9);
-    let ema2 = ema_series(&ema1, 9);
+    let ema1 = ema_sma_seeded(&hl, 9);
+    let ema2 = ema_sma_seeded(&ema1, 9);
     // Ratio series
     let mut ratio = vec![f64::NAN; len];
     for i in 0..len {
@@ -76,39 +77,39 @@ mod tests {
         )
     }
 
-    fn assert_series_close(actual: &[f64], expected: &[f64]) {
-        assert_eq!(actual.len(), expected.len());
-        for (actual, expected) in actual.iter().zip(expected.iter()) {
-            if expected.is_nan() {
-                assert!(actual.is_nan());
-            } else {
-                assert!((actual - expected).abs() < 1e-12);
-            }
-        }
-    }
-
     #[test]
     fn mass_index_is_the_period_sum_for_constant_ranges() {
-        let store = ohlc_store(&[1.0, 1.0, 1.0]);
+        let store = ohlc_store(&[1.0; 30]);
         let values = mass_index_store(&store, 3, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, f64::NAN, 3.0]);
+        // The ratio of the two 9-bar averages is 1 from bar 16, so a 3-bar sum is 3 from bar 18.
+        assert!(values[..18].iter().all(|v| v.is_nan()));
+        assert!(values[18..].iter().all(|v| (v - 3.0).abs() < 1e-12));
         assert_eq!(latest_mass_index_store(&store, 3), Some(3.0));
     }
 
     #[test]
     fn mass_index_sums_the_ema_range_ratio() {
+        let len = 40;
+        let ranges: Vec<f64> = (0..len).map(|i| 1.0 + ((i * 7) % 5) as f64).collect();
         let store = CandleStore::from_raw_columns(
-            vec![0, 1, 2],
-            vec![1.0, 2.0, 3.0],
-            vec![2.0, 4.0, 6.0],
-            vec![1.0, 2.0, 3.0],
-            vec![1.0, 2.0, 3.0],
-            vec![1.0, 1.0, 1.0],
+            (0..len as u32).collect(),
+            vec![10.0; len],
+            ranges.iter().map(|r| 10.0 + r).collect(),
+            vec![10.0; len],
+            vec![10.0; len],
+            vec![1.0; len],
         );
-        let values = mass_index_store(&store, 3, &mut HashMap::new());
+        let values = mass_index_store(&store, 5, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, f64::NAN, 3.5174825174825175]);
-        assert!((latest_mass_index_store(&store, 3).unwrap() - 3.5174825174825175).abs() < 1e-12);
+        let ema1 = ema_sma_seeded(&ranges, 9);
+        let ema2 = ema_sma_seeded(&ema1, 9);
+        let ratio: Vec<f64> = ema1.iter().zip(ema2.iter()).map(|(a, b)| a / b).collect();
+        assert!(values[..20].iter().all(|v| v.is_nan()));
+        for i in 20..len {
+            let expected: f64 = ratio[i - 4..=i].iter().sum();
+            assert!((values[i] - expected).abs() < 1e-12, "bar {i}");
+        }
+        assert!((latest_mass_index_store(&store, 5).unwrap() - values[len - 1]).abs() < 1e-12);
     }
 }

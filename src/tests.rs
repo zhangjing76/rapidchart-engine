@@ -367,7 +367,7 @@ mod tests {
         let original = klinger_volume_store(&store, &mut HashMap::new());
         let outputs = klinger_outputs(&store, KLINGER_DEFAULTS, &mut HashMap::new());
         assert_series_eq(&outputs[0].values, &original);
-        assert_series_eq(&outputs[1].values, &ema_series(&original, 13));
+        assert_series_eq(&outputs[1].values, &ema_sma_seeded(&original, 13));
     }
 
     #[test]

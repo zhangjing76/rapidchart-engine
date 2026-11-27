@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_series;
+use crate::indicators::ema::ema_sma_seeded;
 use crate::types::MacdParams;
 use crate::NodeCache;
 use crate::{CandleStore, NamedSeries, RcSeries, Series};
@@ -6,10 +6,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Klinger Volume Oscillator:
-/// Volume Force (VF) = volume * |2*(dm/cm) - 1| * trend * 100
-/// where trend = +1 if (H+L+C) > prev(H+L+C), else -1
-/// dm = high - low, cm = cumulative dm in same trend direction
-/// KVO = EMA(fast, VF) - EMA(slow, VF), 34 and 55 by default; signal = EMA(signal, KVO), 13 by default.
+/// signed volume = volume, negative when the typical price (H+L+C)/3 fell from the previous bar
+/// KVO = EMA(fast) - EMA(slow) of the signed volume, 34 and 55 by default
+/// signal = EMA(signal) of KVO, 13 by default
+/// The EMAs start with a simple average. Bars with no volume are skipped.
 pub(crate) const KLINGER_DEFAULTS: MacdParams = MacdParams {
     fast: 34,
     slow: 55,
@@ -28,9 +28,9 @@ fn klinger_kvo_store(
     nodes: &mut NodeCache,
 ) -> RcSeries {
     let key = if fast == KLINGER_DEFAULTS.fast && slow == KLINGER_DEFAULTS.slow {
-        "klinger:hlcv".to_string()
+        "klinger_sv:hlcv".to_string()
     } else {
-        format!("klinger:hlcv:{fast}:{slow}")
+        format!("klinger_sv:hlcv:{fast}:{slow}")
     };
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
@@ -40,41 +40,34 @@ fn klinger_kvo_store(
     rc
 }
 
-fn klinger_series(store: &CandleStore, fast: usize, slow: usize) -> Series {
-    let len = store.len();
-    let mut out = vec![f64::NAN; len];
-    if len < 2 {
-        return out;
-    }
-    let mut vf = vec![0.0f64; len];
-    let mut cm = 0.0f64;
-    let mut prev_trend = 1i8;
-    for i in 1..len {
-        let hlc = store.high[i] + store.low[i] + store.close[i];
-        let prev_hlc = store.high[i - 1] + store.low[i - 1] + store.close[i - 1];
-        let trend: i8 = if hlc > prev_hlc { 1 } else { -1 };
-        let dm = store.high[i] - store.low[i];
-        if trend == prev_trend {
-            cm += dm;
-        } else {
-            cm = dm;
+/// Volume with the sign of the typical price's move from the previous bar. No value on the
+/// first bar or where the volume is zero.
+fn signed_volume(store: &CandleStore) -> Series {
+    let typical = |i: usize| (store.high[i] + store.low[i] + store.close[i]) / 3.0;
+    let mut out = vec![f64::NAN; store.len()];
+    for (i, item) in out.iter_mut().enumerate().skip(1) {
+        let volume = store.volume[i];
+        if volume == 0.0 {
+            continue;
         }
-        let ratio = if cm.abs() > 1e-10 {
-            (2.0 * dm / cm) - 1.0
+        *item = if typical(i) < typical(i - 1) {
+            -volume
         } else {
-            0.0
+            volume
         };
-        vf[i] = store.volume[i] * ratio.abs() * trend as f64 * 100.0;
-        prev_trend = trend;
-    }
-    let ema_fast = ema_series(&vf, fast);
-    let ema_slow = ema_series(&vf, slow);
-    for i in 0..len {
-        if !ema_fast[i].is_nan() && !ema_slow[i].is_nan() {
-            out[i] = ema_fast[i] - ema_slow[i];
-        }
     }
     out
+}
+
+fn klinger_series(store: &CandleStore, fast: usize, slow: usize) -> Series {
+    let volume = signed_volume(store);
+    let ema_fast = ema_sma_seeded(&volume, fast);
+    let ema_slow = ema_sma_seeded(&volume, slow);
+    ema_fast
+        .iter()
+        .zip(ema_slow.iter())
+        .map(|(f, s)| f - s)
+        .collect()
 }
 
 /// KVO with its signal line.
@@ -84,13 +77,12 @@ pub fn klinger_outputs(
     nodes: &mut NodeCache,
 ) -> Vec<NamedSeries> {
     let kvo = klinger_kvo_store(store, params.fast, params.slow, nodes);
-    let signal = ema_series(&kvo, params.signal);
+    let signal = ema_sma_seeded(&kvo, params.signal);
     vec![
         crate::named_series("value", kvo),
         crate::named_series("signal", signal),
     ]
 }
-
 pub fn latest_klinger_outputs(
     store: &CandleStore,
     params: MacdParams,
@@ -168,30 +160,62 @@ mod tests {
     }
 
     #[test]
-    fn klinger_volume_is_zero_for_constant_prices_and_volume() {
+    fn signed_volume_follows_the_typical_price() {
         let store = ohlcv_store(&[
-            (10.0, 10.0, 10.0, 5.0),
-            (10.0, 10.0, 10.0, 5.0),
-            (10.0, 10.0, 10.0, 5.0),
+            (10.0, 8.0, 9.0, 5.0),
+            (11.0, 9.0, 10.0, 6.0), // up
+            (10.0, 8.0, 9.0, 7.0),  // down
+            (10.0, 8.0, 9.0, 8.0),  // unchanged counts as up
+            (12.0, 9.0, 10.0, 0.0), // no volume: skipped
         ]);
-        let values = klinger_volume_store(&store, &mut HashMap::new());
-
-        assert_eq!(&*values, &[0.0, 0.0, 0.0]);
-        assert_eq!(latest_klinger_volume_store(&store), Some(0.0));
+        let values = signed_volume(&store);
+        assert!(values[0].is_nan() && values[4].is_nan());
+        assert_eq!(&values[1..4], &[6.0, -7.0, 8.0]);
     }
 
     #[test]
-    fn klinger_volume_tracks_the_gap_between_fast_and_slow_vf_emas() {
-        let input: Vec<_> = (0..60)
-            .map(|i| {
-                let base = 10.0 + i as f64;
-                (base + 1.0, base, base + 0.5, 1.0)
-            })
-            .collect();
-        let store = ohlcv_store(&input);
-        let values = klinger_volume_store(&store, &mut HashMap::new());
+    fn klinger_is_the_gap_between_the_signed_volume_averages() {
+        // Up, up, down, up, up with volume 1 each, from bar 1.
+        let store = ohlcv_store(&[
+            (10.0, 10.0, 10.0, 1.0),
+            (11.0, 11.0, 11.0, 1.0),
+            (12.0, 12.0, 12.0, 1.0),
+            (11.0, 11.0, 11.0, 1.0),
+            (12.0, 12.0, 12.0, 1.0),
+            (13.0, 13.0, 13.0, 1.0),
+        ]);
+        let params = MacdParams {
+            fast: 2,
+            slow: 3,
+            signal: 2,
+        };
+        let outputs = klinger_outputs(&store, params, &mut HashMap::new());
+        let nan = f64::NAN;
+        // Signed volume: -, 1, 1, -1, 1, 1. EMA(2) from bar 2: 1, -1/3, 5/9, 23/27.
+        // EMA(3) from bar 3: 1/3, 2/3, 5/6.
+        let kvo = [
+            nan,
+            nan,
+            nan,
+            -1.0 / 3.0 - 1.0 / 3.0,
+            5.0 / 9.0 - 2.0 / 3.0,
+            23.0 / 27.0 - 5.0 / 6.0,
+        ];
+        for (got, want) in outputs[0].values.iter().zip(kvo) {
+            assert!((want.is_nan() && got.is_nan()) || (got - want).abs() < 1e-12);
+        }
+        assert!(outputs[1].values[..4].iter().all(|v| v.is_nan()));
+        let signal_first = (kvo[3] + kvo[4]) / 2.0;
+        assert!((outputs[1].values[4] - signal_first).abs() < 1e-12);
+    }
 
-        assert!((values[59] - 9.580894095402968).abs() < 1e-12);
-        assert_eq!(latest_klinger_volume_store(&store), Some(9.580894095402968));
+    #[test]
+    fn klinger_is_zero_for_constant_prices_and_volume() {
+        let store = ohlcv_store(&[(10.0, 10.0, 10.0, 5.0); 70]);
+        let values = klinger_volume_store(&store, &mut HashMap::new());
+        // The slow average starts after 55 signed volumes, from bar 1.
+        assert!(values[..55].iter().all(|v| v.is_nan()));
+        assert!(values[55..].iter().all(|&v| v == 0.0));
+        assert_eq!(latest_klinger_volume_store(&store), Some(0.0));
     }
 }

@@ -491,7 +491,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
             vec![format!("pno_bands:hlc:{}", indicator.multiplier)]
         }
-        IndicatorKind::RANDOM_WALK_INDEX => vec![format!("rwi:hlc:{}", indicator.period)],
+        IndicatorKind::RANDOM_WALK_INDEX => vec![format!("rwi_prev:hlc:{}", indicator.period)],
         IndicatorKind::DARVAS_BOX => vec!["darvas:top".to_string(), "darvas:bottom".to_string()],
         IndicatorKind::VOLUME_PROFILE => vec![format!("vol_profile:hlv:{}", indicator.period)],
         IndicatorKind::CHOPPINESS_INDEX => vec![format!("chop:hlc:{}", indicator.period)],
@@ -1462,7 +1462,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::RANDOM_WALK_INDEX => {
-            let r = format!("rwi:hlc:{}", indicator.period);
+            let r = format!("rwi_prev:hlc:{}", indicator.period);
             vec![
                 edge("high", &r),
                 edge("low", &r),

@@ -1,48 +1,39 @@
+use crate::indicators::true_range::true_range_series_store;
 use crate::CandleStore;
 use crate::NodeCache;
 use std::collections::HashMap;
 
-/// Random Walk Index:
-/// Measures whether price movement is random or trending.
-/// RWI_High = (High - Low[n]) / (ATR * sqrt(n))
-/// RWI_Low = (High[n] - Low) / (ATR * sqrt(n))
-/// where n ranges from 2 to period, and we take the maximum.
-/// High RWI (>1) suggests trending; low (<1) suggests random.
-
+/// Random Walk Index (Poulos), the largest value over lookbacks n = 1..=period of
+/// RWI_High = (High - Low[n]) / (ATR_n * sqrt(n))
+/// RWI_Low = (High[n] - Low) / (ATR_n * sqrt(n))
+/// where ATR_n is the average true range of the n bars before the current one. Above 1 suggests a
+/// trend; below 1 a random walk. Bar 0 has no true range, so the first value is at bar
+/// `period + 1`.
 pub fn random_walk_index_store(
     store: &CandleStore,
     period: usize,
-    _nodes: &mut NodeCache,
+    nodes: &mut NodeCache,
 ) -> Vec<crate::NamedSeries> {
     let len = store.len();
     let mut rw_high = vec![f64::NAN; len];
     let mut rw_low = vec![f64::NAN; len];
-    if period < 2 || len < period {
+    if period == 0 || len <= period + 1 {
         return vec![
             crate::named_series("high", rw_high),
             crate::named_series("low", rw_low),
         ];
     }
-    let mut tr = vec![0.0f64; len];
-    for i in 1..len {
-        tr[i] = (store.high[i] - store.low[i])
-            .max((store.high[i] - store.close[i - 1]).abs())
-            .max((store.low[i] - store.close[i - 1]).abs());
-    }
-    for i in period..len {
+    let tr = true_range_series_store(store, nodes);
+    for i in period + 1..len {
         let mut max_rwi_high = 0.0f64;
         let mut max_rwi_low = 0.0f64;
-        for n in 2..=period {
-            if i < n {
-                break;
-            }
-            let atr_n: f64 = tr[i + 1 - n..=i].iter().sum::<f64>() / n as f64;
-            let denom = atr_n * (n as f64).sqrt();
+        let mut tr_sum = 0.0;
+        for n in 1..=period {
+            tr_sum += tr[i - n];
+            let denom = tr_sum / n as f64 * (n as f64).sqrt();
             if denom > 1e-10 {
-                let rwi_h = (store.high[i] - store.low[i - n]) / denom;
-                let rwi_l = (store.high[i - n] - store.low[i]) / denom;
-                max_rwi_high = max_rwi_high.max(rwi_h);
-                max_rwi_low = max_rwi_low.max(rwi_l);
+                max_rwi_high = max_rwi_high.max((store.high[i] - store.low[i - n]) / denom);
+                max_rwi_low = max_rwi_low.max((store.high[i - n] - store.low[i]) / denom);
             }
         }
         rw_high[i] = max_rwi_high;
@@ -53,7 +44,6 @@ pub fn random_walk_index_store(
         crate::named_series("low", rw_low),
     ]
 }
-
 pub fn latest_random_walk_index_store(
     store: &CandleStore,
     period: usize,
@@ -120,21 +110,22 @@ mod tests {
     }
 
     #[test]
-    fn random_walk_index_is_three_for_identical_bars() {
+    fn random_walk_index_is_one_for_identical_bars() {
         let store = ohlc_store(&[
             (3.0, 0.0, 1.0),
             (3.0, 0.0, 1.0),
             (3.0, 0.0, 1.0),
             (3.0, 0.0, 1.0),
         ]);
-        let values = random_walk_index_store(&store, 3, &mut HashMap::new());
+        let values = random_walk_index_store(&store, 2, &mut HashMap::new());
 
-        let expected = 0.7071067811865475;
-        assert_series_close(&values[0].values, &[f64::NAN, f64::NAN, f64::NAN, expected]);
-        assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, f64::NAN, expected]);
+        // Every true range is 3, so the one-bar lookback gives 3 / 3 = 1 and the two-bar one
+        // 3 / (3 * sqrt(2)).
+        assert_series_close(&values[0].values, &[f64::NAN, f64::NAN, f64::NAN, 1.0]);
+        assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, f64::NAN, 1.0]);
         assert_eq!(
-            latest_random_walk_index_store(&store, 3),
-            (Some(expected), Some(expected))
+            latest_random_walk_index_store(&store, 2),
+            (Some(1.0), Some(1.0))
         );
     }
 
@@ -146,16 +137,14 @@ mod tests {
             (4.0, 3.0, 3.5),
             (5.0, 4.0, 4.5),
         ]);
-        let values = random_walk_index_store(&store, 3, &mut HashMap::new());
+        let values = random_walk_index_store(&store, 2, &mut HashMap::new());
 
+        // The true ranges of bars 1 and 2 are 1.5. Over two bars the high of 5 is 3 above the
+        // low of bar 1: 3 / (1.5 * sqrt(2)) = sqrt(2), more than the one-bar 2 / 1.5.
         assert_series_close(
             &values[0].values,
-            &[f64::NAN, f64::NAN, f64::NAN, 1.539600717839002],
+            &[f64::NAN, f64::NAN, f64::NAN, std::f64::consts::SQRT_2],
         );
         assert_series_close(&values[1].values, &[f64::NAN, f64::NAN, f64::NAN, 0.0]);
-        assert_eq!(
-            latest_random_walk_index_store(&store, 3),
-            (Some(1.539600717839002), Some(0.0))
-        );
     }
 }

@@ -308,7 +308,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::GMMA => {
             let mut nodes = Vec::with_capacity(12);
             for &p in &[3, 5, 8, 10, 12, 15, 30, 35, 40, 45, 50, 60] {
-                nodes.push(format!("ema:close:{p}"));
+                nodes.push(format!("ema_sma:close:{p}"));
             }
             nodes
         }
@@ -1040,7 +1040,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
         IndicatorKind::GMMA => {
             let mut edges = Vec::new();
             for &p in &[3, 5, 8, 10, 12, 15, 30, 35, 40, 45, 50, 60] {
-                let e = format!("ema:close:{p}");
+                let e = format!("ema_sma:close:{p}");
                 edges.push(edge("close", &e));
                 edges.push(edge(&e, indicator_node));
             }

@@ -402,6 +402,7 @@ mod tests {
             ("MA_DEVIATION", "period", 12.0),
             ("HIGH_LOW_BANDS", "period", 10.0),
             ("MEDIAN_PRICE", "period", 14.0),
+            ("TYPICAL_PRICE", "period", 14.0),
             ("HIGH_LOW_BANDS", "multiplier", 5.0),
             ("PSYCHOLOGICAL_LINE", "period", 20.0),
             ("QSTICK", "period", 8.0),

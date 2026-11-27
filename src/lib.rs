@@ -298,7 +298,7 @@ impl ChartEngine {
         };
         // Studies whose period setting was added later keep working when a config omits it.
         let period = config.period.unwrap_or(match kind {
-            IndicatorKind::BOP | IndicatorKind::MEDIAN_PRICE => 14,
+            IndicatorKind::BOP | IndicatorKind::MEDIAN_PRICE | IndicatorKind::TYPICAL_PRICE => 14,
             IndicatorKind::NEGATIVE_VOLUME_INDEX | IndicatorKind::POSITIVE_VOLUME_INDEX => 255,
             _ => 0,
         });

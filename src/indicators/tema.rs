@@ -1,86 +1,88 @@
-use crate::indicators::ema::{ema_close_store, ema_series};
+use crate::indicators::ema::{ema_next, ema_sma_seeded, ema_sma_seeded_close_store};
 use crate::rc_into_owned;
 use crate::IndicatorArena;
 use crate::NodeCache;
-use crate::{CandleStore, RcSeries};
+use crate::{CandleStore, Series};
+use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn tema_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
-    let key = format!("tema:value:{period}");
-    if let Some(values) = nodes.get(&key) {
-        return Rc::clone(values);
+const VALUE_SLOT: usize = 0;
+const EMA1_SLOT: usize = 1;
+const EMA2_SLOT: usize = 2;
+const EMA3_SLOT: usize = 3;
+
+type TemaResult = (Option<f64>, Option<f64>, Option<f64>, Option<f64>);
+
+/// TEMA: 3 x EMA - 3 x EMA(EMA) + EMA(EMA(EMA)), from averages that start with a simple average,
+/// so it starts at bar 3 x (period - 1). The three averages are kept as outputs so live updates
+/// can step on from them.
+pub fn tema_store(
+    store: &CandleStore,
+    period: usize,
+    nodes: &mut NodeCache,
+) -> Vec<crate::NamedSeries> {
+    let ema1 = rc_into_owned(ema_sma_seeded_close_store(store, period, nodes));
+    let ema2_key = format!("tema_sma:ema2:{period}");
+    let ema3_key = format!("tema_sma:ema3:{period}");
+    let value_key = format!("tema_sma:value:{period}");
+    if let (Some(ema2), Some(ema3), Some(value)) = (
+        nodes.get(&ema2_key),
+        nodes.get(&ema3_key),
+        nodes.get(&value_key),
+    ) {
+        return vec![
+            crate::named_series("value", Rc::clone(value)),
+            crate::named_series("ema1", ema1),
+            crate::named_series("ema2", Rc::clone(ema2)),
+            crate::named_series("ema3", Rc::clone(ema3)),
+        ];
     }
-    let ema1 = rc_into_owned(ema_close_store(store, period, nodes));
-    let ema2_key = format!("tema:ema2:{period}");
-    let ema3_key = format!("tema:ema3:{period}");
-    let ema2 = nodes
-        .get(&ema2_key)
-        .map(|rc| (**rc).clone())
-        .unwrap_or_else(|| ema_series(&ema1, period));
-    nodes.insert(ema2_key, Rc::new(ema2.clone()));
-    let ema3 = nodes
-        .get(&ema3_key)
-        .map(|rc| (**rc).clone())
-        .unwrap_or_else(|| ema_series(&ema2, period));
-    nodes.insert(ema3_key, Rc::new(ema3.clone()));
-    let values: Vec<_> = ema1
+    let ema2 = ema_sma_seeded(&ema1, period);
+    let ema3 = ema_sma_seeded(&ema2, period);
+    let value: Series = ema1
         .iter()
         .zip(ema2.iter())
         .zip(ema3.iter())
-        .map(|((first, second), third)| match (first, second, third) {
-            (first, second, third) if !first.is_nan() && !second.is_nan() && !third.is_nan() => {
-                3.0 * *first - 3.0 * *second + *third
-            }
-            _ => f64::NAN,
-        })
+        .map(|((first, second), third)| 3.0 * first - 3.0 * second + third)
         .collect();
-    let rc = Rc::new(values);
-    nodes.insert(key, Rc::clone(&rc));
-    rc
+    nodes.insert(ema2_key, Rc::new(ema2.clone()));
+    nodes.insert(ema3_key, Rc::new(ema3.clone()));
+    nodes.insert(value_key, Rc::new(value.clone()));
+    vec![
+        crate::named_series("value", value),
+        crate::named_series("ema1", ema1),
+        crate::named_series("ema2", ema2),
+        crate::named_series("ema3", ema3),
+    ]
 }
 
+/// Latest TEMA and its three averages. Steps on from the previous bar's averages when all three
+/// have values; otherwise (while they are starting) calculates them from the closes.
 pub fn latest_tema_store(
     store: &CandleStore,
     period: usize,
     outputs: &IndicatorArena,
-) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
-    let last_close = match store.last_close() {
-        Some(c) => c,
-        None => return (None, None, None, None),
+) -> TemaResult {
+    let Some(last) = store.last_close() else {
+        return (None, None, None, None);
     };
-    if store.len() == 1 {
-        return (
-            Some(last_close),
-            Some(last_close),
-            Some(last_close),
-            Some(last_close),
-        );
+    let previous = store.len().checked_sub(2).and_then(|index| {
+        Some((
+            outputs.value_at_slot(EMA1_SLOT, index)?,
+            outputs.value_at_slot(EMA2_SLOT, index)?,
+            outputs.value_at_slot(EMA3_SLOT, index)?,
+        ))
+    });
+    if let Some((ema1, ema2, ema3)) = previous {
+        let ema1 = ema_next(last, ema1, period);
+        let ema2 = ema_next(ema1, ema2, period);
+        let ema3 = ema_next(ema2, ema3, period);
+        let value = 3.0 * ema1 - 3.0 * ema2 + ema3;
+        return (Some(value), Some(ema1), Some(ema2), Some(ema3));
     }
-    let alpha = 2.0 / (period as f64 + 1.0);
-    let prev_ema1 = outputs
-        .get("ema1")
-        .and_then(|s| s.get(store.len() - 2).copied())
-        .filter(|v| !v.is_nan())
-        .unwrap_or(last_close);
-    let ema1 = alpha * last_close + (1.0 - alpha) * prev_ema1;
-    let prev_ema2 = outputs
-        .get("ema2")
-        .and_then(|s| s.get(store.len() - 2).copied())
-        .filter(|v| !v.is_nan())
-        .unwrap_or(ema1);
-    let ema2 = alpha * ema1 + (1.0 - alpha) * prev_ema2;
-    let prev_ema3 = outputs
-        .get("ema3")
-        .and_then(|s| s.get(store.len() - 2).copied())
-        .filter(|v| !v.is_nan())
-        .unwrap_or(ema2);
-    let ema3 = alpha * ema2 + (1.0 - alpha) * prev_ema3;
-    (
-        Some(3.0 * ema1 - 3.0 * ema2 + ema3),
-        Some(ema1),
-        Some(ema2),
-        Some(ema3),
-    )
+    let full = tema_store(store, period, &mut HashMap::new());
+    let at = |slot: usize| full[slot].values.last().copied().filter(|v| !v.is_nan());
+    (at(VALUE_SLOT), at(EMA1_SLOT), at(EMA2_SLOT), at(EMA3_SLOT))
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
@@ -91,8 +93,6 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
 mod tests {
     use super::*;
     use crate::named_series;
-    use crate::types::IndicatorArena;
-    use std::collections::HashMap;
 
     fn close_store(values: &[f64]) -> CandleStore {
         let len = values.len();
@@ -106,29 +106,70 @@ mod tests {
         )
     }
 
-    #[test]
-    fn tema_is_the_input_when_prices_are_constant() {
-        let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
-        let values = tema_store(&store, 3, &mut HashMap::new());
-
-        assert_eq!(&*values, &[10.0, 10.0, 10.0, 10.0]);
+    fn assert_series_close(actual: &[f64], expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            if expected.is_nan() {
+                assert!(actual.is_nan(), "expected NaN, got {actual}");
+            } else {
+                assert!((actual - expected).abs() < 1e-12, "{actual} != {expected}");
+            }
+        }
     }
 
     #[test]
-    fn tema_matches_manual_triple_ema_combination() {
-        let store = close_store(&[10.0, 12.0, 14.0, 16.0]);
-        let values = tema_store(&store, 3, &mut HashMap::new());
-
-        assert_eq!(&*values, &[10.0, 11.75, 13.875, 16.0]);
-
-        let arena = IndicatorArena::from_named_outputs(vec![
-            named_series("ema1", vec![10.0, 11.0, 12.5, 14.25]),
-            named_series("ema2", vec![10.0, 10.5, 11.5, 12.875]),
-            named_series("ema3", vec![10.0, 10.25, 10.875, 11.875]),
-        ]);
-        assert_eq!(
-            latest_tema_store(&store, 3, &arena),
-            (Some(16.0), Some(14.25), Some(12.875), Some(11.875))
+    fn tema_is_the_input_when_prices_are_constant() {
+        let store = close_store(&[10.0; 8]);
+        let outputs = tema_store(&store, 3, &mut HashMap::new());
+        let nan = f64::NAN;
+        // Period 3: the averages start at bars 2, 4 and 6.
+        assert_series_close(
+            &outputs[VALUE_SLOT].values,
+            &[nan, nan, nan, nan, nan, nan, 10.0, 10.0],
         );
+    }
+
+    #[test]
+    fn tema_combines_the_three_averages() {
+        let store = close_store(&[10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0]);
+        let outputs = tema_store(&store, 3, &mut HashMap::new());
+        let nan = f64::NAN;
+        // EMA(3) lags a straight line by 2: 12, 14, ... from bar 2. Each further EMA lags 2 more.
+        assert_series_close(
+            &outputs[EMA3_SLOT].values,
+            &[nan, nan, nan, nan, nan, nan, 16.0, 18.0],
+        );
+        // 3 x EMA1 - 3 x EMA2 + EMA3 removes the lag on a straight line.
+        assert_series_close(
+            &outputs[VALUE_SLOT].values,
+            &[nan, nan, nan, nan, nan, nan, 22.0, 24.0],
+        );
+    }
+
+    #[test]
+    fn latest_tema_matches_the_full_calculation() {
+        let closes: Vec<f64> = (0..70).map(|i| 50.0 + ((i * 7) % 11) as f64).collect();
+        for period in [1, 2, 3, 10, 20] {
+            let full = tema_store(&close_store(&closes), period, &mut HashMap::new());
+            for len in 1..=closes.len() {
+                let store = close_store(&closes[..len]);
+                let previous = IndicatorArena::from_named_outputs(
+                    full.iter()
+                        .map(|o| named_series(&o.name, o.values[..len - 1].to_vec()))
+                        .collect(),
+                );
+                let latest = latest_tema_store(&store, period, &previous);
+                let got = [latest.0, latest.1, latest.2, latest.3];
+                for (slot, got) in got.into_iter().enumerate() {
+                    let expect = Some(full[slot].values[len - 1]).filter(|v| !v.is_nan());
+                    match (got, expect) {
+                        (Some(a), Some(b)) => {
+                            assert!((a - b).abs() < 1e-9, "period {period} len {len}")
+                        }
+                        (a, b) => assert_eq!(a, b, "period {period} len {len} slot {slot}"),
+                    }
+                }
+            }
+        }
     }
 }

@@ -1,37 +1,32 @@
-use crate::indicators::ema::ema_close_store;
+use crate::indicators::ema::ema_sma_seeded_close_store;
 use crate::types::MacdParams;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Price Oscillator: ((short EMA - long EMA) / long EMA) * 100
-/// Similar to PPO but expressed as percentage of the long EMA.
+/// Price Oscillator in points: fast EMA - slow EMA of the close. The EMAs start with a simple
+/// average, so the first value is at bar slow - 1. PPO gives the same gap as a percentage.
 pub fn price_oscillator_store(
     store: &CandleStore,
     params: MacdParams,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("price_osc:close:{}:{}", params.fast, params.slow);
+    let key = format!("price_osc_pts:close:{}:{}", params.fast, params.slow);
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let fast_ema = ema_close_store(store, params.fast, nodes);
-    let slow_ema = ema_close_store(store, params.slow, nodes);
-    let len = store.len();
-    let mut out = vec![f64::NAN; len];
-    for i in 0..len {
-        let f = fast_ema[i];
-        let s = slow_ema[i];
-        if !f.is_nan() && !s.is_nan() && s.abs() > 1e-10 {
-            out[i] = ((f - s) / s) * 100.0;
-        }
-    }
+    let fast_ema = ema_sma_seeded_close_store(store, params.fast, nodes);
+    let slow_ema = ema_sma_seeded_close_store(store, params.slow, nodes);
+    let out: Vec<f64> = fast_ema
+        .iter()
+        .zip(slow_ema.iter())
+        .map(|(f, s)| f - s)
+        .collect();
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-
 pub fn latest_price_oscillator_store(store: &CandleStore, params: MacdParams) -> Option<f64> {
     price_oscillator_store(store, params, &mut HashMap::new())
         .last()
@@ -97,7 +92,7 @@ mod tests {
 
     #[test]
     fn price_oscillator_is_zero_when_fast_and_slow_emas_match() {
-        let store = close_store(&[5.0, 5.0, 5.0]);
+        let store = close_store(&[5.0, 5.0, 5.0, 5.0]);
         let params = MacdParams {
             fast: 2,
             slow: 3,
@@ -105,7 +100,23 @@ mod tests {
         };
         let values = price_oscillator_store(&store, params, &mut HashMap::new());
 
-        assert_series_close(&values, &[0.0, 0.0, 0.0]);
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0, 0.0]);
         assert_eq!(latest_price_oscillator_store(&store, params), Some(0.0));
+    }
+
+    #[test]
+    fn price_oscillator_is_the_gap_between_the_averages_in_points() {
+        // A straight line: each EMA lags the close by (period - 1) / 2.
+        let closes: Vec<f64> = (0..10).map(|i| 100.0 + 2.0 * i as f64).collect();
+        let store = close_store(&closes);
+        let params = MacdParams {
+            fast: 3,
+            slow: 5,
+            signal: 1,
+        };
+        let values = price_oscillator_store(&store, params, &mut HashMap::new());
+        // Lags of 1 and 2 bars at 2 points a bar (2 and 4 points): the gap is 2 points from bar 4.
+        assert!(values[..4].iter().all(|v| v.is_nan()));
+        assert!(values[4..].iter().all(|v| (v - 2.0).abs() < 1e-9));
     }
 }

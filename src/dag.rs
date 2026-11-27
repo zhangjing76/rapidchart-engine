@@ -400,7 +400,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 slow: 26,
                 signal: 9,
             });
-            vec![format!("price_osc:close:{}:{}", p.fast, p.slow)]
+            vec![format!("price_osc_pts:close:{}:{}", p.fast, p.slow)]
         }
         IndicatorKind::RAINBOW_OSCILLATOR => {
             vec![format!("rainbow_osc:close:{}", indicator.period)]
@@ -1254,10 +1254,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 slow: 26,
                 signal: 9,
             });
-            let p = format!("price_osc:close:{}:{}", params.fast, params.slow);
+            let p = format!("price_osc_pts:close:{}:{}", params.fast, params.slow);
             vec![
-                edge("close", &format!("ema:close:{}", params.fast)),
-                edge("close", &format!("ema:close:{}", params.slow)),
+                edge("close", &format!("ema_sma:close:{}", params.fast)),
+                edge("close", &format!("ema_sma:close:{}", params.slow)),
                 edge(&p, indicator_node),
             ]
         }

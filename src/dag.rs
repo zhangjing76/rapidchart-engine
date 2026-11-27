@@ -477,7 +477,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::PROJECTED_VOLUME_AT_TIME => vec![format!("pvat:v:{}", indicator.period)],
         IndicatorKind::HISTORICAL_VOLATILITY => vec![format!("hv_pop:close:{}", indicator.period)],
         IndicatorKind::LINEAR_REG_R2 => vec![format!("linreg_r2:close:{}", indicator.period)],
-        IndicatorKind::PRIME_NUMBER_OSCILLATOR => vec!["pno:close".to_string()],
+        IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
+            vec![format!("pno_bands:hlc:{}", indicator.multiplier)]
+        }
         IndicatorKind::RANDOM_WALK_INDEX => vec![format!("rwi:hlc:{}", indicator.period)],
         IndicatorKind::DARVAS_BOX => vec!["darvas:top".to_string(), "darvas:bottom".to_string()],
         IndicatorKind::VOLUME_PROFILE => vec![format!("vol_profile:hlv:{}", indicator.period)],
@@ -1421,10 +1423,15 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             let r = format!("linreg_r2:close:{}", indicator.period);
             vec![edge("close", &r), edge(&r, indicator_node)]
         }
-        IndicatorKind::PRIME_NUMBER_OSCILLATOR => vec![
-            edge("close", "pno:close"),
-            edge("pno:close", indicator_node),
-        ],
+        IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
+            let p = format!("pno_bands:hlc:{}", indicator.multiplier);
+            vec![
+                edge("high", &p),
+                edge("low", &p),
+                edge("close", &p),
+                edge(&p, indicator_node),
+            ]
+        }
         IndicatorKind::RANDOM_WALK_INDEX => {
             let r = format!("rwi:hlc:{}", indicator.period);
             vec![
@@ -1643,6 +1650,12 @@ pub(crate) fn validate_indicator(
     {
         return Err(wasm_bindgen::JsValue::from_str(
             "multiplier must be greater than zero",
+        ));
+    } else if kind == IndicatorKind::PRIME_NUMBER_OSCILLATOR
+        && (!multiplier.is_finite() || multiplier < 0.0)
+    {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "PRIME_NUMBER_OSCILLATOR tolerance must be zero or more",
         ));
     }
     Ok(())

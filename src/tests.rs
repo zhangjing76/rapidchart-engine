@@ -423,6 +423,7 @@ mod tests {
             ("ENVELOPE", "multiplier", 5.0),
             ("ZIGZAG", "multiplier", 10.0),
             ("MARKET_FACILITATION", "multiplier", 6.0),
+            ("PRIME_NUMBER_OSCILLATOR", "multiplier", 5.0),
             ("RSI", "period", 14.0),
             ("STOCHASTIC", "period", 14.0),
             ("STOCHASTIC", "smooth", 3.0),

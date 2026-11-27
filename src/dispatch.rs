@@ -379,7 +379,7 @@ pub(crate) fn compute_indicator_store(
         }
         IndicatorKind::LINEAR_REG_R2 => linear_reg_r2_store(store, period, nodes).into_arena(),
         IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
-            prime_number_oscillator_store(store, nodes).into_arena()
+            prime_number_oscillator_store(store, multiplier, nodes).into_arena()
         }
         IndicatorKind::RANDOM_WALK_INDEX => {
             random_walk_index_store(store, period, nodes).into_arena()
@@ -1087,7 +1087,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
-            let value = latest_prime_number_oscillator_store(store);
+            let value = latest_prime_number_oscillator_store(store, indicator.multiplier);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::RANDOM_WALK_INDEX => {

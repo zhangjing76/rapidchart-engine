@@ -320,10 +320,12 @@ impl ChartEngine {
         let kijun_period = config.kijun_period.unwrap_or(26);
         let senkou_b_period = config.senkou_b_period.unwrap_or(52);
         // Settings added later keep their defaults for older configs: High Low Bands' shift (5%)
-        // and the Market Facilitation Index's scale factor (10^6).
+        // the Market Facilitation Index's scale factor (10^6) and the Prime Number Oscillator's
+        // tolerance (5%).
         let multiplier = config.multiplier.unwrap_or(match kind {
             IndicatorKind::HIGH_LOW_BANDS => 5.0,
             IndicatorKind::MARKET_FACILITATION => 6.0,
+            IndicatorKind::PRIME_NUMBER_OSCILLATOR => 5.0,
             _ => 2.0,
         });
         let psar_step = config.psar_step.unwrap_or(0.02);

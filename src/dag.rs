@@ -255,7 +255,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 signal: 9,
             });
             vec![
-                format!("ema:close:{}", m.fast),
+                format!("ema_sma:close:{}", m.fast),
                 format!("ema:close:{}", m.slow),
             ]
         }

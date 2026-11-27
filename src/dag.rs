@@ -510,7 +510,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         }
         IndicatorKind::ULCER_INDEX => vec![format!("ulcer_dd:close:{}", indicator.period)],
         IndicatorKind::VERTICAL_HORIZONTAL_FILTER => {
-            vec![format!("vhf:close:{}", indicator.period)]
+            vec![format!("vhf_range:close:{}", indicator.period)]
         }
         IndicatorKind::VORTEX_INDICATOR => vec![format!("vortex:hlc:{}", indicator.period)],
         IndicatorKind::ZIGZAG => vec![format!("zigzag:hl:{}", indicator.multiplier)],
@@ -1547,7 +1547,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &u), edge(&u, indicator_node)]
         }
         IndicatorKind::VERTICAL_HORIZONTAL_FILTER => {
-            let v = format!("vhf:close:{}", indicator.period);
+            let v = format!("vhf_range:close:{}", indicator.period);
             vec![edge("close", &v), edge(&v, indicator_node)]
         }
         IndicatorKind::VORTEX_INDICATOR => {

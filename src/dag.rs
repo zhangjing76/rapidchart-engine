@@ -499,7 +499,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::GONOGO_TREND => vec![format!("gonogo:close:{}", indicator.period)],
         IndicatorKind::PSYCHOLOGICAL_LINE => vec![format!("psy:close:{}", indicator.period)],
         IndicatorKind::QSTICK => vec![format!("qstick:oc:{}", indicator.period)],
-        IndicatorKind::SHINOHARA_INTENSITY => vec![format!("shinohara:hlc:{}", indicator.period)],
+        IndicatorKind::SHINOHARA_INTENSITY => {
+            vec![format!("shinohara_swap:hlc:{}", indicator.period)]
+        }
         IndicatorKind::ULCER_INDEX => vec![format!("ulcer:close:{}", indicator.period)],
         IndicatorKind::VERTICAL_HORIZONTAL_FILTER => {
             vec![format!("vhf:close:{}", indicator.period)]
@@ -1511,7 +1513,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &q), edge(&q, indicator_node)]
         }
         IndicatorKind::SHINOHARA_INTENSITY => {
-            let s = format!("shinohara:hlc:{}", indicator.period);
+            let s = format!("shinohara_swap:hlc:{}", indicator.period);
             vec![
                 edge("high", &s),
                 edge("low", &s),

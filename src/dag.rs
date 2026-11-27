@@ -346,7 +346,10 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::RAINBOW_MA => (1..=10)
             .map(|i| format!("rainbow:r{}:{}", i, indicator.period))
             .collect(),
-        IndicatorKind::PRIME_NUMBER_BANDS => vec!["pnb:upper".to_string(), "pnb:lower".to_string()],
+        IndicatorKind::PRIME_NUMBER_BANDS => vec![
+            "pnb_strict:upper".to_string(),
+            "pnb_strict:lower".to_string(),
+        ],
         IndicatorKind::TIME_SERIES_FORECAST => {
             vec![format!("tsf:close:{}", indicator.period)]
         }
@@ -1129,10 +1132,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edges
         }
         IndicatorKind::PRIME_NUMBER_BANDS => vec![
-            edge("high", "pnb:upper"),
-            edge("low", "pnb:lower"),
-            edge("pnb:upper", indicator_node),
-            edge("pnb:lower", indicator_node),
+            edge("high", "pnb_strict:upper"),
+            edge("low", "pnb_strict:lower"),
+            edge("pnb_strict:upper", indicator_node),
+            edge("pnb_strict:lower", indicator_node),
         ],
         IndicatorKind::TIME_SERIES_FORECAST => {
             let l = format!("tsf:close:{}", indicator.period);

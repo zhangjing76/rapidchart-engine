@@ -209,7 +209,7 @@ pub(crate) fn compute_indicator_store(
             ultimate_oscillator_store(store, period, stoch_period, smooth, nodes).into_arena()
         }
         IndicatorKind::CHAIKIN_VOLATILITY => {
-            chaikin_volatility_store(store, period, nodes).into_arena()
+            chaikin_volatility_store(store, period, smooth, nodes).into_arena()
         }
         IndicatorKind::STOCH_RSI => {
             stoch_rsi_store(store, period, stoch_period, smooth, signal, nodes).into_arena()
@@ -695,10 +695,10 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::CHAIKIN_VOLATILITY => {
-            let (value, hl_ema) =
-                latest_chaikin_volatility_store(store, indicator.period, &indicator.outputs);
+            let (value, hl_ma) =
+                latest_chaikin_volatility_store(store, indicator.period, indicator.smooth);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
-            upsert_output(&mut indicator.outputs, "hl_ema", target_len, hl_ema);
+            upsert_output(&mut indicator.outputs, "hl_ma", target_len, hl_ma);
         }
         IndicatorKind::PRICE_CHANNEL => {
             let (upper, middle, lower) = latest_price_channel_store(store, indicator.period);

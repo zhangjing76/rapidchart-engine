@@ -397,6 +397,7 @@ mod tests {
             ("DPO", "period", 14.0),
             ("CHANDE_MOMENTUM", "period", 9.0),
             ("CHAIKIN_VOLATILITY", "period", 14.0),
+            ("CHAIKIN_VOLATILITY", "smooth", 2.0),
             ("INTRADAY_MOMENTUM", "period", 20.0),
             ("MA_DEVIATION", "period", 12.0),
             ("HIGH_LOW_BANDS", "period", 10.0),
@@ -838,9 +839,10 @@ mod tests {
             *ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new()),
             &ultimate_oscillator_store(&store, 2, 3, 4, &mut HashMap::new())
         );
-        assert_vec_eq!(
-            *chaikin_volatility_store(&store, 3, &mut HashMap::new()),
-            chaikin_volatility_store(&store, 3, &mut HashMap::new())
+        assert_outputs_eq(
+            &chaikin_volatility_store(&store, 3, 2, &mut HashMap::new()),
+            &chaikin_volatility_store(&store, 3, 2, &mut HashMap::new()),
+            &["value", "hl_ma"],
         );
     }
 

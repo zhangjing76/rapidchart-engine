@@ -135,8 +135,8 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::VWMA => vec![format!("vwma:close:volume:{}", indicator.period)],
         IndicatorKind::WILLIAMS_AD => vec!["wad:ohlc".to_string()],
         IndicatorKind::CHAIKIN_VOLATILITY => vec![
-            format!("cvol:ema:{}", indicator.period),
-            format!("cvol:value:{}", indicator.period),
+            format!("cvol_sma:ma:{}", indicator.period),
+            format!("cvol_sma:value:{}:{}", indicator.period, indicator.smooth),
         ],
         IndicatorKind::PRICE_CHANNEL => vec![
             format!("price_channel:upper:{}", indicator.period),
@@ -545,8 +545,8 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("wad:ohlc", indicator_node),
         ],
         IndicatorKind::CHAIKIN_VOLATILITY => {
-            let ema = format!("cvol:ema:{}", indicator.period);
-            let val = format!("cvol:value:{}", indicator.period);
+            let ema = format!("cvol_sma:ma:{}", indicator.period);
+            let val = format!("cvol_sma:value:{}:{}", indicator.period, indicator.smooth);
             vec![
                 edge("high", &ema),
                 edge("low", &ema),
@@ -1579,7 +1579,11 @@ pub(crate) fn validate_indicator(
         return Err(wasm_bindgen::JsValue::from_str(
             "stoch_period must be greater than zero",
         ));
-    } else if matches!(kind, IndicatorKind::STOCHASTIC | IndicatorKind::STOCH_RSI) && smooth == 0 {
+    } else if matches!(
+        kind,
+        IndicatorKind::STOCHASTIC | IndicatorKind::STOCH_RSI | IndicatorKind::CHAIKIN_VOLATILITY
+    ) && smooth == 0
+    {
         return Err(wasm_bindgen::JsValue::from_str(
             "smooth must be greater than zero",
         ));

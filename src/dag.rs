@@ -366,7 +366,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::PRICE_RELATIVE => vec![format!("price_relative:close:{}", indicator.period)],
         IndicatorKind::AWESOME_OSCILLATOR => vec!["ao:hl".to_string()],
         IndicatorKind::BOLLINGER_PCT_B => vec![format!(
-            "bb_pctb:{}:{}",
+            "bb_pctb100:{}:{}",
             indicator.period, indicator.multiplier
         )],
         IndicatorKind::CENTER_OF_GRAVITY => vec![format!("cog:close:{}", indicator.period)],
@@ -1174,7 +1174,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("ao:hl", indicator_node),
         ],
         IndicatorKind::BOLLINGER_PCT_B => {
-            let b = format!("bb_pctb:{}:{}", indicator.period, indicator.multiplier);
+            let b = format!("bb_pctb100:{}:{}", indicator.period, indicator.multiplier);
             vec![edge("close", &b), edge(&b, indicator_node)]
         }
         IndicatorKind::CENTER_OF_GRAVITY => {

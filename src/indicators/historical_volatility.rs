@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Historical Volatility: Annualized standard deviation of log returns over period.
-/// HV = stddev(ln(close[i]/close[i-1]), period) * sqrt(252)
+/// HV = stddev(ln(close[i]/close[i-1]), period) * sqrt(252) * 100, with the population
+/// standard deviation of the window's returns (divided by n).
 /// (252 for daily bars; for other timeframes the annualization factor stays the same
 /// as a convention, since users interpret it relative to their timeframe.)
 pub fn historical_volatility_store(
@@ -12,7 +13,7 @@ pub fn historical_volatility_store(
     period: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("hv:close:{period}");
+    let key = format!("hv_pop:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
@@ -40,7 +41,7 @@ pub fn historical_volatility_store(
         }
         let n = valid.len() as f64;
         let mean = valid.iter().sum::<f64>() / n;
-        let variance = valid.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (n - 1.0);
+        let variance = valid.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / n;
         out[i] = variance.sqrt() * annualize * 100.0; // as percentage
     }
     let rc = Rc::new(out);
@@ -109,5 +110,14 @@ mod tests {
 
         assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0]);
         assert_eq!(latest_historical_volatility_store(&store, 2), Some(0.0));
+    }
+
+    #[test]
+    fn historical_volatility_uses_the_population_deviation_of_log_returns() {
+        // Log returns ln 2, -ln 2: mean 0, population deviation ln 2.
+        let store = close_store(&[1.0, 2.0, 1.0]);
+        let values = historical_volatility_store(&store, 2, &mut HashMap::new());
+        let expected = 2f64.ln() * 252f64.sqrt() * 100.0;
+        assert!((values[2] - expected).abs() < 1e-9);
     }
 }

@@ -4,6 +4,9 @@ use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
+/// Detrended Price Oscillator: the close `period / 2 + 1` bars back minus the `period`-bar simple
+/// average of the close. The value at bar i uses the close at bar i - shift; `indicatorOutputShift`
+/// in engine.ts draws it on that earlier bar.
 pub fn dpo_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("dpo:close:{period}");
     if let Some(values) = nodes.get(&key) {

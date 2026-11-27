@@ -481,6 +481,11 @@ export function indicatorOutputShift(
 ) {
   if (!config || !("kind" in config)) return 0;
   if (config.kind === "ALLIGATOR") return ALLIGATOR_SHIFTS[output] ?? 0;
+  // DPO compares the close period / 2 + 1 bars back with the latest average, so it is drawn on
+  // that earlier bar (the newest bars have no value).
+  if (config.kind === "DPO") {
+    return output === "value" ? -(Math.floor((config.period ?? 14) / 2) + 1) : 0;
+  }
   if (config.kind !== "ICHIMOKU") return 0;
   const shift = config.kijun_period ?? 26;
   if (output === "senkou_a" || output === "senkou_b") return shift;

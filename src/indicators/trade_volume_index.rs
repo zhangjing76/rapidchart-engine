@@ -1,69 +1,60 @@
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
+use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Trade Volume Index (TVI):
-/// Cumulative volume based on tick direction.
-/// If close > prev_close: add volume
-/// If close < prev_close: subtract volume
-/// If close == prev_close: no change
-pub fn trade_volume_index_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
-    let key = "tvi:cv".to_string();
+/// Trade Volume Index (TVI): a running total of volume signed by the price direction. A close
+/// more than `min_tick` above the previous close sets the direction up, one more than `min_tick`
+/// below sets it down, and a smaller move keeps the previous direction (none before the first
+/// move). Starts at 0 on bar 0.
+pub fn trade_volume_index_store(
+    store: &CandleStore,
+    min_tick: f64,
+    nodes: &mut NodeCache,
+) -> RcSeries {
+    let key = format!("tvi_tick:cv:{min_tick}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
-    if len == 0 {
-        let rc = Rc::new(out);
-        nodes.insert(key, Rc::clone(&rc));
-        return rc;
+    if len > 0 {
+        out[0] = 0.0;
     }
-    out[0] = 0.0;
+    let mut direction = 0.0;
     for i in 1..len {
-        let diff = store.close[i] - store.close[i - 1];
-        if diff > 0.0 {
-            out[i] = out[i - 1] + store.volume[i];
-        } else if diff < 0.0 {
-            out[i] = out[i - 1] - store.volume[i];
-        } else {
-            out[i] = out[i - 1];
+        let change = store.close[i] - store.close[i - 1];
+        if change > min_tick {
+            direction = 1.0;
+        } else if change < -min_tick {
+            direction = -1.0;
         }
+        out[i] = out[i - 1] + direction * store.volume[i];
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
 
-pub fn latest_trade_volume_index_store(store: &CandleStore, prev: Option<&[f64]>) -> Option<f64> {
-    let len = store.len();
-    if len == 0 {
-        return None;
-    }
-    if len == 1 {
-        return Some(0.0);
-    }
-    let prev_tvi = prev
-        .and_then(|s| s.get(len - 2).copied())
-        .and_then(|v| if v.is_nan() { None } else { Some(v) })
-        .unwrap_or(0.0);
-    let diff = store.close[len - 1] - store.close[len - 2];
-    if diff > 0.0 {
-        Some(prev_tvi + store.volume[len - 1])
-    } else if diff < 0.0 {
-        Some(prev_tvi - store.volume[len - 1])
-    } else {
-        Some(prev_tvi)
-    }
+pub fn latest_trade_volume_index_store(store: &CandleStore, min_tick: f64) -> Option<f64> {
+    trade_volume_index_store(store, min_tick, &mut HashMap::new())
+        .last()
+        .copied()
+        .and_then(crate::nan_to_none)
 }
-
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
         kind: "TRADE_VOLUME_INDEX",
         name: "TRADE VOLUME INDEX",
         category: "Money Flow",
         pane: "separate",
-        params: Vec::new(),
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "multiplier",
+            label: "Min Tick Value",
+            default: 0.5,
+            min: 0.0,
+            step: "0.01",
+        }],
         outputs: vec![crate::descriptors::output_descriptor(
             "value", "line", "separate", "#0f766e",
         )],
@@ -101,12 +92,19 @@ mod tests {
     #[test]
     fn trade_volume_index_accumulates_volume_by_direction() {
         let store = ohlcv_store(&[(1.0, 10.0), (2.0, 20.0), (1.0, 30.0), (1.0, 40.0)]);
-        let values = trade_volume_index_store(&store, &mut HashMap::new());
+        let values = trade_volume_index_store(&store, 0.5, &mut HashMap::new());
 
-        assert_series_close(&values, &[0.0, 20.0, -10.0, -10.0]);
-        assert_eq!(
-            latest_trade_volume_index_store(&store, Some(&values[..])),
-            Some(-10.0)
-        );
+        // The unchanged last bar keeps the down direction.
+        assert_series_close(&values, &[0.0, 20.0, -10.0, -50.0]);
+        assert_eq!(latest_trade_volume_index_store(&store, 0.5), Some(-50.0));
+    }
+
+    #[test]
+    fn moves_within_the_min_tick_keep_the_previous_direction() {
+        let store = ohlcv_store(&[(10.0, 1.0), (10.2, 5.0), (11.0, 10.0), (10.8, 20.0)]);
+        let values = trade_volume_index_store(&store, 0.5, &mut HashMap::new());
+
+        // +0.2 sets no direction yet, +0.8 sets up, and -0.2 stays up.
+        assert_series_close(&values, &[0.0, 0.0, 10.0, 30.0]);
     }
 }

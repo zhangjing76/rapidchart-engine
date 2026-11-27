@@ -1,3 +1,4 @@
+use crate::indicators::fractal_chaos_bands::is_fractal;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
@@ -5,10 +6,10 @@ use std::rc::Rc;
 
 /// Fractal Chaos Oscillator:
 /// +1 when a fractal high is detected, -1 when a fractal low is detected, 0 otherwise.
-/// A fractal high occurs when bar[mid].high is the highest among 5 bars.
-/// A fractal low occurs when bar[mid].low is the lowest among 5 bars.
+/// Fractals are found as for the Fractal Chaos Bands, on the bar that confirms them; a fractal
+/// low wins when both land on the same bar.
 pub fn fractal_chaos_oscillator_store(store: &CandleStore, _nodes: &mut NodeCache) -> RcSeries {
-    let key = "fco:hl".to_string();
+    let key = "fco_ties:hl".to_string();
     if let Some(values) = _nodes.get(&key) {
         return Rc::clone(values);
     }
@@ -21,21 +22,14 @@ pub fn fractal_chaos_oscillator_store(store: &CandleStore, _nodes: &mut NodeCach
     }
     for i in 4..len {
         let mid = i - 2;
-        let is_high = store.high[mid] > store.high[mid - 2]
-            && store.high[mid] > store.high[mid - 1]
-            && store.high[mid] > store.high[mid + 1]
-            && store.high[mid] > store.high[mid + 2];
-        let is_low = store.low[mid] < store.low[mid - 2]
-            && store.low[mid] < store.low[mid - 1]
-            && store.low[mid] < store.low[mid + 1]
-            && store.low[mid] < store.low[mid + 2];
-        if is_high {
-            out[i] = 1.0;
-        } else if is_low {
-            out[i] = -1.0;
+        // A fractal low on the same bar as a fractal high takes precedence.
+        out[i] = if is_fractal(&store.low, mid, -1.0) {
+            -1.0
+        } else if is_fractal(&store.high, mid, 1.0) {
+            1.0
         } else {
-            out[i] = 0.0;
-        }
+            0.0
+        };
     }
     let rc = Rc::new(out);
     _nodes.insert(key, Rc::clone(&rc));

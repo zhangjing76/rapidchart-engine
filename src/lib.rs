@@ -307,10 +307,11 @@ impl ChartEngine {
         });
         let stoch_period = config.stoch_period.unwrap_or(period);
         // Settings added later keep their defaults for older configs: Chaikin Volatility's rate of
-        // change (2) and STARC's MA period (5).
+        // change (2), STARC's MA period (5) and the Rainbow Oscillator's HHV/LLV lookback (10).
         let smooth = config.smooth.unwrap_or(match kind {
             IndicatorKind::CHAIKIN_VOLATILITY => 2,
             IndicatorKind::STARC => 5,
+            IndicatorKind::RAINBOW_OSCILLATOR => 10,
             _ => 3,
         });
         let signal = config
@@ -320,10 +321,15 @@ impl ChartEngine {
         let kijun_period = config.kijun_period.unwrap_or(26);
         let senkou_b_period = config.senkou_b_period.unwrap_or(52);
         // Settings added later keep their defaults for older configs: High Low Bands' shift (5%)
-        // and the Market Facilitation Index's scale factor (10^6).
+        // the Market Facilitation Index's scale factor (10^6) and the Prime Number Oscillator's
+        // tolerance (5%), the Swing Index's limit move (0.5) and the Trade Volume Index's minimum
+        // tick (0.5).
         let multiplier = config.multiplier.unwrap_or(match kind {
             IndicatorKind::HIGH_LOW_BANDS => 5.0,
             IndicatorKind::MARKET_FACILITATION => 6.0,
+            IndicatorKind::PRIME_NUMBER_OSCILLATOR => 5.0,
+            IndicatorKind::SWING_INDEX => 0.5,
+            IndicatorKind::TRADE_VOLUME_INDEX => 0.5,
             _ => 2.0,
         });
         let psar_step = config.psar_step.unwrap_or(0.02);

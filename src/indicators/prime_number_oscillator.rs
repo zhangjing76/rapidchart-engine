@@ -1,78 +1,58 @@
+use crate::indicators::prime_number_bands::{prime_above, prime_below};
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::rc::Rc;
 
-fn is_prime(n: u64) -> bool {
-    if n < 2 {
-        return false;
+/// +1 when the close is in the upper part of the bar's prime bands, -1 in the lower part, and 0
+/// within `tolerance_pct` percent of the band width around the middle (half above, half below).
+fn prime_number_signal(high: f64, low: f64, close: f64, tolerance_pct: f64) -> f64 {
+    let top = prime_above(high);
+    let bottom = prime_below(low);
+    if top.is_nan() || bottom.is_nan() || close.is_nan() {
+        return f64::NAN;
     }
-    if n == 2 || n == 3 {
-        return true;
-    }
-    if n % 2 == 0 || n % 3 == 0 {
-        return false;
-    }
-    let mut i = 5;
-    while i * i <= n {
-        if n % i == 0 || n % (i + 2) == 0 {
-            return false;
-        }
-        i += 6;
-    }
-    true
-}
-
-fn nearest_prime(value: f64) -> f64 {
-    let rounded = value.round() as u64;
-    if rounded < 2 {
-        return 2.0;
-    }
-    if is_prime(rounded) {
-        return rounded as f64;
-    }
-    let mut up = rounded + 1;
-    let mut down = rounded.saturating_sub(1);
-    loop {
-        if is_prime(up) {
-            return up as f64;
-        }
-        if down >= 2 && is_prime(down) {
-            return down as f64;
-        }
-        up += 1;
-        if down > 2 {
-            down -= 1;
-        } else {
-            down = 2;
-        }
+    let tolerance = tolerance_pct * (top - bottom) / 100.0;
+    // Twice the distance of the close below the middle of the bands.
+    let skew = top + bottom - 2.0 * close;
+    if skew < -tolerance {
+        1.0
+    } else if skew > tolerance {
+        -1.0
+    } else {
+        0.0
     }
 }
 
-/// Prime Number Oscillator: close - nearest prime to close.
-/// Positive when close is above the nearest prime, negative when below.
-pub fn prime_number_oscillator_store(store: &CandleStore, _nodes: &mut NodeCache) -> RcSeries {
-    let key = "pno:close".to_string();
-    if let Some(values) = _nodes.get(&key) {
+/// Prime Number Oscillator: where the close sits within the Prime Number Bands (see
+/// [`prime_number_signal`]), with `tolerance_pct` setting the neutral zone around the middle.
+pub fn prime_number_oscillator_store(
+    store: &CandleStore,
+    tolerance_pct: f64,
+    nodes: &mut NodeCache,
+) -> RcSeries {
+    let key = format!("pno_bands:hlc:{tolerance_pct}");
+    if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let len = store.len();
-    let mut out = Vec::with_capacity(len);
-    for i in 0..len {
-        let np = nearest_prime(store.close[i]);
-        out.push(store.close[i] - np);
-    }
+    let out: Vec<f64> = (0..store.len())
+        .map(|i| prime_number_signal(store.high[i], store.low[i], store.close[i], tolerance_pct))
+        .collect();
     let rc = Rc::new(out);
-    _nodes.insert(key, Rc::clone(&rc));
+    nodes.insert(key, Rc::clone(&rc));
     rc
 }
 
-pub fn latest_prime_number_oscillator_store(store: &CandleStore) -> Option<f64> {
-    if store.len() == 0 {
-        return None;
-    }
-    let i = store.len() - 1;
-    let np = nearest_prime(store.close[i]);
-    Some(store.close[i] - np)
+pub fn latest_prime_number_oscillator_store(
+    store: &CandleStore,
+    tolerance_pct: f64,
+) -> Option<f64> {
+    let i = store.len().checked_sub(1)?;
+    crate::nan_to_none(prime_number_signal(
+        store.high[i],
+        store.low[i],
+        store.close[i],
+        tolerance_pct,
+    ))
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
@@ -81,7 +61,13 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
         name: "PRIME NUMBER OSCILLATOR",
         category: "Trend Analysis",
         pane: "separate",
-        params: Vec::new(),
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "multiplier",
+            label: "Tolerance %",
+            default: 5.0,
+            min: 0.0,
+            step: "0.1",
+        }],
         outputs: vec![crate::descriptors::output_descriptor(
             "value",
             "histogram",
@@ -96,35 +82,33 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    fn close_store(values: &[f64]) -> CandleStore {
+    fn ohlc_store(values: &[(f64, f64, f64)]) -> CandleStore {
         let len = values.len();
         CandleStore::from_raw_columns(
             (0..len as u32).collect(),
-            values.to_vec(),
-            values.to_vec(),
-            values.to_vec(),
-            values.to_vec(),
+            values.iter().map(|(_, _, close)| *close).collect(),
+            values.iter().map(|(high, _, _)| *high).collect(),
+            values.iter().map(|(_, low, _)| *low).collect(),
+            values.iter().map(|(_, _, close)| *close).collect(),
             vec![1.0; len],
         )
     }
 
-    fn assert_series_close(actual: &[f64], expected: &[f64]) {
-        assert_eq!(actual.len(), expected.len());
-        for (actual, expected) in actual.iter().zip(expected.iter()) {
-            if expected.is_nan() {
-                assert!(actual.is_nan());
-            } else {
-                assert!((actual - expected).abs() < 1e-12);
-            }
-        }
-    }
-
     #[test]
-    fn prime_number_oscillator_uses_the_nearest_prime() {
-        let store = close_store(&[4.1, 10.2]);
-        let values = prime_number_oscillator_store(&store, &mut HashMap::new());
+    fn prime_number_oscillator_reads_the_close_against_the_prime_bands() {
+        // High 53.5 and low 47 give bands 59 and 43: middle 51, and 5% of the 16-point width puts
+        // the neutral zone at 50.6..51.4.
+        let store = ohlc_store(&[
+            (53.5, 47.0, 52.0),
+            (53.5, 47.0, 50.0),
+            (53.5, 47.0, 51.2),
+            (53.5, 47.0, 50.7),
+        ]);
+        let values = prime_number_oscillator_store(&store, 5.0, &mut HashMap::new());
 
-        assert_series_close(&values, &[-0.9, -0.8]);
-        assert!((latest_prime_number_oscillator_store(&store).unwrap() - (-0.8)).abs() < 1e-12);
+        assert_eq!(&*values, &[1.0, -1.0, 0.0, 0.0]);
+        assert_eq!(latest_prime_number_oscillator_store(&store, 5.0), Some(0.0));
+        let no_tolerance = prime_number_oscillator_store(&store, 0.0, &mut HashMap::new());
+        assert_eq!(&*no_tolerance, &[1.0, -1.0, 1.0, -1.0]);
     }
 }

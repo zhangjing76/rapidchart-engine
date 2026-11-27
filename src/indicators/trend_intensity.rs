@@ -4,48 +4,49 @@ use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Trend Intensity Index:
-/// Counts bars above SMA vs below SMA over period.
-/// TII = (bars_above - bars_below) / period * 100
-/// Range: -100 (all below) to +100 (all above)
+/// Trend Intensity Index (M.H. Pee): each bar's deviation of the close from SMA(close, period),
+/// over the last ceil(period / 2) bars. TII = 100 * up / (up + down), where up sums the
+/// deviations at or above zero and down the absolute values of those below, so it runs 0..100.
+/// It is 100 when there are no down deviations. The first value is at bar
+/// period - 1 + ceil(period / 2) - 1.
 pub fn trend_intensity_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("tii:close:{period}");
+    let key = format!("tii_pee:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
     let sma = sma_close_store(store, period, nodes);
     let len = store.len();
     let mut out = vec![f64::NAN; len];
-    if period == 0 || len < period {
+    let half = period.div_ceil(2);
+    if period == 0 || len < period + half - 1 {
         let rc = Rc::new(out);
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    for i in period - 1..len {
-        let sma_val = sma[i];
-        if sma_val.is_nan() {
-            continue;
-        }
-        let mut above = 0i32;
-        let mut below = 0i32;
-        for j in i + 1 - period..=i {
-            if store.close[j] > sma_val {
-                above += 1;
+    let deviation: Vec<f64> = (0..len).map(|i| store.close[i] - sma[i]).collect();
+    for i in period + half - 2..len {
+        let (mut up, mut down) = (0.0, 0.0);
+        for &change in &deviation[i + 1 - half..=i] {
+            if change < 0.0 {
+                down -= change;
             } else {
-                below += 1;
+                up += change;
             }
         }
-        out[i] = ((above - below) as f64 / period as f64) * 100.0;
+        out[i] = if down.abs() < 1e-8 {
+            100.0
+        } else {
+            100.0 - 100.0 / (1.0 + up / down)
+        };
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-
 pub fn latest_trend_intensity_store(store: &CandleStore, period: usize) -> Option<f64> {
     trend_intensity_store(store, period, &mut HashMap::new())
         .last()
@@ -92,11 +93,20 @@ mod tests {
     }
 
     #[test]
-    fn trend_intensity_is_negative_when_all_closes_equal_sma() {
-        let store = close_store(&[5.0, 5.0, 5.0]);
+    fn trend_intensity_is_100_when_no_close_is_below_its_sma() {
+        let store = close_store(&[5.0, 5.0, 5.0, 5.0]);
         let values = trend_intensity_store(&store, 3, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, f64::NAN, -100.0]);
-        assert_eq!(latest_trend_intensity_store(&store, 3), Some(-100.0));
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, 100.0]);
+        assert_eq!(latest_trend_intensity_store(&store, 3), Some(100.0));
+    }
+
+    #[test]
+    fn trend_intensity_is_the_up_share_of_the_last_half_period_deviations() {
+        let store = close_store(&[1.0, 2.0, 3.0, 1.0, 5.0]);
+        let values = trend_intensity_store(&store, 3, &mut HashMap::new());
+
+        // Deviations from SMA(3) are +1, -1 and +2 at bars 2-4; each value uses the last two.
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, 50.0, 200.0 / 3.0]);
     }
 }

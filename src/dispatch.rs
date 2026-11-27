@@ -54,7 +54,9 @@ use crate::indicators::intraday_momentum::intraday_momentum_store;
 use crate::indicators::keltner::{keltner_store, starc_store};
 use crate::indicators::klinger_volume::{klinger_outputs, KLINGER_DEFAULTS};
 use crate::indicators::kst::kst_outputs;
-use crate::indicators::linear_reg_forecast::linear_reg_forecast_store;
+use crate::indicators::linear_reg_forecast::{
+    linear_reg_forecast_store, time_series_forecast_store,
+};
 use crate::indicators::linear_reg_intercept::linear_reg_intercept_store;
 use crate::indicators::linear_reg_r2::linear_reg_r2_store;
 use crate::indicators::linear_reg_slope::linear_reg_slope_store;
@@ -267,7 +269,7 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::RAINBOW_MA => rainbow_ma_store(store, period, nodes).into_arena(),
         IndicatorKind::PRIME_NUMBER_BANDS => prime_number_bands_store(store, nodes).into_arena(),
         IndicatorKind::TIME_SERIES_FORECAST => {
-            linear_reg_forecast_store(store, period, nodes).into_arena()
+            time_series_forecast_store(store, period, nodes).into_arena()
         }
         IndicatorKind::VALUATION_LINES => {
             valuation_lines_store(store, period, multiplier, nodes).into_arena()
@@ -322,7 +324,7 @@ pub(crate) fn compute_indicator_store(
         )
         .into_arena(),
         IndicatorKind::RAINBOW_OSCILLATOR => {
-            rainbow_oscillator_store(store, period, nodes).into_arena()
+            rainbow_oscillator_store(store, period, smooth, nodes).into_arena()
         }
         IndicatorKind::RAVI => ravi_store(store, period, stoch_period, nodes).into_arena(),
         IndicatorKind::RELATIVE_VIGOR => relative_vigor_store(store, period, nodes).into_arena(),
@@ -337,7 +339,7 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::STOCHASTIC_MOMENTUM => {
             stochastic_momentum_store(store, period, smooth, nodes).into_arena()
         }
-        IndicatorKind::SWING_INDEX => swing_index_store(store, nodes).into_arena(),
+        IndicatorKind::SWING_INDEX => swing_index_store(store, multiplier, nodes).into_arena(),
         IndicatorKind::TREND_INTENSITY => trend_intensity_store(store, period, nodes).into_arena(),
         IndicatorKind::VOLUME_OSCILLATOR => volume_oscillator_store(
             store,
@@ -362,7 +364,9 @@ pub(crate) fn compute_indicator_store(
             positive_volume_index_outputs(store, period, nodes).into_arena()
         }
         IndicatorKind::PRICE_VOLUME_TREND => price_volume_trend_store(store, nodes).into_arena(),
-        IndicatorKind::TRADE_VOLUME_INDEX => trade_volume_index_store(store, nodes).into_arena(),
+        IndicatorKind::TRADE_VOLUME_INDEX => {
+            trade_volume_index_store(store, multiplier, nodes).into_arena()
+        }
         IndicatorKind::TWIGGS_MONEY_FLOW => {
             twiggs_money_flow_store(store, period, nodes).into_arena()
         }
@@ -377,7 +381,7 @@ pub(crate) fn compute_indicator_store(
         }
         IndicatorKind::LINEAR_REG_R2 => linear_reg_r2_store(store, period, nodes).into_arena(),
         IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
-            prime_number_oscillator_store(store, nodes).into_arena()
+            prime_number_oscillator_store(store, multiplier, nodes).into_arena()
         }
         IndicatorKind::RANDOM_WALK_INDEX => {
             random_walk_index_store(store, period, nodes).into_arena()
@@ -388,7 +392,7 @@ pub(crate) fn compute_indicator_store(
             choppiness_index_store(store, period, nodes).into_arena()
         }
         IndicatorKind::ELDER_IMPULSE => elder_impulse_store(store, period, nodes).into_arena(),
-        IndicatorKind::GONOGO_TREND => gonogo_trend_store(store, period, nodes).into_arena(),
+        IndicatorKind::GONOGO_TREND => gonogo_trend_store(store, nodes).into_arena(),
         IndicatorKind::PSYCHOLOGICAL_LINE => {
             psychological_line_store(store, period, nodes).into_arena()
         }
@@ -879,7 +883,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "lower", target_len, lower);
         }
         IndicatorKind::TIME_SERIES_FORECAST => {
-            let value = latest_linear_reg_forecast_store(store, indicator.period);
+            let value = latest_time_series_forecast_store(store, indicator.period);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::VALUATION_LINES => {
@@ -987,7 +991,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::RAINBOW_OSCILLATOR => {
-            let value = latest_rainbow_oscillator_store(store, indicator.period);
+            let value = latest_rainbow_oscillator_store(store, indicator.period, indicator.smooth);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::RAVI => {
@@ -1018,7 +1022,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::SWING_INDEX => {
-            let value = latest_swing_index_store(store);
+            let value = latest_swing_index_store(store, indicator.multiplier);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::TREND_INTENSITY => {
@@ -1061,7 +1065,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::TRADE_VOLUME_INDEX => {
-            let value = latest_trade_volume_index_store(store, indicator.outputs.get_slot(0));
+            let value = latest_trade_volume_index_store(store, indicator.multiplier);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::TWIGGS_MONEY_FLOW => {
@@ -1085,7 +1089,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
-            let value = latest_prime_number_oscillator_store(store);
+            let value = latest_prime_number_oscillator_store(store, indicator.multiplier);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::RANDOM_WALK_INDEX => {
@@ -1113,7 +1117,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::GONOGO_TREND => {
-            let value = latest_gonogo_trend_store(store, indicator.period);
+            let value = latest_gonogo_trend_store(store);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::PSYCHOLOGICAL_LINE => {

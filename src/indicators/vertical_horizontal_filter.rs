@@ -3,15 +3,16 @@ use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Vertical Horizontal Filter:
-/// VHF = |close - close[period]| / SUM(|close[i] - close[i-1]|, period)
-/// High VHF = trending, Low VHF = ranging.
+/// Vertical Horizontal Filter (Adam White):
+/// VHF = (highest close - lowest close) / SUM(|close[i] - close[i-1]|, period), with the range
+/// taken over the period + 1 closes those changes span, so a straight line gives 1.
+/// High VHF = trending, Low VHF = ranging. The first value is at bar `period`.
 pub fn vertical_horizontal_filter_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("vhf:close:{period}");
+    let key = format!("vhf_range:close:{period}");
     if let Some(v) = nodes.get(&key) {
         return Rc::clone(v);
     }
@@ -23,12 +24,14 @@ pub fn vertical_horizontal_filter_store(
         return rc;
     }
     for i in period..len {
-        let numerator = (store.close[i] - store.close[i - period]).abs();
+        let window = &store.close[i - period..=i];
+        let highest = window.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let lowest = window.iter().fold(f64::INFINITY, |a, &b| a.min(b));
         let denominator: f64 = (i + 1 - period..=i)
             .map(|j| (store.close[j] - store.close[j - 1]).abs())
             .sum();
         if denominator > 1e-10 {
-            out[i] = numerator / denominator;
+            out[i] = (highest - lowest) / denominator;
         }
     }
     let rc = Rc::new(out);
@@ -82,5 +85,14 @@ mod tests {
             latest_vertical_horizontal_filter_store(&store, 2),
             Some(1.0)
         );
+    }
+
+    #[test]
+    fn vertical_horizontal_filter_is_low_when_price_goes_back_and_forth() {
+        let store = close_store(&[1.0, 3.0, 1.0, 3.0, 1.0]);
+        let values = vertical_horizontal_filter_store(&store, 4, &mut HashMap::new());
+
+        // The range is 2 but the closes travel 8.
+        assert!((values[4] - 0.25).abs() < 1e-12);
     }
 }

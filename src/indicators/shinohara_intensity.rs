@@ -3,9 +3,10 @@ use crate::NodeCache;
 use std::collections::HashMap;
 
 /// Shinohara Intensity Ratio:
-/// Strong Ratio = SUM(H - C) / SUM(C - L) * 100 over period
-/// Weak Ratio = SUM(H - PC) / SUM(PC - L) * 100 over period
-/// where PC = previous close
+/// Strong Ratio = SUM(H - PC) / SUM(PC - L) * 100 over period
+/// Weak Ratio = SUM(H - C) / SUM(C - L) * 100 over period
+/// where PC = previous close. The strong ratio needs the close before the window, so it starts
+/// at bar period + 1 while the weak ratio starts at bar period.
 pub fn shinohara_intensity_store(
     store: &CandleStore,
     period: usize,
@@ -32,11 +33,12 @@ pub fn shinohara_intensity_store(
             sum_hpc += store.high[j] - pc;
             sum_pcl += pc - store.low[j];
         }
-        if sum_cl.abs() > 1e-10 {
-            strong[i] = (sum_hc / sum_cl) * 100.0;
+        // The strong ratio needs the close before the window, so it starts one bar later.
+        if i > period && sum_pcl.abs() > 1e-10 {
+            strong[i] = (sum_hpc / sum_pcl) * 100.0;
         }
-        if sum_pcl.abs() > 1e-10 {
-            weak[i] = (sum_hpc / sum_pcl) * 100.0;
+        if sum_cl.abs() > 1e-10 {
+            weak[i] = (sum_hc / sum_cl) * 100.0;
         }
     }
     vec![
@@ -100,12 +102,20 @@ mod tests {
 
     #[test]
     fn shinohara_intensity_is_hundred_for_midpoint_closes() {
-        let store = ohlc_store(&[(2.0, 0.0, 1.0), (2.0, 0.0, 1.0), (2.0, 0.0, 1.0)]);
+        let store = ohlc_store(&[
+            (2.0, 0.0, 1.0),
+            (2.0, 0.0, 1.0),
+            (2.0, 0.0, 1.0),
+            (2.0, 0.0, 1.0),
+        ]);
         let values = shinohara_intensity_store(&store, 2, &mut std::collections::HashMap::new());
 
-        assert!(values[0].values[0].is_nan());
-        assert!((values[0].values[2] - 100.0).abs() < 1e-12);
+        // Weak ratio uses the current close, so it starts at bar 2; strong uses the previous
+        // close, so it starts at bar 3. With H - C = C - L = 1 each, both are 100.
+        assert!(values[0].values[2].is_nan());
+        assert!((values[0].values[3] - 100.0).abs() < 1e-12);
         assert!((values[1].values[2] - 100.0).abs() < 1e-12);
+        assert!((values[1].values[3] - 100.0).abs() < 1e-12);
         assert_eq!(
             latest_shinohara_intensity_store(&store, 2),
             (Some(100.0), Some(100.0))

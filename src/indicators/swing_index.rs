@@ -1,79 +1,69 @@
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
-use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Wilder's Swing Index (ASI - Accumulative Swing Index):
-/// Measures the strength of price movement using OHLC relationships.
-/// SI = 50 * (Cy - C + 0.5*(Cy - Oy) + 0.25*(C - O)) / R * (K / T)
-/// where T is the limit move (we use ATR as proxy), R is the largest of several ranges.
-pub fn swing_index_store(store: &CandleStore, _nodes: &mut NodeCache) -> RcSeries {
-    let key = "swing_index:ohlc".to_string();
-    if let Some(values) = _nodes.get(&key) {
+/// Wilder's Swing Index for bar `i` (which must be at least 1) with limit move `limit`:
+/// SI = 50 * ((C - Cy) + 0.5 * (C - O) + 0.25 * (Cy - Oy)) / R * K / T, where
+/// A = |H - Cy|, B = |L - Cy|, C' = H - L, D = |Cy - Oy|, K = max(A, B) and R is
+/// A - 0.5B + 0.25D, B - 0.5A + 0.25D or C' + 0.25D for whichever of A, B, C' is largest.
+fn swing_at(store: &CandleStore, i: usize, limit: f64) -> f64 {
+    let (open, high, low, close) = (store.open[i], store.high[i], store.low[i], store.close[i]);
+    let (prev_open, prev_close) = (store.open[i - 1], store.close[i - 1]);
+    let a = (high - prev_close).abs();
+    let b = (low - prev_close).abs();
+    let range = (high - low).abs();
+    let d = (prev_close - prev_open).abs();
+    let k = a.max(b);
+    let largest = range.max(k);
+    let r = if largest == a {
+        a - 0.5 * b + 0.25 * d
+    } else if largest == b {
+        b - 0.5 * a + 0.25 * d
+    } else {
+        range + 0.25 * d
+    };
+    if r == 0.0 {
+        return 0.0;
+    }
+    let change = (close - prev_close) + 0.5 * (close - open) + 0.25 * (prev_close - prev_open);
+    50.0 * change / r * (k / limit)
+}
+
+/// Swing Index (Wilder), one value per bar from bar 1. `limit` is the limit move value T, which
+/// must be greater than zero.
+pub fn swing_index_store(store: &CandleStore, limit: f64, nodes: &mut NodeCache) -> RcSeries {
+    let key = format!("swing_index_wilder:ohlc:{limit}");
+    if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let len = store.len();
-    let mut out = vec![f64::NAN; len];
-    if len < 2 {
-        let rc = Rc::new(out);
-        _nodes.insert(key, Rc::clone(&rc));
-        return rc;
-    }
-    let mut cumulative = 0.0;
-    for i in 1..len {
-        let c = store.close[i];
-        let cy = store.close[i - 1];
-        let o = store.open[i];
-        let oy = store.open[i - 1];
-        let h = store.high[i];
-        let l = store.low[i];
-        let _hy = store.high[i - 1];
-        let _ly = store.low[i - 1];
-
-        let k = (h - cy).abs().max((l - cy).abs());
-        let tr = (h - l).max((h - cy).abs()).max((l - cy).abs());
-
-        if tr < 1e-10 {
-            out[i] = cumulative;
-            continue;
-        }
-
-        let er = if (h - cy).abs() >= (l - cy).abs() && (h - cy).abs() >= (h - l) {
-            (h - cy).abs() + 0.5 * (l - cy).abs() + 0.25 * (cy - oy).abs()
-        } else if (l - cy).abs() >= (h - cy).abs() && (l - cy).abs() >= (h - l) {
-            (l - cy).abs() + 0.5 * (h - cy).abs() + 0.25 * (cy - oy).abs()
-        } else {
-            (h - l) + 0.25 * (cy - oy).abs()
-        };
-
-        if er.abs() < 1e-10 {
-            out[i] = cumulative;
-            continue;
-        }
-
-        let si = 50.0 * ((cy - c) + 0.5 * (cy - oy) + 0.25 * (c - o)) * k / (er * tr);
-        cumulative += si;
-        out[i] = cumulative;
+    let mut out = vec![f64::NAN; store.len()];
+    for (i, value) in out.iter_mut().enumerate().skip(1) {
+        *value = swing_at(store, i, limit);
     }
     let rc = Rc::new(out);
-    _nodes.insert(key, Rc::clone(&rc));
+    nodes.insert(key, Rc::clone(&rc));
     rc
 }
 
-pub fn latest_swing_index_store(store: &CandleStore) -> Option<f64> {
-    swing_index_store(store, &mut HashMap::new())
-        .last()
-        .copied()
-        .and_then(|v| if v.is_nan() { None } else { Some(v) })
+pub fn latest_swing_index_store(store: &CandleStore, limit: f64) -> Option<f64> {
+    if store.len() < 2 {
+        return None;
+    }
+    crate::nan_to_none(swing_at(store, store.len() - 1, limit))
 }
-
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
         kind: "SWING_INDEX",
         name: "SWING INDEX",
         category: "Trend Analysis",
         pane: "separate",
-        params: Vec::new(),
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "multiplier",
+            label: "Limit Move Value",
+            default: 0.5,
+            min: 0.01,
+            step: "0.01",
+        }],
         outputs: vec![crate::descriptors::output_descriptor(
             "value", "line", "separate", "#2563eb",
         )],
@@ -104,29 +94,50 @@ mod tests {
             (10.0, 10.0, 10.0, 1.0),
             (10.0, 10.0, 10.0, 1.0),
         ]);
-        let values = swing_index_store(&store, &mut HashMap::new());
+        let values = swing_index_store(&store, 0.5, &mut HashMap::new());
 
         assert!(values[0].is_nan());
         assert_eq!(values[1], 0.0);
         assert_eq!(values[2], 0.0);
-        assert_eq!(latest_swing_index_store(&store), Some(0.0));
+        assert_eq!(latest_swing_index_store(&store, 0.5), Some(0.0));
     }
 
     #[test]
-    fn swing_index_accumulates_negative_swings_in_a_rising_open_close_sequence() {
+    fn swing_index_follows_wilders_formula_on_each_bar() {
+        // Open, high, low, close per bar.
         let store = CandleStore::from_raw_columns(
             vec![0, 1, 2],
-            vec![10.0, 11.0, 12.0],
+            vec![10.0, 11.0, 10.0],
             vec![12.0, 13.0, 14.0],
             vec![9.0, 10.0, 11.0],
             vec![11.0, 12.0, 13.0],
             vec![1.0, 1.0, 1.0],
         );
-        let values = swing_index_store(&store, &mut HashMap::new());
+        let values = swing_index_store(&store, 0.5, &mut HashMap::new());
 
         assert!(values[0].is_nan());
-        assert!((values[1] + 2.5641025641025643).abs() < 1e-12);
-        assert!((values[2] + 5.128205128205129).abs() < 1e-12);
-        assert!((latest_swing_index_store(&store).unwrap() + 5.128205128205129).abs() < 1e-12);
+        // Bar 1: the bar's range (3) is largest, so R = 3 + 0.25 * |11 - 10| = 3.25; K = 2 and
+        // the change term is 1 + 0.5 * 1 + 0.25 * 1 = 1.75. Each bar stands alone.
+        assert!((values[1] - 50.0 * 1.75 / 3.25 * (2.0 / 0.5)).abs() < 1e-9);
+        // Bar 2: the range (3) is largest again, with D = |12 - 11| = 1, K = 2 and the change
+        // term 1 + 0.5 * 3 + 0.25 * 1 = 2.75.
+        assert!((values[2] - 50.0 * 2.75 / 3.25 * (2.0 / 0.5)).abs() < 1e-9);
+        assert_eq!(latest_swing_index_store(&store, 0.5), Some(values[2]));
+    }
+
+    #[test]
+    fn swing_index_uses_wilders_r_when_the_high_gap_is_largest() {
+        let store = CandleStore::from_raw_columns(
+            vec![0, 1],
+            vec![10.0, 10.0],
+            vec![10.0, 14.0],
+            vec![10.0, 11.0],
+            vec![10.0, 13.0],
+            vec![1.0, 1.0],
+        );
+        let values = swing_index_store(&store, 0.5, &mut HashMap::new());
+
+        // A = 4 is largest, so R = 4 - 0.5 * 1 = 3.5; the change term is 3 + 0.5 * 3 = 4.5.
+        assert!((values[1] - 50.0 * 4.5 / 3.5 * (4.0 / 0.5)).abs() < 1e-9);
     }
 }

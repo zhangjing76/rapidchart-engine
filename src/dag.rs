@@ -181,7 +181,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             "pivot:r3".to_string(),
             "pivot:s3".to_string(),
         ],
-        IndicatorKind::AROON => vec![format!("aroon:hl:{}", indicator.period)],
+        IndicatorKind::AROON => vec![format!("aroon_lookback:hl:{}", indicator.period)],
         IndicatorKind::ADL => vec!["adl:hlcv".to_string()],
         IndicatorKind::KST => vec![
             "roc:close:10".to_string(),
@@ -284,9 +284,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::HIGHEST_HIGH => vec![format!("highest_high:h:{}", indicator.period)],
         IndicatorKind::LOWEST_LOW => vec![format!("lowest_low:l:{}", indicator.period)],
         IndicatorKind::ALLIGATOR => vec![
-            "alligator:jaw".to_string(),
-            "alligator:teeth".to_string(),
-            "alligator:lips".to_string(),
+            "alligator_seeded:jaw".to_string(),
+            "alligator_seeded:teeth".to_string(),
+            "alligator_seeded:lips".to_string(),
         ],
         IndicatorKind::ATR_BANDS => vec![
             format!("atr:ohlc:{}", indicator.period),
@@ -311,7 +311,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             ),
         ],
         IndicatorKind::FRACTAL_CHAOS_BANDS => {
-            vec!["fcb:upper".to_string(), "fcb:lower".to_string()]
+            vec!["fcb_ties:upper".to_string(), "fcb_ties:lower".to_string()]
         }
         IndicatorKind::GMMA => {
             let mut nodes = Vec::with_capacity(12);
@@ -321,7 +321,10 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             nodes
         }
         IndicatorKind::LINEAR_REG_FORECAST => {
-            vec![format!("linreg_forecast:close:{}", indicator.period)]
+            vec![format!(
+                "linreg_forecast_current:close:{}",
+                indicator.period
+            )]
         }
         IndicatorKind::LINEAR_REG_INTERCEPT => {
             vec![format!("linreg_intercept:close:{}", indicator.period)]
@@ -343,9 +346,12 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::RAINBOW_MA => (1..=10)
             .map(|i| format!("rainbow:r{}:{}", i, indicator.period))
             .collect(),
-        IndicatorKind::PRIME_NUMBER_BANDS => vec!["pnb:upper".to_string(), "pnb:lower".to_string()],
+        IndicatorKind::PRIME_NUMBER_BANDS => vec![
+            "pnb_strict:upper".to_string(),
+            "pnb_strict:lower".to_string(),
+        ],
         IndicatorKind::TIME_SERIES_FORECAST => {
-            vec![format!("linreg_forecast:close:{}", indicator.period)]
+            vec![format!("tsf:close:{}", indicator.period)]
         }
         IndicatorKind::VALUATION_LINES => vec![
             format!("sma:close:{}", indicator.period),
@@ -369,24 +375,28 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             "bb_pctb100:{}:{}",
             indicator.period, indicator.multiplier
         )],
-        IndicatorKind::CENTER_OF_GRAVITY => vec![format!("cog:close:{}", indicator.period)],
+        IndicatorKind::CENTER_OF_GRAVITY => vec![format!("cog_ehlers:close:{}", indicator.period)],
         IndicatorKind::CHANDE_FORECAST => vec![format!("cfo:close:{}", indicator.period)],
         IndicatorKind::CHANDE_MOMENTUM => vec![format!("cmo:close:{}", indicator.period)],
         IndicatorKind::COPPOCK_CURVE => vec!["coppock:close".to_string()],
         IndicatorKind::DISPARITY_INDEX => vec![
-            format!("ema:close:{}", indicator.period),
-            format!("disparity:close:{}", indicator.period),
+            format!("sma:close:{}", indicator.period),
+            format!("disparity_sma:close:{}", indicator.period),
         ],
-        IndicatorKind::EASE_OF_MOVEMENT => vec![format!("emv:hlv:{}", indicator.period)],
-        IndicatorKind::EHLER_FISHER => vec![format!("fisher:hl:{}", indicator.period)],
+        IndicatorKind::EASE_OF_MOVEMENT => vec![format!("emv_scaled:hlv:{}", indicator.period)],
+        IndicatorKind::EHLER_FISHER => vec![format!("fisher_mid:hl:{}", indicator.period)],
         IndicatorKind::ELDER_RAY => vec![
             format!("ema_sma:close:{}", indicator.period),
             format!("elder_ray:hl:{}", indicator.period),
         ],
-        IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => vec!["fco:hl".to_string()],
-        IndicatorKind::GATOR_OSCILLATOR => {
-            vec!["gator:upper".to_string(), "gator:lower".to_string()]
-        }
+        IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => vec!["fco_ties:hl".to_string()],
+        IndicatorKind::GATOR_OSCILLATOR => vec![
+            "alligator_seeded:jaw".to_string(),
+            "alligator_seeded:teeth".to_string(),
+            "alligator_seeded:lips".to_string(),
+            "gator_drawn:upper".to_string(),
+            "gator_drawn:lower".to_string(),
+        ],
         IndicatorKind::INTRADAY_MOMENTUM => vec![format!("imi:oc:{}", indicator.period)],
         IndicatorKind::LINEAR_REG_SLOPE => vec![format!("linreg_slope:close:{}", indicator.period)],
         IndicatorKind::MA_DEVIATION => vec![
@@ -395,11 +405,11 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         ],
         IndicatorKind::PRETTY_GOOD_OSCILLATOR => vec![
             format!("sma:close:{}", indicator.period),
-            format!("atr:ohlc:{}", indicator.period),
-            format!("pgo:close:{}", indicator.period),
+            "true_range:hlc".to_string(),
+            format!("pgo_ema_tr:close:{}", indicator.period),
         ],
         IndicatorKind::PRICE_MOMENTUM_OSCILLATOR => vec![format!(
-            "pmo:close:{}:{}",
+            "pmo_dp:close:{}:{}",
             indicator.period, indicator.smooth
         )],
         IndicatorKind::PRICE_OSCILLATOR => {
@@ -411,7 +421,10 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             vec![format!("price_osc_pts:close:{}:{}", p.fast, p.slow)]
         }
         IndicatorKind::RAINBOW_OSCILLATOR => {
-            vec![format!("rainbow_osc:close:{}", indicator.period)]
+            vec![format!(
+                "rainbow_osc_range:close:{}:{}",
+                indicator.period, indicator.smooth
+            )]
         }
         IndicatorKind::RAVI => vec![format!(
             "ravi:close:{}:{}",
@@ -425,7 +438,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 signal: 9,
             });
             vec![format!(
-                "stc:{}:{}:{}",
+                "stc_seeded:{}:{}:{}",
                 p.fast, p.slow, indicator.stoch_period
             )]
         }
@@ -435,10 +448,12 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 indicator.period, indicator.smooth
             )]
         }
-        IndicatorKind::SWING_INDEX => vec!["swing_index:ohlc".to_string()],
+        IndicatorKind::SWING_INDEX => {
+            vec![format!("swing_index_wilder:ohlc:{}", indicator.multiplier)]
+        }
         IndicatorKind::TREND_INTENSITY => vec![
             format!("sma:close:{}", indicator.period),
-            format!("tii:close:{}", indicator.period),
+            format!("tii_pee:close:{}", indicator.period),
         ],
         IndicatorKind::VOLUME_OSCILLATOR => {
             let p = indicator.macd.unwrap_or(MacdParams {
@@ -465,25 +480,37 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("pvi100:cv:sma:{}", indicator.period),
         ],
         IndicatorKind::PRICE_VOLUME_TREND => vec!["pvt:cv".to_string()],
-        IndicatorKind::TRADE_VOLUME_INDEX => vec!["tvi:cv".to_string()],
-        IndicatorKind::TWIGGS_MONEY_FLOW => vec![format!("tmf:hlcv:{}", indicator.period)],
+        IndicatorKind::TRADE_VOLUME_INDEX => {
+            vec![format!("tvi_tick:cv:{}", indicator.multiplier)]
+        }
+        IndicatorKind::TWIGGS_MONEY_FLOW => vec![format!("tmf_wilder:hlcv:{}", indicator.period)],
         IndicatorKind::PROJECTED_AGGREGATE_VOLUME => vec![format!("pav:v:{}", indicator.period)],
         IndicatorKind::PROJECTED_VOLUME_AT_TIME => vec![format!("pvat:v:{}", indicator.period)],
         IndicatorKind::HISTORICAL_VOLATILITY => vec![format!("hv_pop:close:{}", indicator.period)],
         IndicatorKind::LINEAR_REG_R2 => vec![format!("linreg_r2:close:{}", indicator.period)],
-        IndicatorKind::PRIME_NUMBER_OSCILLATOR => vec!["pno:close".to_string()],
-        IndicatorKind::RANDOM_WALK_INDEX => vec![format!("rwi:hlc:{}", indicator.period)],
+        IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
+            vec![format!("pno_bands:hlc:{}", indicator.multiplier)]
+        }
+        IndicatorKind::RANDOM_WALK_INDEX => vec![format!("rwi_prev:hlc:{}", indicator.period)],
         IndicatorKind::DARVAS_BOX => vec!["darvas:top".to_string(), "darvas:bottom".to_string()],
         IndicatorKind::VOLUME_PROFILE => vec![format!("vol_profile:hlv:{}", indicator.period)],
         IndicatorKind::CHOPPINESS_INDEX => vec![format!("chop:hlc:{}", indicator.period)],
         IndicatorKind::ELDER_IMPULSE => vec![format!("impulse:close:{}", indicator.period)],
-        IndicatorKind::GONOGO_TREND => vec![format!("gonogo:close:{}", indicator.period)],
+        IndicatorKind::GONOGO_TREND => vec![
+            "sma:close:50".to_string(),
+            "psar:ohlc:0.2:0.2".to_string(),
+            "ema_sma:close:12".to_string(),
+            "ema_sma:close:26".to_string(),
+            "gonogo_score:hlc".to_string(),
+        ],
         IndicatorKind::PSYCHOLOGICAL_LINE => vec![format!("psy:close:{}", indicator.period)],
         IndicatorKind::QSTICK => vec![format!("qstick:oc:{}", indicator.period)],
-        IndicatorKind::SHINOHARA_INTENSITY => vec![format!("shinohara:hlc:{}", indicator.period)],
-        IndicatorKind::ULCER_INDEX => vec![format!("ulcer:close:{}", indicator.period)],
+        IndicatorKind::SHINOHARA_INTENSITY => {
+            vec![format!("shinohara_swap:hlc:{}", indicator.period)]
+        }
+        IndicatorKind::ULCER_INDEX => vec![format!("ulcer_dd:close:{}", indicator.period)],
         IndicatorKind::VERTICAL_HORIZONTAL_FILTER => {
-            vec![format!("vhf:close:{}", indicator.period)]
+            vec![format!("vhf_range:close:{}", indicator.period)]
         }
         IndicatorKind::VORTEX_INDICATOR => vec![format!("vortex:hlc:{}", indicator.period)],
         IndicatorKind::ZIGZAG => vec![format!("zigzag:hl:{}", indicator.multiplier)],
@@ -491,7 +518,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             "bb_bw:{}:{}",
             indicator.period, indicator.multiplier
         )],
-        IndicatorKind::DONCHIAN_WIDTH => vec![format!("donchian_width:{}", indicator.period)],
+        IndicatorKind::DONCHIAN_WIDTH => {
+            vec![format!("donchian_width_points:{}", indicator.period)]
+        }
         IndicatorKind::GOPALAKRISHNAN_RANGE => vec![format!("gapo:hl:{}", indicator.period)],
         IndicatorKind::HIGH_MINUS_LOW => vec!["hml:hl".to_string()],
         IndicatorKind::MASS_INDEX => vec![format!("mass_sma:hl:{}", indicator.period)],
@@ -813,7 +842,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("pivot:s3", indicator_node),
         ],
         IndicatorKind::AROON => {
-            let a = format!("aroon:hl:{}", indicator.period);
+            let a = format!("aroon_lookback:hl:{}", indicator.period);
             vec![edge("high", &a), edge("low", &a), edge(&a, indicator_node)]
         }
         IndicatorKind::ADL => vec![
@@ -993,15 +1022,15 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("low", &l), edge(&l, indicator_node)]
         }
         IndicatorKind::ALLIGATOR => vec![
-            edge("high", "alligator:jaw"),
-            edge("low", "alligator:jaw"),
-            edge("high", "alligator:teeth"),
-            edge("low", "alligator:teeth"),
-            edge("high", "alligator:lips"),
-            edge("low", "alligator:lips"),
-            edge("alligator:jaw", indicator_node),
-            edge("alligator:teeth", indicator_node),
-            edge("alligator:lips", indicator_node),
+            edge("high", "alligator_seeded:jaw"),
+            edge("low", "alligator_seeded:jaw"),
+            edge("high", "alligator_seeded:teeth"),
+            edge("low", "alligator_seeded:teeth"),
+            edge("high", "alligator_seeded:lips"),
+            edge("low", "alligator_seeded:lips"),
+            edge("alligator_seeded:jaw", indicator_node),
+            edge("alligator_seeded:teeth", indicator_node),
+            edge("alligator_seeded:lips", indicator_node),
         ],
         IndicatorKind::ATR_BANDS => {
             let atr = format!("atr:ohlc:{}", indicator.period);
@@ -1045,12 +1074,12 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::FRACTAL_CHAOS_BANDS => vec![
-            edge("high", "fcb:upper"),
-            edge("low", "fcb:upper"),
-            edge("high", "fcb:lower"),
-            edge("low", "fcb:lower"),
-            edge("fcb:upper", indicator_node),
-            edge("fcb:lower", indicator_node),
+            edge("high", "fcb_ties:upper"),
+            edge("low", "fcb_ties:upper"),
+            edge("high", "fcb_ties:lower"),
+            edge("low", "fcb_ties:lower"),
+            edge("fcb_ties:upper", indicator_node),
+            edge("fcb_ties:lower", indicator_node),
         ],
         IndicatorKind::GMMA => {
             let mut edges = Vec::new();
@@ -1062,7 +1091,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edges
         }
         IndicatorKind::LINEAR_REG_FORECAST => {
-            let l = format!("linreg_forecast:close:{}", indicator.period);
+            let l = format!("linreg_forecast_current:close:{}", indicator.period);
             vec![edge("close", &l), edge(&l, indicator_node)]
         }
         IndicatorKind::LINEAR_REG_INTERCEPT => {
@@ -1124,13 +1153,13 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edges
         }
         IndicatorKind::PRIME_NUMBER_BANDS => vec![
-            edge("high", "pnb:upper"),
-            edge("low", "pnb:lower"),
-            edge("pnb:upper", indicator_node),
-            edge("pnb:lower", indicator_node),
+            edge("high", "pnb_strict:upper"),
+            edge("low", "pnb_strict:lower"),
+            edge("pnb_strict:upper", indicator_node),
+            edge("pnb_strict:lower", indicator_node),
         ],
         IndicatorKind::TIME_SERIES_FORECAST => {
-            let l = format!("linreg_forecast:close:{}", indicator.period);
+            let l = format!("tsf:close:{}", indicator.period);
             vec![edge("close", &l), edge(&l, indicator_node)]
         }
         IndicatorKind::VALUATION_LINES => {
@@ -1178,7 +1207,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &b), edge(&b, indicator_node)]
         }
         IndicatorKind::CENTER_OF_GRAVITY => {
-            let c = format!("cog:close:{}", indicator.period);
+            let c = format!("cog_ehlers:close:{}", indicator.period);
             vec![edge("close", &c), edge(&c, indicator_node)]
         }
         IndicatorKind::CHANDE_FORECAST => {
@@ -1194,12 +1223,12 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("coppock:close", indicator_node),
         ],
         IndicatorKind::DISPARITY_INDEX => {
-            let e = format!("ema:close:{}", indicator.period);
-            let d = format!("disparity:close:{}", indicator.period);
+            let e = format!("sma:close:{}", indicator.period);
+            let d = format!("disparity_sma:close:{}", indicator.period);
             vec![edge("close", &e), edge(&e, &d), edge(&d, indicator_node)]
         }
         IndicatorKind::EASE_OF_MOVEMENT => {
-            let e = format!("emv:hlv:{}", indicator.period);
+            let e = format!("emv_scaled:hlv:{}", indicator.period);
             vec![
                 edge("high", &e),
                 edge("low", &e),
@@ -1208,7 +1237,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::EHLER_FISHER => {
-            let f = format!("fisher:hl:{}", indicator.period);
+            let f = format!("fisher_mid:hl:{}", indicator.period);
             vec![edge("hl2", &f), edge(&f, indicator_node)]
         }
         IndicatorKind::ELDER_RAY => {
@@ -1223,18 +1252,23 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => vec![
-            edge("high", "fco:hl"),
-            edge("low", "fco:hl"),
-            edge("fco:hl", indicator_node),
+            edge("high", "fco_ties:hl"),
+            edge("low", "fco_ties:hl"),
+            edge("fco_ties:hl", indicator_node),
         ],
-        IndicatorKind::GATOR_OSCILLATOR => vec![
-            edge("high", "gator:upper"),
-            edge("low", "gator:upper"),
-            edge("high", "gator:lower"),
-            edge("low", "gator:lower"),
-            edge("gator:upper", indicator_node),
-            edge("gator:lower", indicator_node),
-        ],
+        IndicatorKind::GATOR_OSCILLATOR => {
+            let mut edges = Vec::new();
+            for line in ["jaw", "teeth", "lips"] {
+                let node = format!("alligator_seeded:{line}");
+                edges.push(edge("high", &node));
+                edges.push(edge("low", &node));
+                edges.push(edge(&node, "gator_drawn:upper"));
+                edges.push(edge(&node, "gator_drawn:lower"));
+            }
+            edges.push(edge("gator_drawn:upper", indicator_node));
+            edges.push(edge("gator_drawn:lower", indicator_node));
+            edges
+        }
         IndicatorKind::INTRADAY_MOMENTUM => {
             let i = format!("imi:oc:{}", indicator.period);
             vec![edge("close", &i), edge(&i, indicator_node)]
@@ -1250,8 +1284,8 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
         }
         IndicatorKind::PRETTY_GOOD_OSCILLATOR => {
             let s = format!("sma:close:{}", indicator.period);
-            let a = format!("atr:ohlc:{}", indicator.period);
-            let p = format!("pgo:close:{}", indicator.period);
+            let a = "true_range:hlc".to_string();
+            let p = format!("pgo_ema_tr:close:{}", indicator.period);
             vec![
                 edge("close", &s),
                 edge("high", &a),
@@ -1263,7 +1297,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::PRICE_MOMENTUM_OSCILLATOR => {
-            let p = format!("pmo:close:{}:{}", indicator.period, indicator.smooth);
+            let p = format!("pmo_dp:close:{}:{}", indicator.period, indicator.smooth);
             vec![edge("close", &p), edge(&p, indicator_node)]
         }
         IndicatorKind::PRICE_OSCILLATOR => {
@@ -1280,7 +1314,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::RAINBOW_OSCILLATOR => {
-            let r = format!("rainbow_osc:close:{}", indicator.period);
+            let r = format!(
+                "rainbow_osc_range:close:{}:{}",
+                indicator.period, indicator.smooth
+            );
             vec![edge("close", &r), edge(&r, indicator_node)]
         }
         IndicatorKind::RAVI => {
@@ -1302,7 +1339,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 slow: 26,
                 signal: 9,
             });
-            let s = format!("stc:{}:{}:{}", p.fast, p.slow, indicator.stoch_period);
+            let s = format!(
+                "stc_seeded:{}:{}:{}",
+                p.fast, p.slow, indicator.stoch_period
+            );
             vec![edge("close", &s), edge(&s, indicator_node)]
         }
         IndicatorKind::STOCHASTIC_MOMENTUM => {
@@ -1314,15 +1354,19 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 edge(&s, indicator_node),
             ]
         }
-        IndicatorKind::SWING_INDEX => vec![
-            edge("high", "swing_index:ohlc"),
-            edge("low", "swing_index:ohlc"),
-            edge("close", "swing_index:ohlc"),
-            edge("swing_index:ohlc", indicator_node),
-        ],
+        IndicatorKind::SWING_INDEX => {
+            let s = format!("swing_index_wilder:ohlc:{}", indicator.multiplier);
+            vec![
+                edge("open", &s),
+                edge("high", &s),
+                edge("low", &s),
+                edge("close", &s),
+                edge(&s, indicator_node),
+            ]
+        }
         IndicatorKind::TREND_INTENSITY => {
             let s = format!("sma:close:{}", indicator.period);
-            let t = format!("tii:close:{}", indicator.period);
+            let t = format!("tii_pee:close:{}", indicator.period);
             vec![edge("close", &s), edge(&s, &t), edge(&t, indicator_node)]
         }
         IndicatorKind::VOLUME_OSCILLATOR => {
@@ -1382,13 +1426,16 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("volume", "pvt:cv"),
             edge("pvt:cv", indicator_node),
         ],
-        IndicatorKind::TRADE_VOLUME_INDEX => vec![
-            edge("close", "tvi:cv"),
-            edge("volume", "tvi:cv"),
-            edge("tvi:cv", indicator_node),
-        ],
+        IndicatorKind::TRADE_VOLUME_INDEX => {
+            let t = format!("tvi_tick:cv:{}", indicator.multiplier);
+            vec![
+                edge("close", &t),
+                edge("volume", &t),
+                edge(&t, indicator_node),
+            ]
+        }
         IndicatorKind::TWIGGS_MONEY_FLOW => {
-            let t = format!("tmf:hlcv:{}", indicator.period);
+            let t = format!("tmf_wilder:hlcv:{}", indicator.period);
             vec![
                 edge("high", &t),
                 edge("low", &t),
@@ -1413,12 +1460,17 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             let r = format!("linreg_r2:close:{}", indicator.period);
             vec![edge("close", &r), edge(&r, indicator_node)]
         }
-        IndicatorKind::PRIME_NUMBER_OSCILLATOR => vec![
-            edge("close", "pno:close"),
-            edge("pno:close", indicator_node),
-        ],
+        IndicatorKind::PRIME_NUMBER_OSCILLATOR => {
+            let p = format!("pno_bands:hlc:{}", indicator.multiplier);
+            vec![
+                edge("high", &p),
+                edge("low", &p),
+                edge("close", &p),
+                edge(&p, indicator_node),
+            ]
+        }
         IndicatorKind::RANDOM_WALK_INDEX => {
-            let r = format!("rwi:hlc:{}", indicator.period);
+            let r = format!("rwi_prev:hlc:{}", indicator.period);
             vec![
                 edge("high", &r),
                 edge("low", &r),
@@ -1455,8 +1507,23 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &e), edge(&e, indicator_node)]
         }
         IndicatorKind::GONOGO_TREND => {
-            let g = format!("gonogo:close:{}", indicator.period);
-            vec![edge("close", &g), edge(&g, indicator_node)]
+            let parts = [
+                "sma:close:50",
+                "psar:ohlc:0.2:0.2",
+                "ema_sma:close:12",
+                "ema_sma:close:26",
+            ];
+            let mut edges = vec![
+                edge("close", parts[0]),
+                edge("high", parts[1]),
+                edge("low", parts[1]),
+                edge("close", parts[1]),
+                edge("close", parts[2]),
+                edge("close", parts[3]),
+            ];
+            edges.extend(parts.iter().map(|part| edge(part, "gonogo_score:hlc")));
+            edges.push(edge("gonogo_score:hlc", indicator_node));
+            edges
         }
         IndicatorKind::PSYCHOLOGICAL_LINE => {
             let p = format!("psy:close:{}", indicator.period);
@@ -1467,7 +1534,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &q), edge(&q, indicator_node)]
         }
         IndicatorKind::SHINOHARA_INTENSITY => {
-            let s = format!("shinohara:hlc:{}", indicator.period);
+            let s = format!("shinohara_swap:hlc:{}", indicator.period);
             vec![
                 edge("high", &s),
                 edge("low", &s),
@@ -1476,11 +1543,11 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::ULCER_INDEX => {
-            let u = format!("ulcer:close:{}", indicator.period);
+            let u = format!("ulcer_dd:close:{}", indicator.period);
             vec![edge("close", &u), edge(&u, indicator_node)]
         }
         IndicatorKind::VERTICAL_HORIZONTAL_FILTER => {
-            let v = format!("vhf:close:{}", indicator.period);
+            let v = format!("vhf_range:close:{}", indicator.period);
             vec![edge("close", &v), edge(&v, indicator_node)]
         }
         IndicatorKind::VORTEX_INDICATOR => {
@@ -1501,7 +1568,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &b), edge(&b, indicator_node)]
         }
         IndicatorKind::DONCHIAN_WIDTH => {
-            let d = format!("donchian_width:{}", indicator.period);
+            let d = format!("donchian_width_points:{}", indicator.period);
             vec![edge("high", &d), edge("low", &d), edge(&d, indicator_node)]
         }
         IndicatorKind::GOPALAKRISHNAN_RANGE => {
@@ -1635,6 +1702,30 @@ pub(crate) fn validate_indicator(
     {
         return Err(wasm_bindgen::JsValue::from_str(
             "multiplier must be greater than zero",
+        ));
+    } else if kind == IndicatorKind::TRADE_VOLUME_INDEX
+        && !(multiplier.is_finite() && multiplier >= 0.0)
+    {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "TRADE_VOLUME_INDEX minimum tick must be zero or more",
+        ));
+    } else if kind == IndicatorKind::SWING_INDEX && !(multiplier.is_finite() && multiplier > 0.0) {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "SWING_INDEX limit move must be greater than zero",
+        ));
+    } else if kind == IndicatorKind::RAINBOW_OSCILLATOR && smooth == 0 {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "RAINBOW_OSCILLATOR lookback must be greater than zero",
+        ));
+    } else if kind == IndicatorKind::PRICE_MOMENTUM_OSCILLATOR && (period < 2 || smooth < 2) {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "PRICE_MOMENTUM_OSCILLATOR periods must be at least 2",
+        ));
+    } else if kind == IndicatorKind::PRIME_NUMBER_OSCILLATOR
+        && (!multiplier.is_finite() || multiplier < 0.0)
+    {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "PRIME_NUMBER_OSCILLATOR tolerance must be zero or more",
         ));
     }
     Ok(())

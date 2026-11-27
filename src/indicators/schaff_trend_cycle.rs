@@ -1,15 +1,15 @@
-use crate::indicators::ema::ema_close_store;
+use crate::indicators::ema::ema_sma_seeded_close_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Schaff Trend Cycle: MACD line passed through double Stochastic smoothing.
-/// 1. Compute MACD line = EMA(fast) - EMA(slow)
-/// 2. Apply Stochastic %K to MACD over stoch_period
-/// 3. Smooth with EMA (factor 0.5)
-/// 4. Apply Stochastic %K again
-/// 5. Smooth with EMA (factor 0.5) → STC
+/// Schaff Trend Cycle, following Doug Schaff's original code:
+/// 1. MACD line = EMA(fast) - EMA(slow), both seeded with a simple average
+/// 2. %K of the MACD line over `stoch_period` bars, smoothed by a factor of 0.5
+/// 3. %K of that smoothed line over `stoch_period` bars, smoothed again by 0.5 = STC
+///
+/// Each %K needs a full window, and a flat window repeats the previous %K (0 before the first).
 pub fn schaff_trend_cycle_store(
     store: &CandleStore,
     fast: usize,
@@ -17,78 +17,61 @@ pub fn schaff_trend_cycle_store(
     stoch_period: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("stc:{}:{}:{}", fast, slow, stoch_period);
+    let key = format!("stc_seeded:{}:{}:{}", fast, slow, stoch_period);
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let ema_fast = ema_close_store(store, fast, nodes);
-    let ema_slow = ema_close_store(store, slow, nodes);
-    let len = store.len();
-    // MACD line
-    let mut macd_line = vec![f64::NAN; len];
-    for i in 0..len {
-        if !ema_fast[i].is_nan() && !ema_slow[i].is_nan() {
-            macd_line[i] = ema_fast[i] - ema_slow[i];
-        }
-    }
-    // First stochastic of MACD
-    let stoch1 = stochastic_of(&macd_line, stoch_period);
-    // EMA smooth with factor 0.5
-    let smooth1 = ema_factor(&stoch1, 0.5);
-    // Second stochastic
-    let stoch2 = stochastic_of(&smooth1, stoch_period);
-    // EMA smooth with factor 0.5
-    let out = ema_factor(&stoch2, 0.5);
+    let ema_fast = ema_sma_seeded_close_store(store, fast, nodes);
+    let ema_slow = ema_sma_seeded_close_store(store, slow, nodes);
+    let macd_line: Series = ema_fast
+        .iter()
+        .zip(ema_slow.iter())
+        .map(|(fast, slow)| fast - slow)
+        .collect();
+    let smooth1 = smooth_half(&stochastic_holding(&macd_line, stoch_period));
+    let out = smooth_half(&stochastic_holding(&smooth1, stoch_period));
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
 
-/// Rolling stochastic: (value - min) / (max - min) * 100
-fn stochastic_of(values: &[f64], period: usize) -> Series {
-    let len = values.len();
-    let mut out = vec![f64::NAN; len];
+/// %K of `values` over full windows of `period`: 100 * (value - lowest) / (highest - lowest).
+/// A flat window repeats the previous %K, which starts at 0.
+fn stochastic_holding(values: &[f64], period: usize) -> Series {
+    let mut out = vec![f64::NAN; values.len()];
     if period == 0 {
         return out;
     }
-    for i in period - 1..len {
+    let mut previous = 0.0;
+    for i in period.saturating_sub(1)..values.len() {
         let window = &values[i + 1 - period..=i];
-        let valid: Vec<f64> = window.iter().filter(|v| !v.is_nan()).copied().collect();
-        if valid.is_empty() {
+        if window.iter().any(|v| v.is_nan()) {
             continue;
         }
-        let max = valid.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        let min = valid.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let range = max - min;
-        let v = values[i];
-        if !v.is_nan() && range > 1e-10 {
-            out[i] = ((v - min) / range) * 100.0;
-        } else if !v.is_nan() {
-            out[i] = 50.0;
+        let highest = window.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let lowest = window.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        if highest > lowest {
+            previous = 100.0 * (values[i] - lowest) / (highest - lowest);
         }
+        out[i] = previous;
     }
     out
 }
 
-/// EMA with a fixed factor (not period-based)
-fn ema_factor(values: &[f64], factor: f64) -> Series {
-    let mut out = Vec::with_capacity(values.len());
-    let mut prev = None::<f64>;
-    for &v in values {
-        if v.is_nan() {
-            out.push(f64::NAN);
+/// Smooths by a factor of 0.5, starting from the first value.
+fn smooth_half(values: &[f64]) -> Series {
+    let mut out = vec![f64::NAN; values.len()];
+    let mut previous = None::<f64>;
+    for (i, &value) in values.iter().enumerate() {
+        if value.is_nan() {
             continue;
         }
-        let next = match prev {
-            Some(p) => factor * v + (1.0 - factor) * p,
-            None => v,
-        };
-        prev = Some(next);
-        out.push(next);
+        let next = previous.map_or(value, |p| p + 0.5 * (value - p));
+        previous = Some(next);
+        out[i] = next;
     }
     out
 }
-
 pub fn latest_schaff_trend_cycle_store(
     store: &CandleStore,
     fast: usize,
@@ -165,20 +148,27 @@ mod tests {
     }
 
     #[test]
-    fn schaff_trend_cycle_is_midline_for_constant_prices() {
-        let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
+    fn schaff_trend_cycle_is_zero_for_constant_prices() {
+        let store = close_store(&[10.0; 6]);
         let values = schaff_trend_cycle_store(&store, 2, 3, 2, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, 50.0, 50.0, 50.0]);
-        assert_eq!(latest_schaff_trend_cycle_store(&store, 2, 3, 2), Some(50.0));
+        // The MACD line starts at bar 2 and each two-bar %K adds a bar; a flat MACD keeps the
+        // initial 0.
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0]);
+        assert_eq!(latest_schaff_trend_cycle_store(&store, 2, 3, 2), Some(0.0));
     }
 
     #[test]
-    fn schaff_trend_cycle_tracks_a_rising_macd_sequence() {
-        let store = close_store(&[10.0, 11.0, 12.0, 13.0]);
-        let values = schaff_trend_cycle_store(&store, 2, 3, 2, &mut HashMap::new());
+    fn a_flat_stochastic_window_repeats_the_previous_value() {
+        let values = stochastic_holding(&[1.0, 3.0, 2.0, 2.0, 2.0], 2);
+        assert_series_close(&values, &[f64::NAN, 100.0, 0.0, 0.0, 0.0]);
+        let values = stochastic_holding(&[1.0, 3.0, 3.0], 2);
+        assert_series_close(&values, &[f64::NAN, 100.0, 100.0]);
+    }
 
-        assert_series_close(&values, &[f64::NAN, 50.0, 50.0, 50.0]);
-        assert_eq!(latest_schaff_trend_cycle_store(&store, 2, 3, 2), Some(50.0));
+    #[test]
+    fn the_smoothing_halves_the_gap_each_bar() {
+        let values = smooth_half(&[f64::NAN, 100.0, 0.0, 0.0]);
+        assert_series_close(&values, &[f64::NAN, 100.0, 50.0, 25.0]);
     }
 }

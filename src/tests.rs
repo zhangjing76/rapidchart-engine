@@ -564,7 +564,7 @@ mod tests {
         indicator.period = 20;
         assert_eq!(
             indicator_nodes(&indicator),
-            vec!["sma:close:20", "trima:value:20"]
+            vec!["sma:close:10", "trima:value:20"]
         );
     }
     #[test]

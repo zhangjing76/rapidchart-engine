@@ -1,4 +1,4 @@
-use crate::indicators::ema::ema_series;
+use crate::indicators::ema::ema_sma_seeded;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
@@ -7,13 +7,14 @@ use std::rc::Rc;
 /// Stochastic Momentum Index (SMI):
 /// D = close - (highest_high + lowest_low) / 2 over period
 /// SMI = 100 * EMA(EMA(D, smooth), smooth) / EMA(EMA(HL_range/2, smooth), smooth)
+/// The EMAs start with a simple average, so SMI starts at bar period + 2 x (smooth - 1) - 1.
 pub fn stochastic_momentum_store(
     store: &CandleStore,
     period: usize,
     smooth: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("smi:hlc:{}:{}", period, smooth);
+    let key = format!("smi_sma:hlc:{}:{}", period, smooth);
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
@@ -36,10 +37,10 @@ pub fn stochastic_momentum_store(
         d_series[i] = store.close[i] - (hh + ll) / 2.0;
         hl_series[i] = (hh - ll) / 2.0;
     }
-    let d_smooth1 = ema_series(&d_series, smooth);
-    let d_smooth2 = ema_series(&d_smooth1, smooth);
-    let hl_smooth1 = ema_series(&hl_series, smooth);
-    let hl_smooth2 = ema_series(&hl_smooth1, smooth);
+    let d_smooth1 = ema_sma_seeded(&d_series, smooth);
+    let d_smooth2 = ema_sma_seeded(&d_smooth1, smooth);
+    let hl_smooth1 = ema_sma_seeded(&hl_series, smooth);
+    let hl_smooth2 = ema_sma_seeded(&hl_smooth1, smooth);
     for i in 0..len {
         let d = d_smooth2[i];
         let hl = hl_smooth2[i];
@@ -121,15 +122,21 @@ mod tests {
 
     #[test]
     fn stochastic_momentum_is_hundred_when_close_stays_at_the_high() {
-        let store = ohlc_store(&[
-            (2.0, 0.0, 2.0),
-            (2.0, 0.0, 2.0),
-            (2.0, 0.0, 2.0),
-            (2.0, 0.0, 2.0),
-        ]);
+        let store = ohlc_store(&[(2.0, 0.0, 2.0); 6]);
         let values = stochastic_momentum_store(&store, 3, 2, &mut HashMap::new());
+        let nan = f64::NAN;
 
-        assert_series_close(&values, &[f64::NAN, f64::NAN, 100.0, 100.0]);
+        // Period 3 gives the first range at bar 2; two 2-bar EMAs on top start at bar 4.
+        assert_series_close(&values, &[nan, nan, nan, nan, 100.0, 100.0]);
         assert_eq!(latest_stochastic_momentum_store(&store, 3, 2), Some(100.0));
+    }
+
+    #[test]
+    fn stochastic_momentum_is_zero_when_close_stays_mid_range() {
+        let store = ohlc_store(&[(2.0, 0.0, 1.0); 20]);
+        let values = stochastic_momentum_store(&store, 10, 3, &mut HashMap::new());
+        // Starts at bar 10 + 2 x (3 - 1) - 1 = 13.
+        assert!(values[..13].iter().all(|v| v.is_nan()));
+        assert!(values[13..].iter().all(|v| v.abs() < 1e-12));
     }
 }

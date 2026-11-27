@@ -1,4 +1,5 @@
 use crate::indicators::klinger_volume::KLINGER_DEFAULTS;
+use crate::indicators::trima::triangular_windows;
 use crate::types::{DagEdge, Indicator, IndicatorKind, MacdParams};
 
 pub(crate) fn is_valid_kind(kind: &str) -> bool {
@@ -91,7 +92,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("tema:value:{}", indicator.period),
         ],
         IndicatorKind::TRIMA => vec![
-            format!("sma:close:{}", indicator.period),
+            format!("sma:close:{}", triangular_windows(indicator.period).0),
             format!("trima:value:{}", indicator.period),
         ],
         IndicatorKind::STDDEV => vec![format!("stddev:close:{}", indicator.period)],
@@ -609,7 +610,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::TRIMA => {
-            let s = format!("sma:close:{}", indicator.period);
+            let s = format!("sma:close:{}", triangular_windows(indicator.period).0);
             let t = format!("trima:value:{}", indicator.period);
             vec![edge("close", &s), edge(&s, &t), edge(&t, indicator_node)]
         }

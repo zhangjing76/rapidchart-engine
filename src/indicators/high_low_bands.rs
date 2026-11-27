@@ -1,38 +1,6 @@
+use crate::indicators::trima::{latest_triangular, triangular_series};
+use crate::CandleStore;
 use crate::NodeCache;
-use crate::{CandleStore, Series};
-
-/// Simple Moving Average over a slice of f64 values. NaN until `period` values have been seen.
-fn sma_series(values: &[f64], period: usize) -> Series {
-    let mut out = vec![f64::NAN; values.len()];
-    let Some(first) = values.iter().position(|v| !v.is_nan()) else {
-        return out;
-    };
-    if period == 0 || values.len() < first + period {
-        return out;
-    }
-    let mut sum: f64 = values[first..first + period].iter().sum();
-    out[first + period - 1] = sum / period as f64;
-    for i in first + period..values.len() {
-        sum += values[i] - values[i - period];
-        out[i] = sum / period as f64;
-    }
-    out
-}
-
-/// Window lengths of the two simple averages that make a triangular average of `period` bars:
-/// ceil(period / 2), then the same again, plus one when `period` is even.
-fn triangular_windows(period: usize) -> (usize, usize) {
-    let first = period.div_ceil(2);
-    let second = if period % 2 == 0 { first + 1 } else { first };
-    (first, second)
-}
-
-/// Triangular moving average of the close.
-fn triangular_close(store: &CandleStore, period: usize) -> Series {
-    let (first, second) = triangular_windows(period);
-    sma_series(&sma_series(&store.close, first), second)
-}
-
 /// High Low Bands: a triangular moving average of the close (middle) with bands a fixed
 /// percentage above and below it. `shift_percent` is the band offset in percent, e.g. 5.0.
 pub fn high_low_bands_store(
@@ -41,7 +9,7 @@ pub fn high_low_bands_store(
     shift_percent: f64,
     _nodes: &mut NodeCache,
 ) -> Vec<crate::NamedSeries> {
-    let middle = triangular_close(store, period);
+    let middle = triangular_series(&store.close, period);
     let shift = shift_percent / 100.0;
     let upper: Vec<f64> = middle.iter().map(|m| m * (1.0 + shift)).collect();
     let lower: Vec<f64> = middle.iter().map(|m| m * (1.0 - shift)).collect();
@@ -57,17 +25,7 @@ pub fn latest_high_low_bands_store(
     period: usize,
     shift_percent: f64,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let (first, second) = triangular_windows(period);
-    let needed = first + second - 1;
-    if period == 0 || store.len() < needed {
-        return (None, None, None);
-    }
-    // The last triangular value only depends on the last `needed` closes.
-    let tail = &store.close[store.len() - needed..];
-    let middle = sma_series(&sma_series(tail, first), second)
-        .last()
-        .copied()
-        .filter(|m| !m.is_nan());
+    let middle = latest_triangular(&store.close, period);
     let shift = shift_percent / 100.0;
     match middle {
         Some(m) => (Some(m * (1.0 + shift)), Some(m), Some(m * (1.0 - shift))),
@@ -131,14 +89,6 @@ mod tests {
                 assert!((actual - expected).abs() < 1e-12, "{actual} != {expected}");
             }
         }
-    }
-
-    #[test]
-    fn triangular_windows_match_the_usual_definition() {
-        assert_eq!(triangular_windows(10), (5, 6));
-        assert_eq!(triangular_windows(4), (2, 3));
-        assert_eq!(triangular_windows(3), (2, 2));
-        assert_eq!(triangular_windows(1), (1, 1));
     }
 
     #[test]

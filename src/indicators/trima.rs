@@ -1,45 +1,52 @@
 use crate::indicators::kst::sma_from_series;
 use crate::indicators::sma::sma_close_store;
 use crate::NodeCache;
-use crate::{CandleStore, RcSeries};
+use crate::{CandleStore, RcSeries, Series};
 use std::rc::Rc;
+
+/// Window lengths of the two simple averages that make a triangular average of `period` bars:
+/// ceil(period / 2), then the same again, plus one when `period` is even. Together they span
+/// `period` bars (TA-Lib and most charting packages use this definition).
+pub fn triangular_windows(period: usize) -> (usize, usize) {
+    let first = period.div_ceil(2);
+    let second = if period % 2 == 0 { first + 1 } else { first };
+    (first, second)
+}
+
+/// Triangular moving average of `values` over `period` bars.
+pub fn triangular_series(values: &[f64], period: usize) -> Series {
+    let (first, second) = triangular_windows(period);
+    sma_from_series(&sma_from_series(values, first), second)
+}
+
+/// Latest triangular moving average of `values`, from the last bars it depends on.
+pub fn latest_triangular(values: &[f64], period: usize) -> Option<f64> {
+    let (first, second) = triangular_windows(period);
+    let needed = first + second - 1;
+    if period == 0 || values.len() < needed {
+        return None;
+    }
+    triangular_series(&values[values.len() - needed..], period)
+        .last()
+        .copied()
+        .filter(|v| !v.is_nan())
+}
 
 pub fn trima_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
     let key = format!("trima:value:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let values = sma_from_series(&sma_close_store(store, period, nodes), period);
+    let (first, second) = triangular_windows(period);
+    let values = sma_from_series(&sma_close_store(store, first, nodes), second);
     let rc = Rc::new(values);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-pub fn latest_trima_store(store: &CandleStore, period: usize) -> Option<f64> {
-    if period == 0 || store.len() < period {
-        return None;
-    }
-    // TRIMA = SMA of SMA(close, period), period
-    // We need at least 2*period - 1 bars for the last SMA(SMA) value to be valid
-    let needed = 2 * period - 1;
-    if store.len() < needed {
-        return None;
-    }
-    // Compute SMA values for the last `period` positions
-    let p = period as f64;
-    let start = store.len() - needed;
-    let mut sma_values = Vec::with_capacity(period);
-    for i in (start + period - 1)..store.len() {
-        let window = &store.close[i + 1 - period..=i];
-        sma_values.push(window.iter().sum::<f64>() / p);
-    }
-    if sma_values.len() < period {
-        return None;
-    }
-    // SMA of the last `period` SMA values
-    let last_period = &sma_values[sma_values.len() - period..];
-    Some(last_period.iter().sum::<f64>() / p)
-}
 
+pub fn latest_trima_store(store: &CandleStore, period: usize) -> Option<f64> {
+    latest_triangular(&store.close, period)
+}
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::period_descriptor("TRIMA", "TRIMA", "Moving Average", "overlay", 50)
 }
@@ -73,20 +80,53 @@ mod tests {
     }
 
     #[test]
+    fn triangular_windows_match_the_usual_definition() {
+        assert_eq!(triangular_windows(50), (25, 26));
+        assert_eq!(triangular_windows(10), (5, 6));
+        assert_eq!(triangular_windows(4), (2, 3));
+        assert_eq!(triangular_windows(3), (2, 2));
+        assert_eq!(triangular_windows(1), (1, 1));
+    }
+
+    #[test]
     fn trima_is_the_input_when_prices_are_constant() {
         let store = close_store(&[10.0, 10.0, 10.0, 10.0, 10.0]);
         let values = trima_store(&store, 3, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 10.0]);
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 10.0, 10.0, 10.0]);
         assert_eq!(latest_trima_store(&store, 3), Some(10.0));
     }
 
     #[test]
-    fn trima_is_the_sma_of_the_sma() {
+    fn trima_spans_period_bars() {
+        // Period 3: SMA(2) of the close, then SMA(2) of that, so the first value is at bar 2.
         let store = close_store(&[10.0, 12.0, 14.0, 16.0, 18.0]);
         let values = trima_store(&store, 3, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, f64::NAN, 14.0]);
-        assert_eq!(latest_trima_store(&store, 3), Some(14.0));
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 12.0, 14.0, 16.0]);
+        assert_eq!(latest_trima_store(&store, 3), Some(16.0));
+    }
+
+    #[test]
+    fn trima_uses_a_longer_second_average_for_an_even_period() {
+        // Period 4: SMA(2), then SMA(3).
+        let store = close_store(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let nan = f64::NAN;
+        let values = trima_store(&store, 4, &mut HashMap::new());
+
+        assert_series_close(&values, &[nan, nan, nan, 2.5, 3.5, 4.5]);
+        assert_eq!(latest_trima_store(&store, 4), Some(4.5));
+    }
+
+    #[test]
+    fn latest_trima_matches_the_full_calculation() {
+        let closes: Vec<f64> = (0..60).map(|i| 50.0 + ((i * 7) % 11) as f64).collect();
+        let store = close_store(&closes);
+        for period in [1, 2, 3, 10, 11, 50] {
+            let full = trima_store(&store, period, &mut HashMap::new());
+            let latest = latest_trima_store(&store, period).unwrap();
+            assert!((latest - full[59]).abs() < 1e-9, "period {period}");
+        }
+        assert_eq!(latest_trima_store(&close_store(&[1.0, 2.0]), 4), None);
     }
 }

@@ -964,7 +964,7 @@ mod tests {
     }
 
     #[test]
-    fn ema_and_macd_cache_their_averages() {
+    fn ema_nodes_are_reused_by_macd() {
         let bars = bars(&(1..=30).map(|value| value as f64).collect::<Vec<_>>());
         let store = store_from_bars(bars);
         let mut nodes: NodeCache = HashMap::new();
@@ -1012,11 +1012,10 @@ mod tests {
         );
 
         assert!(nodes.len() >= 2);
-        // The EMA study starts from a simple average; MACD still uses the unseeded average.
         assert_vec_eq!(nodes["ema_sma:close:12"], ema12);
         assert_eq!(
             macd.get_slot(0).unwrap()[29],
-            nodes["ema:close:12"][29] - nodes["ema:close:26"][29]
+            nodes["ema_sma:close:12"][29] - nodes["ema_sma:close:26"][29]
         );
     }
 

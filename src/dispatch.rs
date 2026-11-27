@@ -62,7 +62,7 @@ use crate::indicators::linear_regression::linear_regression_store;
 use crate::indicators::lowest_low::lowest_low_store;
 use crate::indicators::ma_cross::ma_cross_store;
 use crate::indicators::ma_deviation::ma_deviation_store;
-use crate::indicators::macd::{macd_store, ppo_store};
+use crate::indicators::macd::{macd_seeded_store, ppo_store};
 use crate::indicators::market_facilitation::market_facilitation_store;
 use crate::indicators::mass_index::mass_index_store;
 use crate::indicators::median_price::median_price_store;
@@ -224,7 +224,7 @@ pub(crate) fn compute_indicator_store(
             nodes,
         )
         .into_arena(),
-        IndicatorKind::MACD => macd_store(
+        IndicatorKind::MACD => macd_seeded_store(
             store,
             macd_params.unwrap_or(MacdParams {
                 fast: 12,
@@ -756,7 +756,7 @@ pub(crate) fn update_indicator_incremental(
                 signal: 9,
             });
             let (macd_line, signal, histogram, fast_ema, slow_ema) =
-                latest_macd_store(store, macd, &indicator.outputs);
+                latest_macd_seeded_store(store, macd, &indicator.outputs);
             upsert_output(&mut indicator.outputs, "macd", target_len, macd_line);
             upsert_output(&mut indicator.outputs, "signal", target_len, signal);
             upsert_output(&mut indicator.outputs, "histogram", target_len, histogram);

@@ -1,23 +1,44 @@
-use crate::indicators::derived::{hl2_store, latest_hl2};
+use crate::indicators::derived::hl2_store;
+use crate::indicators::kst::sma_from_series;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
+use std::rc::Rc;
 
-/// Median Price = (High + Low) / 2 — delegates to the shared `hl2_store` cache.
-pub fn median_price_store(store: &CandleStore, nodes: &mut NodeCache) -> RcSeries {
-    hl2_store(store, nodes)
+/// Median Price: the `period`-bar simple average of (High + Low) / 2.
+pub fn median_price_store(store: &CandleStore, period: usize, nodes: &mut NodeCache) -> RcSeries {
+    let key = format!("median_price:hl:{period}");
+    if let Some(values) = nodes.get(&key) {
+        return Rc::clone(values);
+    }
+    let rc = Rc::new(sma_from_series(&hl2_store(store, nodes), period));
+    nodes.insert(key, Rc::clone(&rc));
+    rc
 }
 
-pub fn latest_median_price_store(store: &CandleStore) -> Option<f64> {
-    latest_hl2(store)
+/// Latest Median Price, from the last `period` bars.
+pub fn latest_median_price_store(store: &CandleStore, period: usize) -> Option<f64> {
+    let len = store.len();
+    if period == 0 || len < period {
+        return None;
+    }
+    let sum: f64 = (len - period..len)
+        .map(|i| (store.high[i] + store.low[i]) / 2.0)
+        .sum();
+    Some(sum / period as f64)
 }
-
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
         kind: "MEDIAN_PRICE",
         name: "MEDIAN PRICE",
         category: "Statistical",
         pane: "overlay",
-        params: Vec::new(),
+        params: vec![crate::descriptors::ParamDescriptor {
+            name: "period",
+            label: "Period",
+            default: 14.0,
+            min: 1.0,
+            step: "1",
+        }],
         outputs: vec![crate::descriptors::output_descriptor(
             "value", "line", "overlay", "#64748b",
         )],
@@ -42,11 +63,19 @@ mod tests {
     }
 
     #[test]
-    fn median_price_is_the_midpoint_of_high_and_low() {
-        let store = ohlc_store(&[(12.0, 6.0, 9.0), (15.0, 9.0, 12.0)]);
-        let values = median_price_store(&store, &mut HashMap::new());
+    fn median_price_is_the_average_midpoint_of_high_and_low() {
+        // Midpoints 9, 12 and 15.
+        let store = ohlc_store(&[(12.0, 6.0, 9.0), (15.0, 9.0, 12.0), (18.0, 12.0, 15.0)]);
+        let values = median_price_store(&store, 2, &mut HashMap::new());
 
-        assert_eq!(&*values, &[9.0, 12.0]);
-        assert_eq!(latest_median_price_store(&store), Some(12.0));
+        assert!(values[0].is_nan());
+        assert_eq!(&values[1..], &[10.5, 13.5]);
+        assert_eq!(latest_median_price_store(&store, 2), Some(13.5));
+        assert_eq!(latest_median_price_store(&store, 4), None);
+        // A period of 1 is the plain midpoint of each bar.
+        assert_eq!(
+            &*median_price_store(&store, 1, &mut HashMap::new()),
+            &[9.0, 12.0, 15.0]
+        );
     }
 }

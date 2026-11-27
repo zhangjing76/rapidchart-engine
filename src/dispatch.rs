@@ -352,7 +352,9 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::KLINGER_VOLUME => {
             klinger_outputs(store, macd_params.unwrap_or(KLINGER_DEFAULTS), nodes).into_arena()
         }
-        IndicatorKind::MARKET_FACILITATION => market_facilitation_store(store, nodes).into_arena(),
+        IndicatorKind::MARKET_FACILITATION => {
+            market_facilitation_store(store, multiplier, nodes).into_arena()
+        }
         IndicatorKind::NEGATIVE_VOLUME_INDEX => {
             negative_volume_index_outputs(store, period, nodes).into_arena()
         }
@@ -1039,7 +1041,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "signal", target_len, signal);
         }
         IndicatorKind::MARKET_FACILITATION => {
-            let value = latest_market_facilitation_store(store);
+            let value = latest_market_facilitation_store(store, indicator.multiplier);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::NEGATIVE_VOLUME_INDEX => {

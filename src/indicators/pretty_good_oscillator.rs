@@ -1,22 +1,29 @@
-use crate::indicators::atr::atr_store;
+use crate::indicators::ema::ema_sma_seeded;
 use crate::indicators::sma::sma_close_store;
+use crate::indicators::true_range::true_range_series_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Pretty Good Oscillator: (close - SMA(close, period)) / ATR(period)
+/// Pretty Good Oscillator: (close - SMA(close, period)) / EMA(true range, period), with the EMA
+/// seeded by the simple average of its first `period` true ranges.
 pub fn pretty_good_oscillator_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("pgo:close:{period}");
+    let key = format!("pgo_ema_tr:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
     let sma = sma_close_store(store, period, nodes);
-    let atr = atr_store(store, period, nodes);
+    // The true range needs a previous close, so it starts at bar 1.
+    let mut true_range = (*true_range_series_store(store, nodes)).clone();
+    if let Some(first) = true_range.first_mut() {
+        *first = f64::NAN;
+    }
+    let atr = ema_sma_seeded(&true_range, period);
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     for i in 0..len {
@@ -72,5 +79,16 @@ mod tests {
 
         assert!(values.last().unwrap().abs() < 1e-12);
         assert!((latest_pretty_good_oscillator_store(&store, 2).unwrap() - 0.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn pretty_good_oscillator_divides_by_the_ema_of_true_range() {
+        let store = ohlc_store(&[(10.0, 8.0, 9.0), (12.0, 9.0, 11.0), (13.0, 11.0, 12.0)]);
+        let values = pretty_good_oscillator_store(&store, 2, &mut HashMap::new());
+
+        // True ranges from bar 1 are 3 and 2, so the EMA starts at 2.5 on bar 2; the close of 12
+        // is 0.5 above its two-bar average.
+        assert!(values[1].is_nan());
+        assert!((values[2] - 0.2).abs() < 1e-12);
     }
 }

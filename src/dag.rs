@@ -405,8 +405,8 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         ],
         IndicatorKind::PRETTY_GOOD_OSCILLATOR => vec![
             format!("sma:close:{}", indicator.period),
-            format!("atr:ohlc:{}", indicator.period),
-            format!("pgo:close:{}", indicator.period),
+            "true_range:hlc".to_string(),
+            format!("pgo_ema_tr:close:{}", indicator.period),
         ],
         IndicatorKind::PRICE_MOMENTUM_OSCILLATOR => vec![format!(
             "pmo:close:{}:{}",
@@ -1269,8 +1269,8 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
         }
         IndicatorKind::PRETTY_GOOD_OSCILLATOR => {
             let s = format!("sma:close:{}", indicator.period);
-            let a = format!("atr:ohlc:{}", indicator.period);
-            let p = format!("pgo:close:{}", indicator.period);
+            let a = "true_range:hlc".to_string();
+            let p = format!("pgo_ema_tr:close:{}", indicator.period);
             vec![
                 edge("close", &s),
                 edge("high", &a),

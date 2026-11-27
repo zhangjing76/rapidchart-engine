@@ -327,7 +327,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             vec![format!("linreg_intercept:close:{}", indicator.period)]
         }
         IndicatorKind::ANCHORED_VWAP => vec![format!("anchored_vwap:{}", indicator.anchor)],
-        IndicatorKind::TYPICAL_PRICE => vec!["typical_price:hlc".to_string()],
+        IndicatorKind::TYPICAL_PRICE => vec![format!("typical_price:hlc:{}", indicator.period)],
         IndicatorKind::WEIGHTED_CLOSE => vec!["weighted_close:hlc".to_string()],
         IndicatorKind::MA_CROSS => {
             let p = indicator.macd.unwrap_or(MacdParams {
@@ -1079,10 +1079,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 edge(&a, indicator_node),
             ]
         }
-        IndicatorKind::TYPICAL_PRICE => vec![
-            edge("hlc3", "typical_price:hlc"),
-            edge("typical_price:hlc", indicator_node),
-        ],
+        IndicatorKind::TYPICAL_PRICE => {
+            let t = format!("typical_price:hlc:{}", indicator.period);
+            vec![edge("hlc3", &t), edge(&t, indicator_node)]
+        }
         IndicatorKind::WEIGHTED_CLOSE => vec![
             edge("high", "weighted_close:hlc"),
             edge("low", "weighted_close:hlc"),

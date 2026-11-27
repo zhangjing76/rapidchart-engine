@@ -409,7 +409,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("pgo_ema_tr:close:{}", indicator.period),
         ],
         IndicatorKind::PRICE_MOMENTUM_OSCILLATOR => vec![format!(
-            "pmo:close:{}:{}",
+            "pmo_dp:close:{}:{}",
             indicator.period, indicator.smooth
         )],
         IndicatorKind::PRICE_OSCILLATOR => {
@@ -1282,7 +1282,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::PRICE_MOMENTUM_OSCILLATOR => {
-            let p = format!("pmo:close:{}:{}", indicator.period, indicator.smooth);
+            let p = format!("pmo_dp:close:{}:{}", indicator.period, indicator.smooth);
             vec![edge("close", &p), edge(&p, indicator_node)]
         }
         IndicatorKind::PRICE_OSCILLATOR => {
@@ -1659,6 +1659,10 @@ pub(crate) fn validate_indicator(
     {
         return Err(wasm_bindgen::JsValue::from_str(
             "multiplier must be greater than zero",
+        ));
+    } else if kind == IndicatorKind::PRICE_MOMENTUM_OSCILLATOR && (period < 2 || smooth < 2) {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "PRICE_MOMENTUM_OSCILLATOR periods must be at least 2",
         ));
     } else if kind == IndicatorKind::PRIME_NUMBER_OSCILLATOR
         && (!multiplier.is_finite() || multiplier < 0.0)

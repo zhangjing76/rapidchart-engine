@@ -1,20 +1,23 @@
-use crate::indicators::ema::ema_series;
+use crate::indicators::ema::ema_sma_seeded;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Price Momentum Oscillator (PMO): Double-smoothed ROC.
-/// 1. ROC1 = ((close / close[1]) - 1) * 100
-/// 2. Smooth1 = EMA(ROC1, period) — first smoothing (default period=35)
-/// 3. PMO = EMA(Smooth1 * 10, smooth) — second smoothing (default smooth=20)
+/// Price Momentum Oscillator (PMO), DecisionPoint's double-smoothed rate of change:
+/// 1. ROC = (close / close[1] - 1) * 1000 (the 1-bar percentage change, times 10)
+/// 2. Smooth = ROC smoothed with a factor of 2 / period
+/// 3. PMO = Smooth smoothed with a factor of 2 / smooth
+///
+/// A smoothing factor of 2 / n is an EMA over n - 1 periods, so both steps use simple-average
+/// seeded EMAs over `period - 1` and `smooth - 1`; both must be at least 2.
 pub fn price_momentum_oscillator_store(
     store: &CandleStore,
     period: usize,
     smooth: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("pmo:close:{}:{}", period, smooth);
+    let key = format!("pmo_dp:close:{}:{}", period, smooth);
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
@@ -25,21 +28,14 @@ pub fn price_momentum_oscillator_store(
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    // Step 1: ROC(1) percentage
-    let mut roc1 = vec![f64::NAN; len];
+    let mut roc = vec![f64::NAN; len];
     for i in 1..len {
         if store.close[i - 1] != 0.0 {
-            roc1[i] = ((store.close[i] / store.close[i - 1]) - 1.0) * 100.0;
+            roc[i] = (store.close[i] / store.close[i - 1] - 1.0) * 1000.0;
         }
     }
-    // Step 2: EMA of ROC1 with period
-    let smooth1 = ema_series(&roc1, period);
-    // Step 3: Multiply by 10 and EMA again with smooth
-    let scaled: Vec<f64> = smooth1
-        .iter()
-        .map(|&v| if v.is_nan() { f64::NAN } else { v * 10.0 })
-        .collect();
-    let pmo = ema_series(&scaled, smooth);
+    let smoothed = ema_sma_seeded(&roc, period.saturating_sub(1));
+    let pmo = ema_sma_seeded(&smoothed, smooth.saturating_sub(1));
     out = pmo;
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
@@ -68,14 +64,14 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
                 name: "period",
                 label: "Smoothing",
                 default: 35.0,
-                min: 1.0,
+                min: 2.0,
                 step: "1",
             },
             crate::descriptors::ParamDescriptor {
                 name: "smooth",
                 label: "Double Smooth",
                 default: 20.0,
-                min: 1.0,
+                min: 2.0,
                 step: "1",
             },
         ],
@@ -115,33 +111,36 @@ mod tests {
 
     #[test]
     fn pmo_is_zero_for_flat_prices() {
-        let store = close_store(&[5.0, 5.0, 5.0, 5.0]);
-        let values = price_momentum_oscillator_store(&store, 2, 2, &mut HashMap::new());
+        let store = close_store(&[5.0, 5.0, 5.0, 5.0, 5.0]);
+        let values = price_momentum_oscillator_store(&store, 3, 3, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, 0.0, 0.0, 0.0]);
+        // ROC starts at bar 1, and each two-bar seed adds one more bar.
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, 0.0, 0.0]);
         assert_eq!(
-            latest_price_momentum_oscillator_store(&store, 2, 2),
+            latest_price_momentum_oscillator_store(&store, 3, 3),
             Some(0.0)
         );
     }
 
     #[test]
-    fn pmo_matches_the_double_smoothed_roc() {
-        let store = close_store(&[10.0, 11.0, 12.0, 13.0]);
-        let values = price_momentum_oscillator_store(&store, 2, 2, &mut HashMap::new());
+    fn pmo_smooths_twice_with_a_factor_of_two_over_n() {
+        let store = close_store(&[10.0, 11.0, 12.0, 13.0, 14.0]);
+        let values = price_momentum_oscillator_store(&store, 3, 3, &mut HashMap::new());
 
-        assert_series_close(
-            &values,
-            &[
-                f64::NAN,
-                100.00000000000009,
-                95.95959595959596,
-                89.89898989898985,
-            ],
-        );
+        let roc: Vec<f64> = (1..5)
+            .map(|i| (store.close[i] / store.close[i - 1] - 1.0) * 1000.0)
+            .collect();
+        // Period 3 smooths by 2/3, seeded with the average of the first two values.
+        let factor = 2.0 / 3.0;
+        let s2 = (roc[0] + roc[1]) / 2.0;
+        let s3 = s2 + factor * (roc[2] - s2);
+        let s4 = s3 + factor * (roc[3] - s3);
+        let p3 = (s2 + s3) / 2.0;
+        let p4 = p3 + factor * (s4 - p3);
+        assert_series_close(&values, &[f64::NAN, f64::NAN, f64::NAN, p3, p4]);
         assert_eq!(
-            latest_price_momentum_oscillator_store(&store, 2, 2),
-            Some(89.89898989898985)
+            latest_price_momentum_oscillator_store(&store, 3, 3),
+            Some(values[4])
         );
     }
 }

@@ -65,13 +65,16 @@ pub fn latest_keltner_store(
         _ => (None, middle, None),
     }
 }
+/// STARC Bands: a `ma_period`-bar simple average of the close with bands `multiplier` x
+/// ATR(period) above and below it. The bands start once the ATR has a value.
 pub fn starc_store(
     store: &CandleStore,
     period: usize,
+    ma_period: usize,
     multiplier: f64,
     nodes: &mut NodeCache,
 ) -> Vec<crate::NamedSeries> {
-    let middle = rc_into_owned(sma_close_store(store, period, nodes));
+    let middle = rc_into_owned(sma_close_store(store, ma_period, nodes));
     let atr = rc_into_owned(atr_store(store, period, nodes));
     let mut upper = vec![f64::NAN; store.len()];
     let mut lower = vec![f64::NAN; store.len()];
@@ -86,22 +89,28 @@ pub fn starc_store(
         *upper_val = mid + multiplier * atr_value;
         *lower_val = mid - multiplier * atr_value;
     }
-    let outputs = bollinger_outputs(upper, middle, lower);
+    let mut outputs = bollinger_outputs(upper, middle, lower);
     for output in &outputs {
         nodes.insert(
-            format!("starc:{}:{}:{}", output.name, period, multiplier),
+            format!(
+                "starc:{}:{}:{}:{}",
+                output.name, period, ma_period, multiplier
+            ),
             Rc::clone(&output.values),
         );
     }
+    outputs.push(crate::named_series("atr_state", atr));
     outputs
 }
 pub fn latest_starc_store(
     store: &CandleStore,
     period: usize,
+    ma_period: usize,
     multiplier: f64,
+    outputs: &IndicatorArena,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let middle = latest_sma_store(store, period);
-    let atr = latest_atr_store(store, period, None);
+    let middle = latest_sma_store(store, ma_period);
+    let atr = latest_atr_store(store, period, outputs.get_slot(ATR_STATE_SLOT));
     match (middle, atr) {
         (Some(middle), Some(atr)) => (
             Some(middle + multiplier * atr),
@@ -111,7 +120,6 @@ pub fn latest_starc_store(
         _ => (None, middle, None),
     }
 }
-
 pub(crate) fn starc_descriptor() -> crate::descriptors::IndicatorDescriptor {
     crate::descriptors::IndicatorDescriptor {
         kind: "STARC",
@@ -123,6 +131,13 @@ pub(crate) fn starc_descriptor() -> crate::descriptors::IndicatorDescriptor {
                 name: "period",
                 label: "Period",
                 default: 15.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "smooth",
+                label: "MA Period",
+                default: 5.0,
                 min: 1.0,
                 step: "1",
             },
@@ -244,6 +259,48 @@ mod tests {
                     .collect(),
             );
             let latest = latest_keltner_store(&store, 10, 5.0, &previous);
+            for (slot, got) in [latest.0, latest.1, latest.2].into_iter().enumerate() {
+                let expect = Some(full[slot].values[len - 1]).filter(|v| !v.is_nan());
+                match (got, expect) {
+                    (Some(a), Some(b)) => assert!((a - b).abs() < 1e-9, "len {len} slot {slot}"),
+                    (a, b) => assert_eq!(a, b, "len {len} slot {slot}"),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn starc_centres_a_short_average_inside_atr_bands() {
+        // Closes 1..10 with a 2-wide range: ATR(3) is 2 from bar 3.
+        let bars: Vec<(f64, f64, f64)> = (1..=10)
+            .map(|c| (c as f64 + 1.0, c as f64 - 1.0, c as f64))
+            .collect();
+        let outputs = starc_store(&ohlc_store(&bars), 3, 2, 1.5, &mut HashMap::new());
+        let nan = f64::NAN;
+
+        // The middle line is the 2-bar simple average of the close, from bar 1.
+        assert_series_close(&outputs[1].values[..4], &[nan, 1.5, 2.5, 3.5]);
+        // The bands start with the ATR, at 1.5 x 2 = 3 either side.
+        assert_series_close(&outputs[0].values[..4], &[nan, nan, nan, 6.5]);
+        assert_series_close(&outputs[2].values[..4], &[nan, nan, nan, 0.5]);
+    }
+
+    #[test]
+    fn latest_starc_matches_the_full_calculation() {
+        let bars: Vec<(f64, f64, f64)> = (0..40)
+            .map(|i| {
+                let mid = 50.0 + ((i * 7) % 11) as f64;
+                (mid + 2.0, mid - 2.0, mid + ((i % 3) as f64 - 1.0))
+            })
+            .collect();
+        let full = starc_store(&ohlc_store(&bars), 15, 5, 1.3, &mut HashMap::new());
+        for len in 1..=bars.len() {
+            let previous = crate::IndicatorArena::from_named_outputs(
+                full.iter()
+                    .map(|o| crate::named_series(&o.name, o.values[..len - 1].to_vec()))
+                    .collect(),
+            );
+            let latest = latest_starc_store(&ohlc_store(&bars[..len]), 15, 5, 1.3, &previous);
             for (slot, got) in [latest.0, latest.1, latest.2].into_iter().enumerate() {
                 let expect = Some(full[slot].values[len - 1]).filter(|v| !v.is_nan());
                 match (got, expect) {

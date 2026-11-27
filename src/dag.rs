@@ -143,13 +143,21 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("price_channel:middle:{}", indicator.period),
             format!("price_channel:lower:{}", indicator.period),
         ],
-        IndicatorKind::STARC => vec![
-            format!("sma:close:{}", indicator.period),
-            format!("atr:ohlc:{}", indicator.period),
-            format!("starc:upper:{}:{}", indicator.period, indicator.multiplier),
-            format!("starc:middle:{}:{}", indicator.period, indicator.multiplier),
-            format!("starc:lower:{}:{}", indicator.period, indicator.multiplier),
-        ],
+        IndicatorKind::STARC => {
+            let key = |part: &str| {
+                format!(
+                    "starc:{part}:{}:{}:{}",
+                    indicator.period, indicator.smooth, indicator.multiplier
+                )
+            };
+            vec![
+                format!("sma:close:{}", indicator.smooth),
+                format!("atr:ohlc:{}", indicator.period),
+                key("upper"),
+                key("middle"),
+                key("lower"),
+            ]
+        }
         IndicatorKind::PARABOLIC_SAR => vec![format!(
             "psar:ohlc:{}:{}",
             indicator.psar_step, indicator.psar_max_step
@@ -571,11 +579,15 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::STARC => {
-            let sma = format!("sma:close:{}", indicator.period);
+            let sma = format!("sma:close:{}", indicator.smooth);
             let atr = format!("atr:ohlc:{}", indicator.period);
-            let u = format!("starc:upper:{}:{}", indicator.period, indicator.multiplier);
-            let m = format!("starc:middle:{}:{}", indicator.period, indicator.multiplier);
-            let l = format!("starc:lower:{}:{}", indicator.period, indicator.multiplier);
+            let key = |part: &str| {
+                format!(
+                    "starc:{part}:{}:{}:{}",
+                    indicator.period, indicator.smooth, indicator.multiplier
+                )
+            };
+            let (u, m, l) = (key("upper"), key("middle"), key("lower"));
             vec![
                 edge("close", &sma),
                 edge("high", &atr),
@@ -1581,7 +1593,10 @@ pub(crate) fn validate_indicator(
         ));
     } else if matches!(
         kind,
-        IndicatorKind::STOCHASTIC | IndicatorKind::STOCH_RSI | IndicatorKind::CHAIKIN_VOLATILITY
+        IndicatorKind::STOCHASTIC
+            | IndicatorKind::STOCH_RSI
+            | IndicatorKind::CHAIKIN_VOLATILITY
+            | IndicatorKind::STARC
     ) && smooth == 0
     {
         return Err(wasm_bindgen::JsValue::from_str(

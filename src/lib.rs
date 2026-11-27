@@ -303,14 +303,13 @@ impl ChartEngine {
             _ => 0,
         });
         let stoch_period = config.stoch_period.unwrap_or(period);
-        // Chaikin Volatility's rate-of-change setting was added later; keep its default of 2.
-        let smooth = config
-            .smooth
-            .unwrap_or(if kind == IndicatorKind::CHAIKIN_VOLATILITY {
-                2
-            } else {
-                3
-            });
+        // Settings added later keep their defaults for older configs: Chaikin Volatility's rate of
+        // change (2) and STARC's MA period (5).
+        let smooth = config.smooth.unwrap_or(match kind {
+            IndicatorKind::CHAIKIN_VOLATILITY => 2,
+            IndicatorKind::STARC => 5,
+            _ => 3,
+        });
         let signal = config
             .signal
             .unwrap_or(if kind == IndicatorKind::KST { 9 } else { 3 });

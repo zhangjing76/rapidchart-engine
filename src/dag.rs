@@ -236,8 +236,8 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::ADX => vec![format!("adx:ohlc:{}", indicator.period)],
         IndicatorKind::VWAP => vec!["vwap:hlcv".to_string()],
         IndicatorKind::STOCHASTIC => vec![format!(
-            "stoch:hlc:{}:{}",
-            indicator.period, indicator.smooth
+            "stoch:hlc:{}:{}:{}",
+            indicator.period, indicator.smooth, indicator.signal
         )],
         IndicatorKind::BB => vec![
             format!("sma:close:{}", indicator.period),
@@ -945,7 +945,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::STOCHASTIC => {
-            let s = format!("stoch:hlc:{}:{}", indicator.period, indicator.smooth);
+            let s = format!(
+                "stoch:hlc:{}:{}:{}",
+                indicator.period, indicator.smooth, indicator.signal
+            );
             vec![
                 edge("high", &s),
                 edge("low", &s),
@@ -1568,7 +1571,11 @@ pub(crate) fn validate_indicator(
         return Err(wasm_bindgen::JsValue::from_str(
             "smooth must be greater than zero",
         ));
-    } else if matches!(kind, IndicatorKind::STOCH_RSI | IndicatorKind::KST) && signal == 0 {
+    } else if matches!(
+        kind,
+        IndicatorKind::STOCHASTIC | IndicatorKind::STOCH_RSI | IndicatorKind::KST
+    ) && signal == 0
+    {
         return Err(wasm_bindgen::JsValue::from_str(
             "signal must be greater than zero",
         ));

@@ -193,7 +193,9 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::DPO => dpo_store(store, period, nodes).into_arena(),
         IndicatorKind::FORCE_INDEX => force_index_store(store, period, nodes).into_arena(),
         IndicatorKind::PRICE_CHANNEL => price_channel_store(store, period, nodes).into_arena(),
-        IndicatorKind::STOCHASTIC => stochastic_store(store, period, smooth, nodes).into_arena(),
+        IndicatorKind::STOCHASTIC => {
+            stochastic_store(store, period, smooth, signal, nodes).into_arena()
+        }
         IndicatorKind::BB => bollinger_store(store, period, multiplier, nodes).into_arena(),
         IndicatorKind::DONCHIAN => donchian_store(store, period, nodes).into_arena(),
         IndicatorKind::PARABOLIC_SAR => {
@@ -741,7 +743,7 @@ pub(crate) fn update_indicator_incremental(
                 store,
                 indicator.period,
                 indicator.smooth,
-                &indicator.outputs,
+                indicator.signal,
             );
             upsert_output(&mut indicator.outputs, "k", target_len, k);
             upsert_output(&mut indicator.outputs, "d", target_len, d);

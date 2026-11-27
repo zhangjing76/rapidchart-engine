@@ -418,6 +418,9 @@ mod tests {
             ("ENVELOPE", "multiplier", 5.0),
             ("ZIGZAG", "multiplier", 10.0),
             ("RSI", "period", 14.0),
+            ("STOCHASTIC", "period", 14.0),
+            ("STOCHASTIC", "smooth", 3.0),
+            ("STOCHASTIC", "signal", 3.0),
             ("BB", "period", 20.0),
             ("BB", "multiplier", 2.0),
             ("MACD", "fast", 12.0),
@@ -650,8 +653,8 @@ mod tests {
             *mfi_store(&store, 3, &mut HashMap::new()),
             &mfi_store(&store, 3, &mut HashMap::new())
         );
-        let store_stoch = stochastic_store(&store, 3, 2, &mut HashMap::new());
-        let store_stoch2 = stochastic_store(&store, 3, 2, &mut HashMap::new());
+        let store_stoch = stochastic_store(&store, 3, 2, 2, &mut HashMap::new());
+        let store_stoch2 = stochastic_store(&store, 3, 2, 2, &mut HashMap::new());
         assert_outputs_eq(&store_stoch, &store_stoch2, &["k", "d"]);
     }
 

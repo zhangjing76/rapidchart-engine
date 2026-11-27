@@ -1,36 +1,32 @@
-use crate::indicators::ema::ema_series;
+use crate::indicators::ema::ema_sma_seeded;
 use crate::types::MacdParams;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Volume Oscillator: ((short vol EMA - long vol EMA) / long vol EMA) * 100
+/// Volume Oscillator in points: fast EMA - slow EMA of the volume. The EMAs start with a simple
+/// average, so the first value is at bar slow - 1.
 pub fn volume_oscillator_store(
     store: &CandleStore,
     params: MacdParams,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("vol_osc:volume:{}:{}", params.fast, params.slow);
+    let key = format!("vol_osc_pts:volume:{}:{}", params.fast, params.slow);
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let len = store.len();
-    let fast_ema = ema_series(&store.volume, params.fast);
-    let slow_ema = ema_series(&store.volume, params.slow);
-    let mut out = vec![f64::NAN; len];
-    for i in 0..len {
-        let f = fast_ema[i];
-        let s = slow_ema[i];
-        if !f.is_nan() && !s.is_nan() && s.abs() > 1e-10 {
-            out[i] = ((f - s) / s) * 100.0;
-        }
-    }
+    let fast_ema = ema_sma_seeded(&store.volume, params.fast);
+    let slow_ema = ema_sma_seeded(&store.volume, params.slow);
+    let out: Vec<f64> = fast_ema
+        .iter()
+        .zip(slow_ema.iter())
+        .map(|(f, s)| f - s)
+        .collect();
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-
 pub fn latest_volume_oscillator_store(store: &CandleStore, params: MacdParams) -> Option<f64> {
     volume_oscillator_store(store, params, &mut HashMap::new())
         .last()
@@ -104,7 +100,7 @@ mod tests {
         };
         let values = volume_oscillator_store(&store, params, &mut HashMap::new());
 
-        assert_series_close(&values, &[0.0, 0.0, 0.0]);
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 0.0]);
         assert_eq!(latest_volume_oscillator_store(&store, params), Some(0.0));
     }
 
@@ -118,10 +114,8 @@ mod tests {
         };
         let values = volume_oscillator_store(&store, params, &mut HashMap::new());
 
-        assert_series_close(&values, &[0.0, 11.111111111111095, 13.580246913580254]);
-        assert_eq!(
-            latest_volume_oscillator_store(&store, params),
-            Some(13.580246913580254)
-        );
+        // EMA(2) starts at bar 1 with 15, then 25; EMA(3) starts at bar 2 with 20.
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 5.0]);
+        assert_eq!(latest_volume_oscillator_store(&store, params), Some(5.0));
     }
 }

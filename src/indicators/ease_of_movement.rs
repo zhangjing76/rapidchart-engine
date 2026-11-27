@@ -4,16 +4,18 @@ use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+const VOLUME_SCALE: f64 = 100_000_000.0;
+
 /// Ease of Movement (EMV):
 /// Distance Moved = ((high + low)/2 - (prev_high + prev_low)/2)
-/// Box Ratio = volume / (high - low)
-/// EMV = Distance Moved / Box Ratio (then smoothed with SMA of period)
+/// Box Ratio = (volume / 100,000,000) / (high - low)
+/// EMV = Distance Moved / Box Ratio (then smoothed with SMA of period); 0 on a bar with no range
 pub fn ease_of_movement_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("emv:hlv:{period}");
+    let key = format!("emv_scaled:hlv:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
@@ -23,11 +25,13 @@ pub fn ease_of_movement_store(
     for i in 1..len {
         let distance = hl2[i] - hl2[i - 1];
         let hl_diff = store.high[i] - store.low[i];
-        if hl_diff.abs() > 1e-10 && store.volume[i] > 0.0 {
-            let box_ratio = (store.volume[i] / 10000.0) / hl_diff;
-            if box_ratio.abs() > 1e-10 {
-                raw[i] = distance / box_ratio;
-            }
+        if store.volume[i] > 0.0 {
+            // A bar with no range has an unbounded box ratio, so it moves price with no ease.
+            raw[i] = if hl_diff.abs() > 1e-10 {
+                distance / ((store.volume[i] / VOLUME_SCALE) / hl_diff)
+            } else {
+                0.0
+            };
         }
     }
     // SMA smoothing
@@ -94,13 +98,26 @@ mod tests {
     #[test]
     fn ease_of_movement_is_smoothed_distance_over_box_ratio() {
         let store = ohlcv_store(&[
-            (2.0, 0.0, 10000.0),
-            (3.0, 1.0, 10000.0),
-            (4.0, 2.0, 10000.0),
+            (2.0, 0.0, 100_000_000.0),
+            (3.0, 1.0, 100_000_000.0),
+            (4.0, 2.0, 100_000_000.0),
         ]);
         let values = ease_of_movement_store(&store, 2, &mut HashMap::new());
 
         assert_series_close(&values, &[f64::NAN, f64::NAN, 2.0]);
         assert_eq!(latest_ease_of_movement_store(&store, 2), Some(2.0));
+    }
+
+    #[test]
+    fn a_bar_with_no_range_counts_as_zero() {
+        let store = ohlcv_store(&[
+            (2.0, 0.0, 100_000_000.0),
+            (3.0, 1.0, 100_000_000.0),
+            (2.0, 2.0, 100_000_000.0),
+        ]);
+        let values = ease_of_movement_store(&store, 2, &mut HashMap::new());
+
+        // Bar 1 is 2; bar 2 has no range, so the average of the two is 1.
+        assert_series_close(&values, &[f64::NAN, f64::NAN, 1.0]);
     }
 }

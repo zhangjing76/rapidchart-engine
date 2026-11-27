@@ -284,9 +284,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::HIGHEST_HIGH => vec![format!("highest_high:h:{}", indicator.period)],
         IndicatorKind::LOWEST_LOW => vec![format!("lowest_low:l:{}", indicator.period)],
         IndicatorKind::ALLIGATOR => vec![
-            "alligator:jaw".to_string(),
-            "alligator:teeth".to_string(),
-            "alligator:lips".to_string(),
+            "alligator_seeded:jaw".to_string(),
+            "alligator_seeded:teeth".to_string(),
+            "alligator_seeded:lips".to_string(),
         ],
         IndicatorKind::ATR_BANDS => vec![
             format!("atr:ohlc:{}", indicator.period),
@@ -390,9 +390,13 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("elder_ray:hl:{}", indicator.period),
         ],
         IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => vec!["fco_ties:hl".to_string()],
-        IndicatorKind::GATOR_OSCILLATOR => {
-            vec!["gator:upper".to_string(), "gator:lower".to_string()]
-        }
+        IndicatorKind::GATOR_OSCILLATOR => vec![
+            "alligator_seeded:jaw".to_string(),
+            "alligator_seeded:teeth".to_string(),
+            "alligator_seeded:lips".to_string(),
+            "gator_drawn:upper".to_string(),
+            "gator_drawn:lower".to_string(),
+        ],
         IndicatorKind::INTRADAY_MOMENTUM => vec![format!("imi:oc:{}", indicator.period)],
         IndicatorKind::LINEAR_REG_SLOPE => vec![format!("linreg_slope:close:{}", indicator.period)],
         IndicatorKind::MA_DEVIATION => vec![
@@ -1003,15 +1007,15 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("low", &l), edge(&l, indicator_node)]
         }
         IndicatorKind::ALLIGATOR => vec![
-            edge("high", "alligator:jaw"),
-            edge("low", "alligator:jaw"),
-            edge("high", "alligator:teeth"),
-            edge("low", "alligator:teeth"),
-            edge("high", "alligator:lips"),
-            edge("low", "alligator:lips"),
-            edge("alligator:jaw", indicator_node),
-            edge("alligator:teeth", indicator_node),
-            edge("alligator:lips", indicator_node),
+            edge("high", "alligator_seeded:jaw"),
+            edge("low", "alligator_seeded:jaw"),
+            edge("high", "alligator_seeded:teeth"),
+            edge("low", "alligator_seeded:teeth"),
+            edge("high", "alligator_seeded:lips"),
+            edge("low", "alligator_seeded:lips"),
+            edge("alligator_seeded:jaw", indicator_node),
+            edge("alligator_seeded:teeth", indicator_node),
+            edge("alligator_seeded:lips", indicator_node),
         ],
         IndicatorKind::ATR_BANDS => {
             let atr = format!("atr:ohlc:{}", indicator.period);
@@ -1237,14 +1241,19 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("low", "fco_ties:hl"),
             edge("fco_ties:hl", indicator_node),
         ],
-        IndicatorKind::GATOR_OSCILLATOR => vec![
-            edge("high", "gator:upper"),
-            edge("low", "gator:upper"),
-            edge("high", "gator:lower"),
-            edge("low", "gator:lower"),
-            edge("gator:upper", indicator_node),
-            edge("gator:lower", indicator_node),
-        ],
+        IndicatorKind::GATOR_OSCILLATOR => {
+            let mut edges = Vec::new();
+            for line in ["jaw", "teeth", "lips"] {
+                let node = format!("alligator_seeded:{line}");
+                edges.push(edge("high", &node));
+                edges.push(edge("low", &node));
+                edges.push(edge(&node, "gator_drawn:upper"));
+                edges.push(edge(&node, "gator_drawn:lower"));
+            }
+            edges.push(edge("gator_drawn:upper", indicator_node));
+            edges.push(edge("gator_drawn:lower", indicator_node));
+            edges
+        }
         IndicatorKind::INTRADAY_MOMENTUM => {
             let i = format!("imi:oc:{}", indicator.period);
             vec![edge("close", &i), edge(&i, indicator_node)]

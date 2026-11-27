@@ -3,28 +3,43 @@ use crate::NodeCache;
 use crate::{CandleStore, Series};
 use std::rc::Rc;
 
-/// Smoothed Moving Average (Wilder's smoothing): alpha = 1/period
-fn smma_values(values: &[f64], period: usize) -> Series {
+/// Smoothed Moving Average (Wilder's smoothing, alpha = 1/period), seeded with the simple average
+/// of the first `period` values, so the first value is at index `period - 1`. NaN inputs are
+/// skipped and give NaN.
+pub(crate) fn smma_values(values: &[f64], period: usize) -> Series {
+    let mut out = vec![f64::NAN; values.len()];
+    if period == 0 {
+        return out;
+    }
     let alpha = 1.0 / period as f64;
-    let mut out = Vec::with_capacity(values.len());
+    let mut seed_sum = 0.0;
+    let mut seed_count = 0;
     let mut current = None::<f64>;
-    for &v in values {
-        if v.is_nan() {
-            out.push(f64::NAN);
-        } else {
-            let next = match current {
-                Some(prev) => alpha * v + (1.0 - alpha) * prev,
-                None => v,
-            };
-            current = Some(next);
-            out.push(next);
+    for (index, &value) in values.iter().enumerate() {
+        if value.is_nan() {
+            continue;
+        }
+        match current {
+            Some(previous) => {
+                let next = alpha * value + (1.0 - alpha) * previous;
+                current = Some(next);
+                out[index] = next;
+            }
+            None => {
+                seed_sum += value;
+                seed_count += 1;
+                if seed_count == period {
+                    let seed = seed_sum / period as f64;
+                    current = Some(seed);
+                    out[index] = seed;
+                }
+            }
         }
     }
     out
 }
-
 /// Bill Williams Alligator indicator.
-/// - Jaw: SMMA(13) of median price, drawn 8 bars ahead
+/// - Jaw: SMMA(13) of median price, drawn 8 bars ahead (each SMMA is seeded with a simple average)
 /// - Teeth: SMMA(8) of median price, drawn 5 bars ahead
 /// - Lips: SMMA(5) of median price, drawn 3 bars ahead
 ///
@@ -33,11 +48,11 @@ fn smma_values(values: &[f64], period: usize) -> Series {
 /// for drawing, which places the newest values past the last bar.
 
 pub fn alligator_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
-    let key = "alligator:jaw";
+    let key = "alligator_seeded:jaw";
     if let Some(jaw_rc) = nodes.get(key) {
         let jaw = (**jaw_rc).clone();
-        let teeth = (**nodes.get("alligator:teeth").unwrap()).clone();
-        let lips = (**nodes.get("alligator:lips").unwrap()).clone();
+        let teeth = (**nodes.get("alligator_seeded:teeth").unwrap()).clone();
+        let lips = (**nodes.get("alligator_seeded:lips").unwrap()).clone();
         return vec![
             crate::named_series("jaw", jaw),
             crate::named_series("teeth", teeth),
@@ -53,9 +68,9 @@ pub fn alligator_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate:
     let jaw = smma_values(&median, 13);
     let teeth = smma_values(&median, 8);
     let lips = smma_values(&median, 5);
-    nodes.insert("alligator:jaw".to_string(), Rc::new(jaw.clone()));
-    nodes.insert("alligator:teeth".to_string(), Rc::new(teeth.clone()));
-    nodes.insert("alligator:lips".to_string(), Rc::new(lips.clone()));
+    nodes.insert("alligator_seeded:jaw".to_string(), Rc::new(jaw.clone()));
+    nodes.insert("alligator_seeded:teeth".to_string(), Rc::new(teeth.clone()));
+    nodes.insert("alligator_seeded:lips".to_string(), Rc::new(lips.clone()));
     vec![
         crate::named_series("jaw", jaw),
         crate::named_series("teeth", teeth),
@@ -103,11 +118,6 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    // Bars each line is drawn ahead of its source bar (indicatorOutputShift in engine.ts).
-    const JAW_SHIFT: usize = 8;
-    const TEETH_SHIFT: usize = 5;
-    const LIPS_SHIFT: usize = 3;
-
     fn ohlc_store(values: &[f64]) -> CandleStore {
         let len = values.len();
         CandleStore::from_raw_columns(
@@ -120,26 +130,18 @@ mod tests {
         )
     }
 
-    fn assert_series_close(actual: &[f64], expected: &[f64]) {
-        assert_eq!(actual.len(), expected.len());
-        for (actual, expected) in actual.iter().zip(expected.iter()) {
-            if expected.is_nan() {
-                assert!(actual.is_nan());
-            } else {
-                assert!((actual - expected).abs() < 1e-12);
-            }
-        }
-    }
-
     #[test]
     fn alligator_is_flat_for_constant_prices() {
-        let store = ohlc_store(&[10.0; 12]);
+        let store = ohlc_store(&[10.0; 13]);
         let values = alligator_store(&store, &mut HashMap::new());
 
-        // Unshifted: every bar has a value, including the last ones that are drawn
-        // past the last bar.
-        for output in &values {
-            assert_series_close(&output.values, &[10.0; 12]);
+        // Each line starts once its first `period` bars are in, and every bar after that has a
+        // value, including the last ones that are drawn past the last bar.
+        for (output, period) in values.iter().zip([13, 8, 5]) {
+            assert!(output.values[..period - 1].iter().all(|v| v.is_nan()));
+            assert!(output.values[period - 1..]
+                .iter()
+                .all(|v| (v - 10.0).abs() < 1e-12));
         }
         let (jaw, teeth, lips) = latest_alligator_store(&store);
         assert!((jaw.unwrap() - 10.0).abs() < 1e-12);
@@ -148,23 +150,22 @@ mod tests {
     }
 
     #[test]
-    fn alligator_returns_smma_at_the_source_bar() {
-        let store = ohlc_store(&[
-            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
-        ]);
+    fn alligator_seeds_each_smma_with_a_simple_average() {
+        let store = ohlc_store(&(1..=14).map(f64::from).collect::<Vec<_>>());
         let values = alligator_store(&store, &mut HashMap::new());
 
-        // These are the values that are drawn at bar 11 once shifted by 8, 5 and 3 bars.
-        assert!((values[0].values[11 - JAW_SHIFT] - 1.438324988620847).abs() < 1e-12);
-        assert!((values[1].values[11 - TEETH_SHIFT] - 3.1415672302246094).abs() < 1e-12);
-        assert!((values[2].values[11 - LIPS_SHIFT] - 5.671088640000001).abs() < 1e-12);
+        // Jaw: the average of 1..=13 is 7, then (7 * 12 + 14) / 13.
+        assert!(values[0].values[11].is_nan());
+        assert!((values[0].values[12] - 7.0).abs() < 1e-12);
+        assert!((values[0].values[13] - 98.0 / 13.0).abs() < 1e-12);
+        // Teeth and lips start at the averages of 1..=8 and 1..=5.
+        assert!((values[1].values[7] - 4.5).abs() < 1e-12);
+        assert!((values[2].values[4] - 3.0).abs() < 1e-12);
 
-        // The newest values are kept rather than shifted off the end.
-        assert!(values.iter().all(|output| !output.values[11].is_nan()));
-
+        // Values are kept at their source bar; drawing shifts them by 8, 5 and 3 bars.
         let latest = latest_alligator_store(&store);
-        assert_eq!(latest.0, Some(values[0].values[11]));
-        assert_eq!(latest.1, Some(values[1].values[11]));
-        assert_eq!(latest.2, Some(values[2].values[11]));
+        assert_eq!(latest.0, Some(values[0].values[13]));
+        assert_eq!(latest.1, Some(values[1].values[13]));
+        assert_eq!(latest.2, Some(values[2].values[13]));
     }
 }

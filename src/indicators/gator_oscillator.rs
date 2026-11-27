@@ -1,54 +1,40 @@
+use crate::indicators::alligator::alligator_store;
 use crate::NodeCache;
 use crate::{CandleStore, Series};
 use std::collections::HashMap;
 
-/// Smoothed Moving Average (Wilder's smoothing): alpha = 1/period
-fn smma(values: &[f64], period: usize) -> Series {
-    let alpha = 1.0 / period as f64;
-    let mut out = Vec::with_capacity(values.len());
-    let mut current = None::<f64>;
-    for &v in values {
-        if v.is_nan() {
-            out.push(f64::NAN);
-            continue;
-        }
-        let next = match current {
-            Some(prev) => alpha * v + (1.0 - alpha) * prev,
-            None => v,
-        };
-        current = Some(next);
-        out.push(next);
-    }
-    out
+/// Bars each Alligator line is drawn ahead of its source bar.
+const JAW_SHIFT: usize = 8;
+const TEETH_SHIFT: usize = 5;
+const LIPS_SHIFT: usize = 3;
+
+/// The value of `line` drawn at bar `index` once it is shifted `shift` bars ahead.
+fn drawn_at(line: &[f64], index: usize, shift: usize) -> f64 {
+    index
+        .checked_sub(shift)
+        .map_or(f64::NAN, |source| line[source])
 }
 
-/// Gator Oscillator: derived from Alligator's jaw, teeth, lips.
-/// Upper histogram = |jaw_smma - teeth_smma| (positive)
-/// Lower histogram = -(|teeth_smma - lips_smma|) (negative)
-
+/// Gator Oscillator: the gaps between the Alligator lines as they are drawn, with the jaw, teeth
+/// and lips shifted 8, 5 and 3 bars ahead.
+/// Upper histogram = |jaw - teeth| (positive)
+/// Lower histogram = -|teeth - lips| (negative)
 pub fn gator_oscillator_store(
     store: &CandleStore,
-    _nodes: &mut NodeCache,
+    nodes: &mut NodeCache,
 ) -> Vec<crate::NamedSeries> {
-    let median: Vec<f64> = store
-        .high
-        .iter()
-        .zip(store.low.iter())
-        .map(|(h, l)| (h + l) / 2.0)
-        .collect();
-    let jaw = smma(&median, 13);
-    let teeth = smma(&median, 8);
-    let lips = smma(&median, 5);
+    let lines = alligator_store(store, nodes);
+    let (jaw, teeth, lips) = (&lines[0].values, &lines[1].values, &lines[2].values);
     let len = store.len();
-    let mut upper = vec![f64::NAN; len];
-    let mut lower = vec![f64::NAN; len];
+    let mut upper: Series = vec![f64::NAN; len];
+    let mut lower: Series = vec![f64::NAN; len];
     for i in 0..len {
-        if !jaw[i].is_nan() && !teeth[i].is_nan() {
-            upper[i] = (jaw[i] - teeth[i]).abs();
-        }
-        if !teeth[i].is_nan() && !lips[i].is_nan() {
-            lower[i] = -(teeth[i] - lips[i]).abs();
-        }
+        let jaw = drawn_at(jaw, i, JAW_SHIFT);
+        let teeth = drawn_at(teeth, i, TEETH_SHIFT);
+        let lips = drawn_at(lips, i, LIPS_SHIFT);
+        // NaN inputs leave NaN, so each histogram starts once both of its lines are drawn.
+        upper[i] = (jaw - teeth).abs();
+        lower[i] = -(teeth - lips).abs();
     }
     vec![
         crate::named_series("upper", upper),
@@ -58,17 +44,14 @@ pub fn gator_oscillator_store(
 
 pub fn latest_gator_oscillator_store(store: &CandleStore) -> (Option<f64>, Option<f64>) {
     let outputs = gator_oscillator_store(store, &mut HashMap::new());
-    let upper = outputs[0]
-        .values
-        .last()
-        .copied()
-        .and_then(|v| if v.is_nan() { None } else { Some(v) });
-    let lower = outputs[1]
-        .values
-        .last()
-        .copied()
-        .and_then(|v| if v.is_nan() { None } else { Some(v) });
-    (upper, lower)
+    let last = |index: usize| {
+        outputs[index]
+            .values
+            .last()
+            .copied()
+            .and_then(crate::nan_to_none)
+    };
+    (last(0), last(1))
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
@@ -102,39 +85,31 @@ mod tests {
         )
     }
 
-    fn assert_series_close(actual: &[f64], expected: &[f64]) {
-        assert_eq!(actual.len(), expected.len());
-        for (actual, expected) in actual.iter().zip(expected.iter()) {
-            if expected.is_nan() {
-                assert!(actual.is_nan());
-            } else {
-                assert!((actual - expected).abs() < 1e-12);
-            }
-        }
-    }
-
     #[test]
     fn gator_oscillator_is_zero_for_constant_prices() {
-        let store = ohlc_store(&[10.0; 6]);
+        let store = ohlc_store(&[10.0; 22]);
         let values = gator_oscillator_store(&store, &mut HashMap::new());
 
-        assert_series_close(&values[0].values, &[0.0; 6]);
-        assert_series_close(&values[1].values, &[0.0; 6]);
+        // The jaw is first drawn at bar 12 + 8 and the teeth at bar 7 + 5.
+        assert!(values[0].values[19].is_nan());
+        assert!(values[0].values[20..].iter().all(|v| v.abs() < 1e-12));
+        assert!(values[1].values[11].is_nan());
+        assert!(values[1].values[12..].iter().all(|v| v.abs() < 1e-12));
         let latest = latest_gator_oscillator_store(&store);
-        assert!((latest.0.unwrap() - 0.0).abs() < 1e-12);
-        assert!((latest.1.unwrap() - 0.0).abs() < 1e-12);
+        assert!(latest.0.unwrap().abs() < 1e-12);
+        assert!(latest.1.unwrap().abs() < 1e-12);
     }
 
     #[test]
-    fn gator_oscillator_measures_spread_between_smoothed_lines() {
-        let store = ohlc_store(&(1..=14).map(|v| v as f64).collect::<Vec<_>>());
+    fn gator_oscillator_measures_the_gaps_between_the_drawn_lines() {
+        let store = ohlc_store(&(1..=22).map(f64::from).collect::<Vec<_>>());
+        let lines = alligator_store(&store, &mut HashMap::new());
         let values = gator_oscillator_store(&store, &mut HashMap::new());
 
-        assert!((values[0].values[13] - 1.994578601098711).abs() < 1e-12);
-        assert!((values[1].values[13] + 1.986221742802563).abs() < 1e-12);
-        assert_eq!(
-            latest_gator_oscillator_store(&store),
-            (Some(1.994578601098711), Some(-1.986221742802563))
-        );
+        let (jaw, teeth, lips) = (&lines[0].values, &lines[1].values, &lines[2].values);
+        assert!((values[0].values[21] - (jaw[13] - teeth[16]).abs()).abs() < 1e-12);
+        assert!((values[1].values[21] + (teeth[16] - lips[18]).abs()).abs() < 1e-12);
+        // At bar 20 the drawn jaw is its first value, the 1..=13 average of 7.
+        assert!((values[0].values[20] - (7.0 - teeth[15]).abs()).abs() < 1e-12);
     }
 }

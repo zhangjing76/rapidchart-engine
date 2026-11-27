@@ -288,9 +288,15 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             ),
         ],
         IndicatorKind::HIGH_LOW_BANDS => vec![
-            format!("hlbands:upper:{}", indicator.period),
             format!("hlbands:middle:{}", indicator.period),
-            format!("hlbands:lower:{}", indicator.period),
+            format!(
+                "hlbands:upper:{}:{}",
+                indicator.period, indicator.multiplier
+            ),
+            format!(
+                "hlbands:lower:{}:{}",
+                indicator.period, indicator.multiplier
+            ),
         ],
         IndicatorKind::FRACTAL_CHAOS_BANDS => {
             vec!["fcb:upper".to_string(), "fcb:lower".to_string()]
@@ -992,14 +998,19 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::HIGH_LOW_BANDS => {
-            let u = format!("hlbands:upper:{}", indicator.period);
             let m = format!("hlbands:middle:{}", indicator.period);
-            let l = format!("hlbands:lower:{}", indicator.period);
+            let u = format!(
+                "hlbands:upper:{}:{}",
+                indicator.period, indicator.multiplier
+            );
+            let l = format!(
+                "hlbands:lower:{}:{}",
+                indicator.period, indicator.multiplier
+            );
             vec![
-                edge("high", &u),
-                edge("low", &l),
-                edge(&u, &m),
-                edge(&l, &m),
+                edge("close", &m),
+                edge(&m, &u),
+                edge(&m, &l),
                 edge(&u, indicator_node),
                 edge(&m, indicator_node),
                 edge(&l, indicator_node),
@@ -1574,6 +1585,7 @@ pub(crate) fn validate_indicator(
             | IndicatorKind::ENVELOPE
             | IndicatorKind::STARC
             | IndicatorKind::ATR_BANDS
+            | IndicatorKind::HIGH_LOW_BANDS
     ) && (!multiplier.is_finite() || multiplier <= 0.0)
     {
         return Err(wasm_bindgen::JsValue::from_str(

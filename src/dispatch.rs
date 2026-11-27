@@ -248,7 +248,9 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::LOWEST_LOW => lowest_low_store(store, period, nodes).into_arena(),
         IndicatorKind::ALLIGATOR => alligator_store(store, nodes).into_arena(),
         IndicatorKind::ATR_BANDS => atr_bands_store(store, period, multiplier, nodes).into_arena(),
-        IndicatorKind::HIGH_LOW_BANDS => high_low_bands_store(store, period, nodes).into_arena(),
+        IndicatorKind::HIGH_LOW_BANDS => {
+            high_low_bands_store(store, period, multiplier, nodes).into_arena()
+        }
         IndicatorKind::FRACTAL_CHAOS_BANDS => fractal_chaos_bands_store(store, nodes).into_arena(),
         IndicatorKind::GMMA => gmma_store(store, nodes).into_arena(),
         IndicatorKind::ANCHORED_VWAP => anchored_vwap_store(store, anchor, nodes).into_arena(),
@@ -798,7 +800,8 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "lower", target_len, lower);
         }
         IndicatorKind::HIGH_LOW_BANDS => {
-            let (upper, middle, lower) = latest_high_low_bands_store(store, indicator.period);
+            let (upper, middle, lower) =
+                latest_high_low_bands_store(store, indicator.period, indicator.multiplier);
             upsert_output(&mut indicator.outputs, "upper", target_len, upper);
             upsert_output(&mut indicator.outputs, "middle", target_len, middle);
             upsert_output(&mut indicator.outputs, "lower", target_len, lower);

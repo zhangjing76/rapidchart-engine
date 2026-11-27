@@ -310,7 +310,11 @@ impl ChartEngine {
         let tenkan_period = config.tenkan_period.unwrap_or(9);
         let kijun_period = config.kijun_period.unwrap_or(26);
         let senkou_b_period = config.senkou_b_period.unwrap_or(52);
-        let multiplier = config.multiplier.unwrap_or(2.0);
+        // High Low Bands' shift setting was added later; keep its 5% default for older configs.
+        let multiplier = config.multiplier.unwrap_or(match kind {
+            IndicatorKind::HIGH_LOW_BANDS => 5.0,
+            _ => 2.0,
+        });
         let psar_step = config.psar_step.unwrap_or(0.02);
         let psar_max_step = config.psar_max_step.unwrap_or(0.2);
         let anchor = config.anchor.unwrap_or(0);

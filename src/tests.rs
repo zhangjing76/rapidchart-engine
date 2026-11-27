@@ -413,6 +413,7 @@ mod tests {
             ("ATR_BANDS", "multiplier", 3.0),
             ("STARC", "period", 15.0),
             ("STARC", "multiplier", 1.3),
+            ("STARC", "smooth", 5.0),
             ("KELTNER", "period", 10.0),
             ("KELTNER", "multiplier", 5.0),
             ("ENVELOPE", "period", 50.0),
@@ -699,8 +700,8 @@ mod tests {
                 keltner_store(&store, 3, 2.0, &mut HashMap::new()),
             ),
             (
-                starc_store(&store, 3, 2.0, &mut HashMap::new()),
-                starc_store(&store, 3, 2.0, &mut HashMap::new()),
+                starc_store(&store, 3, 2, 2.0, &mut HashMap::new()),
+                starc_store(&store, 3, 2, 2.0, &mut HashMap::new()),
             ),
             (
                 supertrend_store(&store, 3, 2.0, &mut HashMap::new()),

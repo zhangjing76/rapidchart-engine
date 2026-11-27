@@ -167,7 +167,7 @@ pub(crate) fn compute_indicator_store(
             supertrend_store(store, period, multiplier, nodes).into_arena()
         }
         IndicatorKind::KELTNER => keltner_store(store, period, multiplier, nodes).into_arena(),
-        IndicatorKind::STARC => starc_store(store, period, multiplier, nodes).into_arena(),
+        IndicatorKind::STARC => starc_store(store, period, smooth, multiplier, nodes).into_arena(),
         IndicatorKind::WMA => wma_store(store, period, nodes).into_arena(),
         IndicatorKind::HMA => hma_store(store, period, nodes).into_arena(),
         IndicatorKind::LINEAR_REGRESSION => {
@@ -707,8 +707,13 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "lower", target_len, lower);
         }
         IndicatorKind::STARC => {
-            let (upper, middle, lower) =
-                latest_starc_store(store, indicator.period, indicator.multiplier);
+            let (upper, middle, lower) = latest_starc_store(
+                store,
+                indicator.period,
+                indicator.smooth,
+                indicator.multiplier,
+                &indicator.outputs,
+            );
             upsert_output(&mut indicator.outputs, "upper", target_len, upper);
             upsert_output(&mut indicator.outputs, "middle", target_len, middle);
             upsert_output(&mut indicator.outputs, "lower", target_len, lower);

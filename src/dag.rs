@@ -435,7 +435,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 slow: 26,
                 signal: 9,
             });
-            vec![format!("vol_osc:volume:{}:{}", p.fast, p.slow)]
+            vec![format!("vol_osc_pts:volume:{}:{}", p.fast, p.slow)]
         }
         IndicatorKind::KLINGER_VOLUME => {
             let p = indicator.macd.unwrap_or(KLINGER_DEFAULTS);
@@ -1313,7 +1313,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 slow: 26,
                 signal: 9,
             });
-            let v = format!("vol_osc:volume:{}:{}", p.fast, p.slow);
+            let v = format!("vol_osc_pts:volume:{}:{}", p.fast, p.slow);
             vec![edge("volume", &v), edge(&v, indicator_node)]
         }
         IndicatorKind::KLINGER_VOLUME => {

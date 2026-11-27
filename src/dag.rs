@@ -112,9 +112,10 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             ),
         ],
         IndicatorKind::TRIX => vec![
-            format!("ema:close:{}", indicator.period),
-            format!("trix:ema2:{}", indicator.period),
-            format!("trix:value:{}", indicator.period),
+            format!("ema_sma:close:{}", indicator.period),
+            format!("trix_sma:ema2:{}", indicator.period),
+            format!("trix_sma:ema3:{}", indicator.period),
+            format!("trix_sma:value:{}", indicator.period),
         ],
         IndicatorKind::TSI => vec![format!(
             "tsi:{}:{}",
@@ -665,13 +666,15 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &l), edge(&l, indicator_node)]
         }
         IndicatorKind::TRIX => {
-            let e1 = format!("ema:close:{}", indicator.period);
-            let e2 = format!("trix:ema2:{}", indicator.period);
-            let t = format!("trix:value:{}", indicator.period);
+            let e1 = format!("ema_sma:close:{}", indicator.period);
+            let e2 = format!("trix_sma:ema2:{}", indicator.period);
+            let e3 = format!("trix_sma:ema3:{}", indicator.period);
+            let t = format!("trix_sma:value:{}", indicator.period);
             vec![
                 edge("close", &e1),
                 edge(&e1, &e2),
-                edge(&e2, &t),
+                edge(&e2, &e3),
+                edge(&e3, &t),
                 edge(&t, indicator_node),
             ]
         }

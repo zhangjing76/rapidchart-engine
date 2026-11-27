@@ -266,8 +266,8 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 signal: 9,
             });
             vec![
-                format!("ema:close:{}", m.fast),
-                format!("ema:close:{}", m.slow),
+                format!("ema_sma:close:{}", m.fast),
+                format!("ema_sma:close:{}", m.slow),
                 format!("ppo:{}:{}:{}", m.fast, m.slow, m.signal),
             ]
         }
@@ -939,8 +939,8 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 slow: 26,
                 signal: 9,
             });
-            let f = format!("ema:close:{}", p.fast);
-            let s = format!("ema:close:{}", p.slow);
+            let f = format!("ema_sma:close:{}", p.fast);
+            let s = format!("ema_sma:close:{}", p.slow);
             let ppo = format!("ppo:{}:{}:{}", p.fast, p.slow, p.signal);
             vec![
                 edge("close", &f),

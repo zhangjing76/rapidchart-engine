@@ -180,7 +180,6 @@ impl IndicatorKind {
                 | Self::PIVOT_POINTS
                 | Self::MACD
                 | Self::PPO
-                | Self::MEDIAN_PRICE
                 | Self::ALLIGATOR
                 | Self::GMMA
                 | Self::ANCHORED_VWAP

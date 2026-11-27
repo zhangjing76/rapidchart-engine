@@ -244,7 +244,7 @@ pub(crate) fn compute_indicator_store(
             nodes,
         )
         .into_arena(),
-        IndicatorKind::MEDIAN_PRICE => median_price_store(store, nodes).into_arena(),
+        IndicatorKind::MEDIAN_PRICE => median_price_store(store, period, nodes).into_arena(),
         IndicatorKind::HIGHEST_HIGH => highest_high_store(store, period, nodes).into_arena(),
         IndicatorKind::LOWEST_LOW => lowest_low_store(store, period, nodes).into_arena(),
         IndicatorKind::ALLIGATOR => alligator_store(store, nodes).into_arena(),
@@ -781,7 +781,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "slow_ema", target_len, slow_ema);
         }
         IndicatorKind::MEDIAN_PRICE => {
-            let value = latest_median_price_store(store);
+            let value = latest_median_price_store(store, indicator.period);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::HIGHEST_HIGH => {

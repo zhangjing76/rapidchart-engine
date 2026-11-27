@@ -280,7 +280,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 format!("ppo:{}:{}:{}", m.fast, m.slow, m.signal),
             ]
         }
-        IndicatorKind::MEDIAN_PRICE => vec!["median_price:hl".to_string()],
+        IndicatorKind::MEDIAN_PRICE => vec![format!("median_price:hl:{}", indicator.period)],
         IndicatorKind::HIGHEST_HIGH => vec![format!("highest_high:h:{}", indicator.period)],
         IndicatorKind::LOWEST_LOW => vec![format!("lowest_low:l:{}", indicator.period)],
         IndicatorKind::ALLIGATOR => vec![
@@ -980,10 +980,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 edge(&s, indicator_node),
             ]
         }
-        IndicatorKind::MEDIAN_PRICE => vec![
-            edge("hl2", "median_price:hl"),
-            edge("median_price:hl", indicator_node),
-        ],
+        IndicatorKind::MEDIAN_PRICE => {
+            let m = format!("median_price:hl:{}", indicator.period);
+            vec![edge("hl2", &m), edge(&m, indicator_node)]
+        }
         IndicatorKind::HIGHEST_HIGH => {
             let h = format!("highest_high:h:{}", indicator.period);
             vec![edge("high", &h), edge(&h, indicator_node)]

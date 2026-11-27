@@ -453,7 +453,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         }
         IndicatorKind::TREND_INTENSITY => vec![
             format!("sma:close:{}", indicator.period),
-            format!("tii:close:{}", indicator.period),
+            format!("tii_pee:close:{}", indicator.period),
         ],
         IndicatorKind::VOLUME_OSCILLATOR => {
             let p = indicator.macd.unwrap_or(MacdParams {
@@ -1356,7 +1356,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
         }
         IndicatorKind::TREND_INTENSITY => {
             let s = format!("sma:close:{}", indicator.period);
-            let t = format!("tii:close:{}", indicator.period);
+            let t = format!("tii_pee:close:{}", indicator.period);
             vec![edge("close", &s), edge(&s, &t), edge(&t, indicator_node)]
         }
         IndicatorKind::VOLUME_OSCILLATOR => {

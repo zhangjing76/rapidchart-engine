@@ -448,7 +448,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 indicator.period, indicator.smooth
             )]
         }
-        IndicatorKind::SWING_INDEX => vec!["swing_index:ohlc".to_string()],
+        IndicatorKind::SWING_INDEX => {
+            vec![format!("swing_index_wilder:ohlc:{}", indicator.multiplier)]
+        }
         IndicatorKind::TREND_INTENSITY => vec![
             format!("sma:close:{}", indicator.period),
             format!("tii:close:{}", indicator.period),
@@ -1342,12 +1344,16 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 edge(&s, indicator_node),
             ]
         }
-        IndicatorKind::SWING_INDEX => vec![
-            edge("high", "swing_index:ohlc"),
-            edge("low", "swing_index:ohlc"),
-            edge("close", "swing_index:ohlc"),
-            edge("swing_index:ohlc", indicator_node),
-        ],
+        IndicatorKind::SWING_INDEX => {
+            let s = format!("swing_index_wilder:ohlc:{}", indicator.multiplier);
+            vec![
+                edge("open", &s),
+                edge("high", &s),
+                edge("low", &s),
+                edge("close", &s),
+                edge(&s, indicator_node),
+            ]
+        }
         IndicatorKind::TREND_INTENSITY => {
             let s = format!("sma:close:{}", indicator.period);
             let t = format!("tii:close:{}", indicator.period);
@@ -1668,6 +1674,10 @@ pub(crate) fn validate_indicator(
     {
         return Err(wasm_bindgen::JsValue::from_str(
             "multiplier must be greater than zero",
+        ));
+    } else if kind == IndicatorKind::SWING_INDEX && !(multiplier.is_finite() && multiplier > 0.0) {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "SWING_INDEX limit move must be greater than zero",
         ));
     } else if kind == IndicatorKind::RAINBOW_OSCILLATOR && smooth == 0 {
         return Err(wasm_bindgen::JsValue::from_str(

@@ -339,7 +339,7 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::STOCHASTIC_MOMENTUM => {
             stochastic_momentum_store(store, period, smooth, nodes).into_arena()
         }
-        IndicatorKind::SWING_INDEX => swing_index_store(store, nodes).into_arena(),
+        IndicatorKind::SWING_INDEX => swing_index_store(store, multiplier, nodes).into_arena(),
         IndicatorKind::TREND_INTENSITY => trend_intensity_store(store, period, nodes).into_arena(),
         IndicatorKind::VOLUME_OSCILLATOR => volume_oscillator_store(
             store,
@@ -1020,7 +1020,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::SWING_INDEX => {
-            let value = latest_swing_index_store(store);
+            let value = latest_swing_index_store(store, indicator.multiplier);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::TREND_INTENSITY => {

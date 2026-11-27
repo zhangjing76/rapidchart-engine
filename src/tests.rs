@@ -235,7 +235,7 @@ mod tests {
     fn store_ema_matches_row_ema() {
         let bars = bars(&[10.0, 12.0, 14.0, 13.0]);
         let store = store_from_bars(bars.clone());
-        let ema_full = ema_close_store(&store, 3, &mut HashMap::new());
+        let ema_full = ema_sma_seeded_close_store(&store, 3, &mut HashMap::new());
         let previous_values: Vec<f64> = ema_full[..ema_full.len() - 1].to_vec();
 
         assert_eq!(
@@ -243,8 +243,8 @@ mod tests {
             *ema_close_store(&store, 3, &mut HashMap::new())
         );
         assert_eq!(
-            latest_ema_store(&store, 3, Some(&previous_values[..])),
-            latest_ema_store(&store, 3, Some(&previous_values[..]))
+            latest_ema_sma_seeded_store(&store, 3, Some(&previous_values[..])),
+            ema_full.last().copied()
         );
     }
 

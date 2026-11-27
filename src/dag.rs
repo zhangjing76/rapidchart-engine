@@ -372,7 +372,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::EASE_OF_MOVEMENT => vec![format!("emv:hlv:{}", indicator.period)],
         IndicatorKind::EHLER_FISHER => vec![format!("fisher:hl:{}", indicator.period)],
         IndicatorKind::ELDER_RAY => vec![
-            format!("ema:close:{}", indicator.period),
+            format!("ema_sma:close:{}", indicator.period),
             format!("elder_ray:hl:{}", indicator.period),
         ],
         IndicatorKind::FRACTAL_CHAOS_OSCILLATOR => vec!["fco:hl".to_string()],
@@ -1194,7 +1194,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("hl2", &f), edge(&f, indicator_node)]
         }
         IndicatorKind::ELDER_RAY => {
-            let e = format!("ema:close:{}", indicator.period);
+            let e = format!("ema_sma:close:{}", indicator.period);
             let r = format!("elder_ray:hl:{}", indicator.period);
             vec![
                 edge("close", &e),

@@ -56,9 +56,9 @@ pub(crate) fn indicator_node(indicator: &Indicator) -> String {
 /// Cache key of the Klinger oscillator line (the default periods keep the original key).
 fn klinger_node(p: MacdParams) -> String {
     if p.fast == KLINGER_DEFAULTS.fast && p.slow == KLINGER_DEFAULTS.slow {
-        "klinger:hlcv".to_string()
+        "klinger_sv:hlcv".to_string()
     } else {
-        format!("klinger:hlcv:{}:{}", p.fast, p.slow)
+        format!("klinger_sv:hlcv:{}:{}", p.fast, p.slow)
     }
 }
 

@@ -183,7 +183,6 @@ impl IndicatorKind {
                 | Self::ALLIGATOR
                 | Self::GMMA
                 | Self::ANCHORED_VWAP
-                | Self::WEIGHTED_CLOSE
                 | Self::PRIME_NUMBER_BANDS
                 | Self::PERFORMANCE_INDEX
                 | Self::AWESOME_OSCILLATOR

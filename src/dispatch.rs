@@ -256,7 +256,7 @@ pub(crate) fn compute_indicator_store(
         IndicatorKind::GMMA => gmma_store(store, nodes).into_arena(),
         IndicatorKind::ANCHORED_VWAP => anchored_vwap_store(store, anchor, nodes).into_arena(),
         IndicatorKind::TYPICAL_PRICE => typical_price_store(store, period, nodes).into_arena(),
-        IndicatorKind::WEIGHTED_CLOSE => weighted_close_store(store, nodes).into_arena(),
+        IndicatorKind::WEIGHTED_CLOSE => weighted_close_store(store, period, nodes).into_arena(),
         IndicatorKind::MA_CROSS => ma_cross_store(
             store,
             macd_params.map_or(period, |m| m.fast),
@@ -851,7 +851,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::WEIGHTED_CLOSE => {
-            let value = latest_weighted_close_store(store);
+            let value = latest_weighted_close_store(store, indicator.period);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::MA_CROSS => {

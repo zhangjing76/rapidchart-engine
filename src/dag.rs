@@ -328,7 +328,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         }
         IndicatorKind::ANCHORED_VWAP => vec![format!("anchored_vwap:{}", indicator.anchor)],
         IndicatorKind::TYPICAL_PRICE => vec![format!("typical_price:hlc:{}", indicator.period)],
-        IndicatorKind::WEIGHTED_CLOSE => vec!["weighted_close:hlc".to_string()],
+        IndicatorKind::WEIGHTED_CLOSE => vec![format!("weighted_close:hlc:{}", indicator.period)],
         IndicatorKind::MA_CROSS => {
             let p = indicator.macd.unwrap_or(MacdParams {
                 fast: indicator.period,
@@ -1083,12 +1083,15 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             let t = format!("typical_price:hlc:{}", indicator.period);
             vec![edge("hlc3", &t), edge(&t, indicator_node)]
         }
-        IndicatorKind::WEIGHTED_CLOSE => vec![
-            edge("high", "weighted_close:hlc"),
-            edge("low", "weighted_close:hlc"),
-            edge("close", "weighted_close:hlc"),
-            edge("weighted_close:hlc", indicator_node),
-        ],
+        IndicatorKind::WEIGHTED_CLOSE => {
+            let w = format!("weighted_close:hlc:{}", indicator.period);
+            vec![
+                edge("high", &w),
+                edge("low", &w),
+                edge("close", &w),
+                edge(&w, indicator_node),
+            ]
+        }
         IndicatorKind::MA_CROSS => {
             let p = indicator.macd.unwrap_or(MacdParams {
                 fast: indicator.period,

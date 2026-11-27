@@ -4,7 +4,7 @@ use crate::NodeCache;
 use std::collections::HashMap;
 
 /// Ehlers Fisher Transform:
-/// 1. Normalize price to -1..+1 range over period using (H+L)/2
+/// 1. Normalize the midpoint (H+L)/2 to -1..+1 against its highest and lowest values over period
 /// 2. Apply Fisher Transform: fisher = 0.5 * ln((1+x)/(1-x))
 /// 3. Outputs: fisher line and trigger (previous fisher value)
 
@@ -26,12 +26,10 @@ pub fn ehler_fisher_store(
     let mut prev_value = 0.0f64;
     let mut prev_fisher = 0.0f64;
     for i in period - 1..len {
-        let max_high = store.high[i + 1 - period..=i]
-            .iter()
-            .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        let min_low = store.low[i + 1 - period..=i]
-            .iter()
-            .fold(f64::INFINITY, |a, &b| a.min(b));
+        // Ehlers ranges the midpoint against its own highest and lowest values in the window.
+        let window = &hl2[i + 1 - period..=i];
+        let max_high = window.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let min_low = window.iter().fold(f64::INFINITY, |a, &b| a.min(b));
         let mid = hl2[i];
         let range = max_high - min_low;
         let normalized = if range > 1e-10 {
@@ -140,5 +138,24 @@ mod tests {
             latest_ehler_fisher_store(&store, 2),
             (Some(expected_fisher), Some(0.0))
         );
+    }
+
+    #[test]
+    fn ehler_fisher_ranges_the_midpoint_against_its_own_extremes() {
+        // Midpoints 10 then 20: the second bar is at the top of the midpoint range even though
+        // the bar highs and lows span 8..24.
+        let store = CandleStore::from_raw_columns(
+            vec![0, 1],
+            vec![10.0, 20.0],
+            vec![12.0, 24.0],
+            vec![8.0, 16.0],
+            vec![10.0, 20.0],
+            vec![1.0; 2],
+        );
+        let outputs = ehler_fisher_store(&store, 2, &mut HashMap::new());
+        let value = 0.33_f64;
+        let expected_fisher = 0.5_f64 * ((1.0 + value) / (1.0 - value)).ln();
+
+        assert_series_close(&outputs[0].values, &[f64::NAN, expected_fisher]);
     }
 }

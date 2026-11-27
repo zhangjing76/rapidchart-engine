@@ -384,7 +384,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("disparity_sma:close:{}", indicator.period),
         ],
         IndicatorKind::EASE_OF_MOVEMENT => vec![format!("emv_scaled:hlv:{}", indicator.period)],
-        IndicatorKind::EHLER_FISHER => vec![format!("fisher:hl:{}", indicator.period)],
+        IndicatorKind::EHLER_FISHER => vec![format!("fisher_mid:hl:{}", indicator.period)],
         IndicatorKind::ELDER_RAY => vec![
             format!("ema_sma:close:{}", indicator.period),
             format!("elder_ray:hl:{}", indicator.period),
@@ -1218,7 +1218,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::EHLER_FISHER => {
-            let f = format!("fisher:hl:{}", indicator.period);
+            let f = format!("fisher_mid:hl:{}", indicator.period);
             vec![edge("hl2", &f), edge(&f, indicator_node)]
         }
         IndicatorKind::ELDER_RAY => {

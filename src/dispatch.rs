@@ -364,7 +364,9 @@ pub(crate) fn compute_indicator_store(
             positive_volume_index_outputs(store, period, nodes).into_arena()
         }
         IndicatorKind::PRICE_VOLUME_TREND => price_volume_trend_store(store, nodes).into_arena(),
-        IndicatorKind::TRADE_VOLUME_INDEX => trade_volume_index_store(store, nodes).into_arena(),
+        IndicatorKind::TRADE_VOLUME_INDEX => {
+            trade_volume_index_store(store, multiplier, nodes).into_arena()
+        }
         IndicatorKind::TWIGGS_MONEY_FLOW => {
             twiggs_money_flow_store(store, period, nodes).into_arena()
         }
@@ -1063,7 +1065,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::TRADE_VOLUME_INDEX => {
-            let value = latest_trade_volume_index_store(store, indicator.outputs.get_slot(0));
+            let value = latest_trade_volume_index_store(store, indicator.multiplier);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::TWIGGS_MONEY_FLOW => {

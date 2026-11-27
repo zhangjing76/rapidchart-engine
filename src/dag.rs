@@ -480,7 +480,9 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             format!("pvi100:cv:sma:{}", indicator.period),
         ],
         IndicatorKind::PRICE_VOLUME_TREND => vec!["pvt:cv".to_string()],
-        IndicatorKind::TRADE_VOLUME_INDEX => vec!["tvi:cv".to_string()],
+        IndicatorKind::TRADE_VOLUME_INDEX => {
+            vec![format!("tvi_tick:cv:{}", indicator.multiplier)]
+        }
         IndicatorKind::TWIGGS_MONEY_FLOW => vec![format!("tmf_wilder:hlcv:{}", indicator.period)],
         IndicatorKind::PROJECTED_AGGREGATE_VOLUME => vec![format!("pav:v:{}", indicator.period)],
         IndicatorKind::PROJECTED_VOLUME_AT_TIME => vec![format!("pvat:v:{}", indicator.period)],
@@ -1416,11 +1418,14 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("volume", "pvt:cv"),
             edge("pvt:cv", indicator_node),
         ],
-        IndicatorKind::TRADE_VOLUME_INDEX => vec![
-            edge("close", "tvi:cv"),
-            edge("volume", "tvi:cv"),
-            edge("tvi:cv", indicator_node),
-        ],
+        IndicatorKind::TRADE_VOLUME_INDEX => {
+            let t = format!("tvi_tick:cv:{}", indicator.multiplier);
+            vec![
+                edge("close", &t),
+                edge("volume", &t),
+                edge(&t, indicator_node),
+            ]
+        }
         IndicatorKind::TWIGGS_MONEY_FLOW => {
             let t = format!("tmf_wilder:hlcv:{}", indicator.period);
             vec![
@@ -1674,6 +1679,12 @@ pub(crate) fn validate_indicator(
     {
         return Err(wasm_bindgen::JsValue::from_str(
             "multiplier must be greater than zero",
+        ));
+    } else if kind == IndicatorKind::TRADE_VOLUME_INDEX
+        && !(multiplier.is_finite() && multiplier >= 0.0)
+    {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "TRADE_VOLUME_INDEX minimum tick must be zero or more",
         ));
     } else if kind == IndicatorKind::SWING_INDEX && !(multiplier.is_finite() && multiplier > 0.0) {
         return Err(wasm_bindgen::JsValue::from_str(

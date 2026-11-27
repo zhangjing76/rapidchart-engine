@@ -426,6 +426,7 @@ mod tests {
             ("MARKET_FACILITATION", "multiplier", 6.0),
             ("PRIME_NUMBER_OSCILLATOR", "multiplier", 5.0),
             ("SWING_INDEX", "multiplier", 0.5),
+            ("TRADE_VOLUME_INDEX", "multiplier", 0.5),
             ("RSI", "period", 14.0),
             ("STOCHASTIC", "period", 14.0),
             ("STOCHASTIC", "smooth", 3.0),

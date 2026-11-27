@@ -421,7 +421,10 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             vec![format!("price_osc_pts:close:{}:{}", p.fast, p.slow)]
         }
         IndicatorKind::RAINBOW_OSCILLATOR => {
-            vec![format!("rainbow_osc:close:{}", indicator.period)]
+            vec![format!(
+                "rainbow_osc_range:close:{}:{}",
+                indicator.period, indicator.smooth
+            )]
         }
         IndicatorKind::RAVI => vec![format!(
             "ravi:close:{}:{}",
@@ -1299,7 +1302,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::RAINBOW_OSCILLATOR => {
-            let r = format!("rainbow_osc:close:{}", indicator.period);
+            let r = format!(
+                "rainbow_osc_range:close:{}:{}",
+                indicator.period, indicator.smooth
+            );
             vec![edge("close", &r), edge(&r, indicator_node)]
         }
         IndicatorKind::RAVI => {
@@ -1659,6 +1665,10 @@ pub(crate) fn validate_indicator(
     {
         return Err(wasm_bindgen::JsValue::from_str(
             "multiplier must be greater than zero",
+        ));
+    } else if kind == IndicatorKind::RAINBOW_OSCILLATOR && smooth == 0 {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "RAINBOW_OSCILLATOR lookback must be greater than zero",
         ));
     } else if kind == IndicatorKind::PRICE_MOMENTUM_OSCILLATOR && (period < 2 || smooth < 2) {
         return Err(wasm_bindgen::JsValue::from_str(

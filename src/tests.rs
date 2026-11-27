@@ -417,6 +417,7 @@ mod tests {
             ("STARC", "period", 15.0),
             ("STARC", "multiplier", 1.3),
             ("STARC", "smooth", 5.0),
+            ("RAINBOW_OSCILLATOR", "smooth", 10.0),
             ("KELTNER", "period", 10.0),
             ("KELTNER", "multiplier", 5.0),
             ("ENVELOPE", "period", 50.0),

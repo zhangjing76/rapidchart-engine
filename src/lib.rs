@@ -307,10 +307,11 @@ impl ChartEngine {
         });
         let stoch_period = config.stoch_period.unwrap_or(period);
         // Settings added later keep their defaults for older configs: Chaikin Volatility's rate of
-        // change (2) and STARC's MA period (5).
+        // change (2), STARC's MA period (5) and the Rainbow Oscillator's HHV/LLV lookback (10).
         let smooth = config.smooth.unwrap_or(match kind {
             IndicatorKind::CHAIKIN_VOLATILITY => 2,
             IndicatorKind::STARC => 5,
+            IndicatorKind::RAINBOW_OSCILLATOR => 10,
             _ => 3,
         });
         let signal = config

@@ -1,88 +1,91 @@
+use crate::indicators::kst::sma_from_series;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries, Series};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// SMA of a series
-fn sma_of(values: &[f64], period: usize) -> Series {
-    let mut out = vec![f64::NAN; values.len()];
-    if period == 0 || values.len() < period {
-        return out;
-    }
-    let mut sum: f64 = values[..period].iter().sum();
-    out[period - 1] = sum / period as f64;
-    for i in period..values.len() {
-        sum += values[i] - values[i - period];
-        out[i] = sum / period as f64;
-    }
-    out
-}
-
-/// Rainbow Oscillator: (close - average of 10 rainbow MAs) / (highest - lowest rainbow) * 100
-/// Uses 10 nested SMAs from rainbow_ma concept.
+/// Rainbow Oscillator (Mel Widner): 100 * (close - average of the 10 rainbow SMAs) / (highest
+/// close - lowest close over the last `lookback` bars). The rainbow is 10 SMAs of `period`, each
+/// taken of the one before, so the first value is at bar 10 * (period - 1).
 pub fn rainbow_oscillator_store(
     store: &CandleStore,
     period: usize,
+    lookback: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("rainbow_osc:close:{period}");
+    let key = format!("rainbow_osc_range:close:{period}:{lookback}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
     let len = store.len();
     let mut out = vec![f64::NAN; len];
-    if period == 0 || len < period {
+    if period == 0 || lookback == 0 || len < period {
         let rc = Rc::new(out);
         nodes.insert(key, Rc::clone(&rc));
         return rc;
     }
-    // Build 10 rainbow layers
     let mut layers: Vec<Series> = Vec::with_capacity(10);
-    layers.push(sma_of(&store.close, period));
+    layers.push(sma_from_series(&store.close, period));
     for i in 1..10 {
-        layers.push(sma_of(&layers[i - 1], period));
+        layers.push(sma_from_series(&layers[i - 1], period));
     }
     for i in 0..len {
-        let vals: Vec<f64> = layers
-            .iter()
-            .map(|l| l[i])
-            .filter(|v| !v.is_nan())
-            .collect();
-        if vals.is_empty() {
+        let average = layers.iter().map(|layer| layer[i]).sum::<f64>() / 10.0;
+        if average.is_nan() {
             continue;
         }
-        let avg = vals.iter().sum::<f64>() / vals.len() as f64;
-        let max = vals.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        let min = vals.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let range = max - min;
-        if range > 1e-10 {
-            out[i] = ((store.close[i] - avg) / range) * 100.0;
+        let window = &store.close[(i + 1).saturating_sub(lookback)..=i];
+        let highest = window.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let lowest = window.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let range = highest - lowest;
+        out[i] = if range > 1e-10 {
+            100.0 * (store.close[i] - average) / range
         } else {
-            out[i] = 0.0;
-        }
+            0.0
+        };
     }
     let rc = Rc::new(out);
     nodes.insert(key, Rc::clone(&rc));
     rc
 }
-
-pub fn latest_rainbow_oscillator_store(store: &CandleStore, period: usize) -> Option<f64> {
-    rainbow_oscillator_store(store, period, &mut HashMap::new())
+pub fn latest_rainbow_oscillator_store(
+    store: &CandleStore,
+    period: usize,
+    lookback: usize,
+) -> Option<f64> {
+    rainbow_oscillator_store(store, period, lookback, &mut HashMap::new())
         .last()
         .copied()
         .and_then(|v| if v.is_nan() { None } else { Some(v) })
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
-    crate::descriptors::period_descriptor(
-        "RAINBOW_OSCILLATOR",
-        "RAINBOW OSCILLATOR",
-        "Momentum/Oscillator",
-        "separate",
-        2,
-    )
+    crate::descriptors::IndicatorDescriptor {
+        kind: "RAINBOW_OSCILLATOR",
+        name: "RAINBOW OSCILLATOR",
+        category: "Momentum/Oscillator",
+        pane: "separate",
+        params: vec![
+            crate::descriptors::ParamDescriptor {
+                name: "period",
+                label: "Period",
+                default: 2.0,
+                min: 1.0,
+                step: "1",
+            },
+            crate::descriptors::ParamDescriptor {
+                name: "smooth",
+                label: "HHV/LLV Lookback",
+                default: 10.0,
+                min: 1.0,
+                step: "1",
+            },
+        ],
+        outputs: vec![crate::descriptors::output_descriptor(
+            "value", "line", "separate", "#2563eb",
+        )],
+    }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,18 +117,26 @@ mod tests {
     #[test]
     fn rainbow_oscillator_is_zero_for_constant_prices() {
         let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
-        let values = rainbow_oscillator_store(&store, 1, &mut HashMap::new());
+        let values = rainbow_oscillator_store(&store, 1, 10, &mut HashMap::new());
 
         assert_eq!(&*values, &[0.0, 0.0, 0.0, 0.0]);
-        assert_eq!(latest_rainbow_oscillator_store(&store, 1), Some(0.0));
+        assert_eq!(latest_rainbow_oscillator_store(&store, 1, 10), Some(0.0));
     }
 
     #[test]
-    fn rainbow_oscillator_currently_stays_zero_on_rising_prices() {
-        let store = close_store(&[10.0, 12.0, 14.0, 16.0, 18.0, 20.0]);
-        let values = rainbow_oscillator_store(&store, 2, &mut HashMap::new());
+    fn rainbow_oscillator_divides_by_the_close_range_over_the_lookback() {
+        let store = close_store(&(0..12).map(f64::from).collect::<Vec<_>>());
+        let values = rainbow_oscillator_store(&store, 2, 10, &mut HashMap::new());
 
-        assert_series_close(&values, &[f64::NAN, 0.0, 0.0, 0.0, 0.0, 0.0]);
-        assert_eq!(latest_rainbow_oscillator_store(&store, 2), Some(0.0));
+        // On a line rising by 1 a bar, the k-th two-bar SMA trails the close by k/2, so the 10
+        // layers average 2.75 below it. The last 10 closes span 9.
+        let expected = 100.0 * 2.75 / 9.0;
+        let mut want = vec![f64::NAN; 10];
+        want.extend([expected, expected]);
+        assert_series_close(&values, &want);
+        assert_eq!(
+            latest_rainbow_oscillator_store(&store, 2, 10),
+            Some(values[11])
+        );
     }
 }

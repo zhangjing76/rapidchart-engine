@@ -324,7 +324,7 @@ pub(crate) fn compute_indicator_store(
         )
         .into_arena(),
         IndicatorKind::RAINBOW_OSCILLATOR => {
-            rainbow_oscillator_store(store, period, nodes).into_arena()
+            rainbow_oscillator_store(store, period, smooth, nodes).into_arena()
         }
         IndicatorKind::RAVI => ravi_store(store, period, stoch_period, nodes).into_arena(),
         IndicatorKind::RELATIVE_VIGOR => relative_vigor_store(store, period, nodes).into_arena(),
@@ -989,7 +989,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::RAINBOW_OSCILLATOR => {
-            let value = latest_rainbow_oscillator_store(store, indicator.period);
+            let value = latest_rainbow_oscillator_store(store, indicator.period, indicator.smooth);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::RAVI => {

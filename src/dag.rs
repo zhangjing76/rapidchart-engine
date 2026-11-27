@@ -202,7 +202,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 format!("chaikin:{}:{}", p.fast, p.slow),
             ]
         }
-        IndicatorKind::FORCE_INDEX => vec![format!("force:close:volume:{}", indicator.period)],
+        IndicatorKind::FORCE_INDEX => vec![format!("force_sma:close:volume:{}", indicator.period)],
         IndicatorKind::SUPERTREND => vec![
             format!("atr:ohlc:{}", indicator.period),
             format!("supertrend:{}:{}", indicator.period, indicator.multiplier),
@@ -861,7 +861,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             ]
         }
         IndicatorKind::FORCE_INDEX => {
-            let f = format!("force:close:volume:{}", indicator.period);
+            let f = format!("force_sma:close:volume:{}", indicator.period);
             vec![
                 edge("close", &f),
                 edge("volume", &f),

@@ -1,10 +1,11 @@
-use crate::indicators::ema::ema_close_store;
+use crate::indicators::ema::{ema_sma_seeded_close_store, latest_ema_sma_seeded_store};
 use crate::CandleStore;
 use crate::NodeCache;
 
 /// Elder Ray Index:
 /// Bull Power = High - EMA(close, period)
 /// Bear Power = Low - EMA(close, period)
+/// The EMA starts with a simple average, so both start at bar period - 1.
 
 const EMA_STATE_SLOT: usize = 2;
 
@@ -13,7 +14,7 @@ pub fn elder_ray_store(
     period: usize,
     nodes: &mut NodeCache,
 ) -> Vec<crate::NamedSeries> {
-    let ema = ema_close_store(store, period, nodes);
+    let ema = ema_sma_seeded_close_store(store, period, nodes);
     let len = store.len();
     let mut bull = vec![f64::NAN; len];
     let mut bear = vec![f64::NAN; len];
@@ -35,8 +36,7 @@ pub fn latest_elder_ray_store(
     period: usize,
     outputs: &crate::types::IndicatorArena,
 ) -> (Option<f64>, Option<f64>) {
-    let ema_val =
-        crate::indicators::ema::latest_ema_store(store, period, outputs.get_slot(EMA_STATE_SLOT));
+    let ema_val = latest_ema_sma_seeded_store(store, period, outputs.get_slot(EMA_STATE_SLOT));
     match ema_val {
         Some(e) => {
             let i = store.len() - 1;
@@ -88,8 +88,9 @@ mod tests {
     fn elder_ray_is_zero_for_constant_prices() {
         let store = close_store(&[10.0, 10.0, 10.0, 10.0]);
         let outputs = elder_ray_store(&store, 3, &mut HashMap::new());
-        assert_eq!(&*outputs[0].values, &[0.0, 0.0, 0.0, 0.0]);
-        assert_eq!(&*outputs[1].values, &[0.0, 0.0, 0.0, 0.0]);
+        assert!(outputs[0].values[..2].iter().all(|v| v.is_nan()));
+        assert_eq!(&outputs[0].values[2..], &[0.0, 0.0]);
+        assert_eq!(&outputs[1].values[2..], &[0.0, 0.0]);
 
         let arena = IndicatorArena::from_named_outputs(outputs);
         assert_eq!(
@@ -110,13 +111,47 @@ mod tests {
         );
         let outputs = elder_ray_store(&store, 3, &mut HashMap::new());
 
-        assert_eq!(&*outputs[0].values, &[1.0, 2.0, 2.5]);
-        assert_eq!(&*outputs[1].values, &[-1.0, 0.0, 0.5]);
+        // EMA(3) starts at bar 2 with (10 + 12 + 14) / 3 = 12.
+        assert!(outputs[0].values[0].is_nan() && outputs[0].values[1].is_nan());
+        assert_eq!(outputs[0].values[2], 3.0);
+        assert_eq!(outputs[1].values[2], 1.0);
 
         let arena = IndicatorArena::from_named_outputs(outputs);
         assert_eq!(
             latest_elder_ray_store(&store, 3, &arena),
-            (Some(2.5), Some(0.5))
+            (Some(3.0), Some(1.0))
         );
+    }
+
+    #[test]
+    fn latest_elder_ray_matches_the_full_calculation() {
+        let n = 40;
+        let closes: Vec<f64> = (0..n).map(|i| 50.0 + ((i * 7) % 11) as f64).collect();
+        let store_of = |len: usize| {
+            CandleStore::from_raw_columns(
+                (0..len as u32).collect(),
+                closes[..len].to_vec(),
+                closes[..len].iter().map(|c| c + 2.0).collect(),
+                closes[..len].iter().map(|c| c - 3.0).collect(),
+                closes[..len].to_vec(),
+                vec![1.0; len],
+            )
+        };
+        let full = elder_ray_store(&store_of(n), 13, &mut HashMap::new());
+        for len in 1..=n {
+            let previous = IndicatorArena::from_named_outputs(
+                full.iter()
+                    .map(|o| crate::named_series(&o.name, o.values[..len - 1].to_vec()))
+                    .collect(),
+            );
+            let (bull, bear) = latest_elder_ray_store(&store_of(len), 13, &previous);
+            for (got, slot) in [(bull, 0), (bear, 1)] {
+                let expect = Some(full[slot].values[len - 1]).filter(|v| !v.is_nan());
+                match (got, expect) {
+                    (Some(a), Some(b)) => assert!((a - b).abs() < 1e-9, "len {len}"),
+                    (a, b) => assert_eq!(a, b, "len {len}"),
+                }
+            }
+        }
     }
 }

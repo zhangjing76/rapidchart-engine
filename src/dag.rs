@@ -375,7 +375,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             "bb_pctb100:{}:{}",
             indicator.period, indicator.multiplier
         )],
-        IndicatorKind::CENTER_OF_GRAVITY => vec![format!("cog:close:{}", indicator.period)],
+        IndicatorKind::CENTER_OF_GRAVITY => vec![format!("cog_ehlers:close:{}", indicator.period)],
         IndicatorKind::CHANDE_FORECAST => vec![format!("cfo:close:{}", indicator.period)],
         IndicatorKind::CHANDE_MOMENTUM => vec![format!("cmo:close:{}", indicator.period)],
         IndicatorKind::COPPOCK_CURVE => vec!["coppock:close".to_string()],
@@ -1188,7 +1188,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &b), edge(&b, indicator_node)]
         }
         IndicatorKind::CENTER_OF_GRAVITY => {
-            let c = format!("cog:close:{}", indicator.period);
+            let c = format!("cog_ehlers:close:{}", indicator.period);
             vec![edge("close", &c), edge(&c, indicator_node)]
         }
         IndicatorKind::CHANDE_FORECAST => {

@@ -468,11 +468,20 @@ export function seriesSpacingFromBars(bars: Bar[]) {
   return spacing;
 }
 
+/** Bars each Alligator line is drawn ahead of its source bar (src/indicators/alligator.rs). */
+const ALLIGATOR_SHIFTS: Record<string, number> = { jaw: 8, teeth: 5, lips: 3 };
+
+/**
+ * Bars an indicator output is drawn ahead of (+) or behind (-) the bar it was calculated on.
+ * The engine returns these outputs unshifted, so the newest values can be drawn past the last bar.
+ */
 export function indicatorOutputShift(
   config: IndicatorConfig | FormulaIndicatorConfig | undefined,
   output: string,
 ) {
-  if (!config || !("kind" in config) || config.kind !== "ICHIMOKU") return 0;
+  if (!config || !("kind" in config)) return 0;
+  if (config.kind === "ALLIGATOR") return ALLIGATOR_SHIFTS[output] ?? 0;
+  if (config.kind !== "ICHIMOKU") return 0;
   const shift = config.kijun_period ?? 26;
   if (output === "senkou_a" || output === "senkou_b") return shift;
   if (output === "chikou") return -shift;

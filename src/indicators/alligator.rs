@@ -23,19 +23,14 @@ fn smma_values(values: &[f64], period: usize) -> Series {
     out
 }
 
-/// Shift a series forward by `shift` bars (pad with NaN at the front).
-fn shift_forward(values: &[f64], shift: usize) -> Series {
-    let mut out = vec![f64::NAN; values.len()];
-    for i in 0..values.len().saturating_sub(shift) {
-        out[i + shift] = values[i];
-    }
-    out
-}
-
 /// Bill Williams Alligator indicator.
-/// - Jaw: SMMA(13) of median price, shifted 8 bars forward
-/// - Teeth: SMMA(8) of median price, shifted 5 bars forward
-/// - Lips: SMMA(5) of median price, shifted 3 bars forward
+/// - Jaw: SMMA(13) of median price, drawn 8 bars ahead
+/// - Teeth: SMMA(8) of median price, drawn 5 bars ahead
+/// - Lips: SMMA(5) of median price, drawn 3 bars ahead
+///
+/// Values are returned at the bar they were calculated on, like the Ichimoku leading spans,
+/// so the last values are kept. `indicatorOutputShift` in engine.ts gives the forward shift
+/// for drawing, which places the newest values past the last bar.
 
 pub fn alligator_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate::NamedSeries> {
     let key = "alligator:jaw";
@@ -55,12 +50,9 @@ pub fn alligator_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate:
         .zip(store.low.iter())
         .map(|(h, l)| (h + l) / 2.0)
         .collect();
-    let jaw_raw = smma_values(&median, 13);
-    let teeth_raw = smma_values(&median, 8);
-    let lips_raw = smma_values(&median, 5);
-    let jaw = shift_forward(&jaw_raw, 8);
-    let teeth = shift_forward(&teeth_raw, 5);
-    let lips = shift_forward(&lips_raw, 3);
+    let jaw = smma_values(&median, 13);
+    let teeth = smma_values(&median, 8);
+    let lips = smma_values(&median, 5);
     nodes.insert("alligator:jaw".to_string(), Rc::new(jaw.clone()));
     nodes.insert("alligator:teeth".to_string(), Rc::new(teeth.clone()));
     nodes.insert("alligator:lips".to_string(), Rc::new(lips.clone()));
@@ -71,12 +63,9 @@ pub fn alligator_store(store: &CandleStore, nodes: &mut NodeCache) -> Vec<crate:
     ]
 }
 
-/// Incremental latest value for Alligator.
-/// Since the Alligator uses shifted outputs, we recompute the SMMA at the
-/// appropriate offset for each line.
+/// Latest value of each Alligator line, at the last bar (before the forward shift for drawing).
 pub fn latest_alligator_store(store: &CandleStore) -> (Option<f64>, Option<f64>, Option<f64>) {
-    let len = store.len();
-    if len == 0 {
+    if store.len() == 0 {
         return (None, None, None);
     }
     let median: Vec<f64> = store
@@ -85,32 +74,13 @@ pub fn latest_alligator_store(store: &CandleStore) -> (Option<f64>, Option<f64>,
         .zip(store.low.iter())
         .map(|(h, l)| (h + l) / 2.0)
         .collect();
-
-    // Jaw: SMMA(13) shifted 8 — the latest jaw value comes from SMMA at index len-1-8
-    let jaw = if len > 8 {
-        let smma = smma_values(&median[..len - 8], 13);
-        smma.last().copied().and_then(nan_to_none)
-    } else {
-        None
+    let latest = |period: usize| {
+        smma_values(&median, period)
+            .last()
+            .copied()
+            .and_then(nan_to_none)
     };
-
-    // Teeth: SMMA(8) shifted 5 — the latest teeth value comes from SMMA at index len-1-5
-    let teeth = if len > 5 {
-        let smma = smma_values(&median[..len - 5], 8);
-        smma.last().copied().and_then(nan_to_none)
-    } else {
-        None
-    };
-
-    // Lips: SMMA(5) shifted 3 — the latest lips value comes from SMMA at index len-1-3
-    let lips = if len > 3 {
-        let smma = smma_values(&median[..len - 3], 5);
-        smma.last().copied().and_then(nan_to_none)
-    } else {
-        None
-    };
-
-    (jaw, teeth, lips)
+    (latest(13), latest(8), latest(5))
 }
 
 pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
@@ -132,6 +102,11 @@ pub(crate) fn descriptor() -> crate::descriptors::IndicatorDescriptor {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    // Bars each line is drawn ahead of its source bar (indicatorOutputShift in engine.ts).
+    const JAW_SHIFT: usize = 8;
+    const TEETH_SHIFT: usize = 5;
+    const LIPS_SHIFT: usize = 3;
 
     fn ohlc_store(values: &[f64]) -> CandleStore {
         let len = values.len();
@@ -161,74 +136,31 @@ mod tests {
         let store = ohlc_store(&[10.0; 12]);
         let values = alligator_store(&store, &mut HashMap::new());
 
-        assert_series_close(
-            &values[0].values,
-            &[
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-            ],
-        );
-        assert_series_close(
-            &values[1].values,
-            &[
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-            ],
-        );
-        assert_series_close(
-            &values[2].values,
-            &[
-                f64::NAN,
-                f64::NAN,
-                f64::NAN,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-            ],
-        );
-        let latest = latest_alligator_store(&store);
-        let (jaw, teeth, lips) = latest;
+        // Unshifted: every bar has a value, including the last ones that are drawn
+        // past the last bar.
+        for output in &values {
+            assert_series_close(&output.values, &[10.0; 12]);
+        }
+        let (jaw, teeth, lips) = latest_alligator_store(&store);
         assert!((jaw.unwrap() - 10.0).abs() < 1e-12);
         assert!((teeth.unwrap() - 10.0).abs() < 1e-12);
         assert!((lips.unwrap() - 10.0).abs() < 1e-12);
     }
 
     #[test]
-    fn alligator_uses_shifted_smma_on_rising_prices() {
+    fn alligator_returns_smma_at_the_source_bar() {
         let store = ohlc_store(&[
             1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
         ]);
         let values = alligator_store(&store, &mut HashMap::new());
 
-        assert!((values[0].values[11] - 1.438324988620847).abs() < 1e-12);
-        assert!((values[1].values[11] - 3.1415672302246094).abs() < 1e-12);
-        assert!((values[2].values[11] - 5.671088640000001).abs() < 1e-12);
+        // These are the values that are drawn at bar 11 once shifted by 8, 5 and 3 bars.
+        assert!((values[0].values[11 - JAW_SHIFT] - 1.438324988620847).abs() < 1e-12);
+        assert!((values[1].values[11 - TEETH_SHIFT] - 3.1415672302246094).abs() < 1e-12);
+        assert!((values[2].values[11 - LIPS_SHIFT] - 5.671088640000001).abs() < 1e-12);
+
+        // The newest values are kept rather than shifted off the end.
+        assert!(values.iter().all(|output| !output.values[11].is_nan()));
 
         let latest = latest_alligator_store(&store);
         assert_eq!(latest.0, Some(values[0].values[11]));

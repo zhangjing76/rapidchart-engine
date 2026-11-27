@@ -455,7 +455,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 format!("klinger:signal:{}:{}:{}", p.fast, p.slow, p.signal),
             ]
         }
-        IndicatorKind::MARKET_FACILITATION => vec!["mfi_bw:hlv".to_string()],
+        IndicatorKind::MARKET_FACILITATION => vec![format!("mfi_bw:hlv:{}", indicator.multiplier)],
         IndicatorKind::NEGATIVE_VOLUME_INDEX => vec![
             "nvi100:cv".to_string(),
             format!("nvi100:cv:sma:{}", indicator.period),
@@ -1348,12 +1348,15 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 edge(&signal, indicator_node),
             ]
         }
-        IndicatorKind::MARKET_FACILITATION => vec![
-            edge("high", "mfi_bw:hlv"),
-            edge("low", "mfi_bw:hlv"),
-            edge("volume", "mfi_bw:hlv"),
-            edge("mfi_bw:hlv", indicator_node),
-        ],
+        IndicatorKind::MARKET_FACILITATION => {
+            let m = format!("mfi_bw:hlv:{}", indicator.multiplier);
+            vec![
+                edge("high", &m),
+                edge("low", &m),
+                edge("volume", &m),
+                edge(&m, indicator_node),
+            ]
+        }
         IndicatorKind::NEGATIVE_VOLUME_INDEX => {
             let sma = format!("nvi100:cv:sma:{}", indicator.period);
             vec![

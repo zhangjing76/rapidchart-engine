@@ -422,7 +422,10 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             )]
         }
         IndicatorKind::STOCHASTIC_MOMENTUM => {
-            vec![format!("smi:hlc:{}:{}", indicator.period, indicator.smooth)]
+            vec![format!(
+                "smi_sma:hlc:{}:{}",
+                indicator.period, indicator.smooth
+            )]
         }
         IndicatorKind::SWING_INDEX => vec!["swing_index:ohlc".to_string()],
         IndicatorKind::TREND_INTENSITY => vec![
@@ -1288,7 +1291,7 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &s), edge(&s, indicator_node)]
         }
         IndicatorKind::STOCHASTIC_MOMENTUM => {
-            let s = format!("smi:hlc:{}:{}", indicator.period, indicator.smooth);
+            let s = format!("smi_sma:hlc:{}:{}", indicator.period, indicator.smooth);
             vec![
                 edge("high", &s),
                 edge("low", &s),

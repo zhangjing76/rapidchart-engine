@@ -438,7 +438,7 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
                 signal: 9,
             });
             vec![format!(
-                "stc:{}:{}:{}",
+                "stc_seeded:{}:{}:{}",
                 p.fast, p.slow, indicator.stoch_period
             )]
         }
@@ -1327,7 +1327,10 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 slow: 26,
                 signal: 9,
             });
-            let s = format!("stc:{}:{}:{}", p.fast, p.slow, indicator.stoch_period);
+            let s = format!(
+                "stc_seeded:{}:{}:{}",
+                p.fast, p.slow, indicator.stoch_period
+            );
             vec![edge("close", &s), edge(&s, indicator_node)]
         }
         IndicatorKind::STOCHASTIC_MOMENTUM => {

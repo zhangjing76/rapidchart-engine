@@ -1,25 +1,25 @@
-use crate::indicators::ema::ema_close_store;
+use crate::indicators::sma::sma_close_store;
 use crate::NodeCache;
 use crate::{CandleStore, RcSeries};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Disparity Index: ((close - EMA(close, period)) / EMA(close, period)) * 100
+/// Disparity Index: ((close - SMA(close, period)) / SMA(close, period)) * 100
 /// Measures percentage distance of close from its moving average.
 pub fn disparity_index_store(
     store: &CandleStore,
     period: usize,
     nodes: &mut NodeCache,
 ) -> RcSeries {
-    let key = format!("disparity:close:{period}");
+    let key = format!("disparity_sma:close:{period}");
     if let Some(values) = nodes.get(&key) {
         return Rc::clone(values);
     }
-    let ema = ema_close_store(store, period, nodes);
+    let sma = sma_close_store(store, period, nodes);
     let len = store.len();
     let mut out = vec![f64::NAN; len];
     for i in 0..len {
-        let e = ema[i];
+        let e = sma[i];
         if !e.is_nan() && e.abs() > 1e-10 {
             out[i] = ((store.close[i] - e) / e) * 100.0;
         }
@@ -75,11 +75,20 @@ mod tests {
     }
 
     #[test]
-    fn disparity_index_is_zero_when_price_matches_ema() {
+    fn disparity_index_is_zero_when_price_matches_the_average() {
         let store = close_store(&[5.0, 5.0, 5.0]);
         let values = disparity_index_store(&store, 2, &mut HashMap::new());
 
-        assert_series_close(&values, &[0.0, 0.0, 0.0]);
+        assert_series_close(&values, &[f64::NAN, 0.0, 0.0]);
         assert_eq!(latest_disparity_index_store(&store, 2), Some(0.0));
+    }
+
+    #[test]
+    fn disparity_index_measures_the_close_against_its_simple_average() {
+        let store = close_store(&[1.0, 2.0, 3.0, 6.0]);
+        let values = disparity_index_store(&store, 2, &mut HashMap::new());
+
+        // Bar 3: the average of 3 and 6 is 4.5, and 6 is a third above it.
+        assert_series_close(&values, &[f64::NAN, 100.0 / 3.0, 20.0, 100.0 / 3.0]);
     }
 }

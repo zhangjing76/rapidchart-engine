@@ -380,8 +380,8 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::CHANDE_MOMENTUM => vec![format!("cmo:close:{}", indicator.period)],
         IndicatorKind::COPPOCK_CURVE => vec!["coppock:close".to_string()],
         IndicatorKind::DISPARITY_INDEX => vec![
-            format!("ema:close:{}", indicator.period),
-            format!("disparity:close:{}", indicator.period),
+            format!("sma:close:{}", indicator.period),
+            format!("disparity_sma:close:{}", indicator.period),
         ],
         IndicatorKind::EASE_OF_MOVEMENT => vec![format!("emv:hlv:{}", indicator.period)],
         IndicatorKind::EHLER_FISHER => vec![format!("fisher:hl:{}", indicator.period)],
@@ -1204,8 +1204,8 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("coppock:close", indicator_node),
         ],
         IndicatorKind::DISPARITY_INDEX => {
-            let e = format!("ema:close:{}", indicator.period);
-            let d = format!("disparity:close:{}", indicator.period);
+            let e = format!("sma:close:{}", indicator.period);
+            let d = format!("disparity_sma:close:{}", indicator.period);
             vec![edge("close", &e), edge(&e, &d), edge(&d, indicator_node)]
         }
         IndicatorKind::EASE_OF_MOVEMENT => {

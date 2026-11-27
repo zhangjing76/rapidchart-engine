@@ -201,6 +201,7 @@ impl IndicatorKind {
                 | Self::MARKET_FACILITATION
                 | Self::SWING_INDEX
                 | Self::PRIME_NUMBER_OSCILLATOR
+                | Self::GONOGO_TREND
                 | Self::HIGH_MINUS_LOW
                 | Self::VOLUME_OSCILLATOR
                 | Self::PRICE_OSCILLATOR

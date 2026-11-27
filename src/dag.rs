@@ -496,7 +496,13 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
         IndicatorKind::VOLUME_PROFILE => vec![format!("vol_profile:hlv:{}", indicator.period)],
         IndicatorKind::CHOPPINESS_INDEX => vec![format!("chop:hlc:{}", indicator.period)],
         IndicatorKind::ELDER_IMPULSE => vec![format!("impulse:close:{}", indicator.period)],
-        IndicatorKind::GONOGO_TREND => vec![format!("gonogo:close:{}", indicator.period)],
+        IndicatorKind::GONOGO_TREND => vec![
+            "sma:close:50".to_string(),
+            "psar:ohlc:0.2:0.2".to_string(),
+            "ema_sma:close:12".to_string(),
+            "ema_sma:close:26".to_string(),
+            "gonogo_score:hlc".to_string(),
+        ],
         IndicatorKind::PSYCHOLOGICAL_LINE => vec![format!("psy:close:{}", indicator.period)],
         IndicatorKind::QSTICK => vec![format!("qstick:oc:{}", indicator.period)],
         IndicatorKind::SHINOHARA_INTENSITY => {
@@ -1501,8 +1507,23 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             vec![edge("close", &e), edge(&e, indicator_node)]
         }
         IndicatorKind::GONOGO_TREND => {
-            let g = format!("gonogo:close:{}", indicator.period);
-            vec![edge("close", &g), edge(&g, indicator_node)]
+            let parts = [
+                "sma:close:50",
+                "psar:ohlc:0.2:0.2",
+                "ema_sma:close:12",
+                "ema_sma:close:26",
+            ];
+            let mut edges = vec![
+                edge("close", parts[0]),
+                edge("high", parts[1]),
+                edge("low", parts[1]),
+                edge("close", parts[1]),
+                edge("close", parts[2]),
+                edge("close", parts[3]),
+            ];
+            edges.extend(parts.iter().map(|part| edge(part, "gonogo_score:hlc")));
+            edges.push(edge("gonogo_score:hlc", indicator_node));
+            edges
         }
         IndicatorKind::PSYCHOLOGICAL_LINE => {
             let p = format!("psy:close:{}", indicator.period);

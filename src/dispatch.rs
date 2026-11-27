@@ -392,7 +392,7 @@ pub(crate) fn compute_indicator_store(
             choppiness_index_store(store, period, nodes).into_arena()
         }
         IndicatorKind::ELDER_IMPULSE => elder_impulse_store(store, period, nodes).into_arena(),
-        IndicatorKind::GONOGO_TREND => gonogo_trend_store(store, period, nodes).into_arena(),
+        IndicatorKind::GONOGO_TREND => gonogo_trend_store(store, nodes).into_arena(),
         IndicatorKind::PSYCHOLOGICAL_LINE => {
             psychological_line_store(store, period, nodes).into_arena()
         }
@@ -1117,7 +1117,7 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::GONOGO_TREND => {
-            let value = latest_gonogo_trend_store(store, indicator.period);
+            let value = latest_gonogo_trend_store(store);
             upsert_output(&mut indicator.outputs, "value", target_len, value);
         }
         IndicatorKind::PSYCHOLOGICAL_LINE => {

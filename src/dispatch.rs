@@ -788,14 +788,13 @@ pub(crate) fn update_indicator_incremental(
             upsert_output(&mut indicator.outputs, "lips", target_len, lips);
         }
         IndicatorKind::ATR_BANDS => {
-            let (upper, middle, lower) = latest_atr_bands_store(
+            let (upper, lower) = latest_atr_bands_store(
                 store,
                 indicator.period,
                 indicator.multiplier,
                 &indicator.outputs,
             );
             upsert_output(&mut indicator.outputs, "upper", target_len, upper);
-            upsert_output(&mut indicator.outputs, "middle", target_len, middle);
             upsert_output(&mut indicator.outputs, "lower", target_len, lower);
         }
         IndicatorKind::HIGH_LOW_BANDS => {

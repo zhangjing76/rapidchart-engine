@@ -277,7 +277,6 @@ pub(crate) fn indicator_nodes(indicator: &Indicator) -> Vec<String> {
             "alligator:lips".to_string(),
         ],
         IndicatorKind::ATR_BANDS => vec![
-            format!("ema:close:{}", indicator.period),
             format!("atr:ohlc:{}", indicator.period),
             format!(
                 "atr_bands:upper:{}:{}",
@@ -971,7 +970,6 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
             edge("alligator:lips", indicator_node),
         ],
         IndicatorKind::ATR_BANDS => {
-            let ema = format!("ema:close:{}", indicator.period);
             let atr = format!("atr:ohlc:{}", indicator.period);
             let u = format!(
                 "atr_bands:upper:{}:{}",
@@ -982,16 +980,14 @@ pub(crate) fn indicator_edges(indicator: &Indicator, indicator_node: &str) -> Ve
                 indicator.period, indicator.multiplier
             );
             vec![
-                edge("close", &ema),
                 edge("high", &atr),
                 edge("low", &atr),
                 edge("close", &atr),
-                edge(&ema, &u),
+                edge("close", &u),
                 edge(&atr, &u),
-                edge(&ema, &l),
+                edge("close", &l),
                 edge(&atr, &l),
                 edge(&u, indicator_node),
-                edge(&ema, indicator_node),
                 edge(&l, indicator_node),
             ]
         }
